@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-export default function Login({ onLogin, switchToRegister, setStatus }) {
+export default function Login({ onLogin, setStatus }) {
   const [identifier, setIdentifier] = useState('') // username or email
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   function isEmail(val) {
     return /@/.test(val)
@@ -14,9 +16,7 @@ export default function Login({ onLogin, switchToRegister, setStatus }) {
     setStatus(null)
     setLoading(true)
     try {
-      const payload = isEmail(identifier)
-        ? { email: identifier }
-        : { username: identifier }
+      const payload = isEmail(identifier) ? { email: identifier } : { username: identifier }
 
       // First call: get user details
       const res = await fetch('http://localhost:8080/api/user/details', {
@@ -38,10 +38,6 @@ export default function Login({ onLogin, switchToRegister, setStatus }) {
       // Normalize userId field
       const userId = user.userId ?? user.id ?? user.user_id
 
-      // NOTE: the spec asked to call details first, then getMyExpenses.
-      // We don't have a provided "login" endpoint. We proceed to fetch expenses with the returned userId.
-      // If your backend requires password verification, add a call to a login/auth endpoint here.
-
       // Call getMyExpenses to load expenses and complete login flow
       const expRes = await fetch('http://localhost:8080/api/getMyExpenses', {
         method: 'POST',
@@ -59,6 +55,7 @@ export default function Login({ onLogin, switchToRegister, setStatus }) {
       const session = { userId: String(userId), identifier, user }
       localStorage.setItem('session', JSON.stringify(session))
       onLogin(session, expenses)
+      navigate('/dashboard')
     } catch (err) {
       setStatus({ type: 'error', message: err.message || String(err) })
     } finally {
@@ -94,11 +91,17 @@ export default function Login({ onLogin, switchToRegister, setStatus }) {
           <button type="submit" disabled={loading} style={{ padding: '8px 12px' }}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
-          <button type="button" onClick={switchToRegister} style={{ padding: '8px 12px' }}>
+          <button type="button" onClick={() => navigate('/register')} style={{ padding: '8px 12px' }}>
             Register
           </button>
         </div>
       </form>
+
+      <div style={{ marginTop: 12 }}>
+        <button type="button" onClick={() => navigate('/forgot-password')} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }}>
+          Forgot password?
+        </button>
+      </div>
     </div>
   )
 }

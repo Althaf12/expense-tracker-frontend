@@ -1,19 +1,9 @@
-import React, { useState } from 'react'
+import React from 'react'
 
-export default function ExpensesView({ initialExpenses = [], session, onLogout }) {
-  const [expenses, setExpenses] = useState(initialExpenses || [])
-
+export default function Expenses({ expenses = [] }) {
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>My Expenses</h2>
-        <div>
-          <span style={{ marginRight: 12, color: '#444' }}>Signed in: {session?.identifier ?? session?.userId}</span>
-          <button onClick={() => { localStorage.removeItem('session'); onLogout(); }} style={{ padding: '6px 10px' }}>
-            Logout
-          </button>
-        </div>
-      </div>
+      <h2>My Expenses</h2>
 
       {expenses.length === 0 ? (
         <p>No expenses found.</p>

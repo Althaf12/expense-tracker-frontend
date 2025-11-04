@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-export default function Register({ switchToLogin, setStatus }) {
+export default function Register({ setStatus }) {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -23,8 +25,7 @@ export default function Register({ switchToLogin, setStatus }) {
       }
 
       setStatus({ type: 'success', message: 'Registration successful — you can now log in.' })
-      // Optionally auto-switch to login
-      switchToLogin()
+      navigate('/')
     } catch (err) {
       setStatus({ type: 'error', message: err.message || String(err) })
     } finally {
@@ -72,7 +73,7 @@ export default function Register({ switchToLogin, setStatus }) {
           <button type="submit" disabled={loading} style={{ padding: '8px 12px' }}>
             {loading ? 'Registering...' : 'Register'}
           </button>
-          <button type="button" onClick={switchToLogin} style={{ padding: '8px 12px' }}>
+          <button type="button" onClick={() => navigate('/')} style={{ padding: '8px 12px' }}>
             Back to Login
           </button>
         </div>
