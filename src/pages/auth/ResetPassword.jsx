@@ -56,38 +56,40 @@ export default function ResetPassword({ setStatus }) {
   }
 
   return (
-    <div style={{ maxWidth: 480 }}>
-      <h2>Reset Password</h2>
-      {localUsername && <div style={{ marginBottom: 8 }}>Resetting password for <strong>{localUsername}</strong></div>}
-      <form onSubmit={handleSubmit}>
-        {/* token is read from query and kept hidden to the user */}
-        {!token && (
-          <label style={{ display: 'block', marginBottom: 8 }}>
-            Token
-            <input type="password" value={token} onChange={(e) => setToken(e.target.value)} required style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }} />
-          </label>
-        )}
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <h2>Reset Password</h2>
+        {localUsername && <div style={{ marginBottom: 8 }}>Resetting password for <strong>{localUsername}</strong></div>}
+        <form onSubmit={handleSubmit}>
+          {/* token is read from query and kept hidden to the user */}
+          {!token && (
+            <div className="form-row">
+              <label>Token</label>
+              <input className="form-input" type="password" value={token} onChange={(e) => setToken(e.target.value)} required />
+            </div>
+          )}
 
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Old password (optional)
-          <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }} />
-        </label>
+          <div className="form-row">
+            <label>Old password (optional)</label>
+            <input className="form-input" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+          </div>
 
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          New password
-          <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }} />
-        </label>
+          <div className="form-row">
+            <label>New password</label>
+            <input className="form-input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+          </div>
 
-        <label style={{ display: 'block', marginBottom: 12 }}>
-          Confirm new password
-          <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }} />
-        </label>
+          <div className="form-row">
+            <label>Confirm new password</label>
+            <input className="form-input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={loading} style={{ padding: '8px 12px' }}>{loading ? 'Resetting...' : 'Reset Password'}</button>
-          <button type="button" onClick={() => navigate(-1)} style={{ padding: '8px 12px' }}>Cancel</button>
-        </div>
-      </form>
+          <div className="form-actions">
+            <button className="btn btn-primary" type="submit" disabled={loading}>{loading ? 'Resetting...' : 'Reset Password'}</button>
+            <button className="btn btn-ghost" type="button" onClick={() => navigate(-1)}>Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

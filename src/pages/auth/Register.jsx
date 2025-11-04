@@ -34,50 +34,31 @@ export default function Register({ setStatus }) {
   }
 
   return (
-    <div style={{ maxWidth: 480 }}>
-      <h2>Register</h2>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Username
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }}
-          />
-        </label>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <h2>Register</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-row">
+            <label>Username</label>
+            <input className="form-input" value={username} onChange={(e) => setUsername(e.target.value)} required />
+          </div>
 
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }}
-          />
-        </label>
+          <div className="form-row">
+            <label>Email</label>
+            <input className="form-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
 
-        <label style={{ display: 'block', marginBottom: 12 }}>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }}
-          />
-        </label>
+          <div className="form-row">
+            <label>Password</label>
+            <input className="form-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={loading} style={{ padding: '8px 12px' }}>
-            {loading ? 'Registering...' : 'Register'}
-          </button>
-          <button type="button" onClick={() => navigate('/')} style={{ padding: '8px 12px' }}>
-            Back to Login
-          </button>
-        </div>
-      </form>
+          <div className="form-actions">
+            <button className="btn btn-primary" type="submit" disabled={loading}>{loading ? 'Registering...' : 'Register'}</button>
+            <button className="btn btn-ghost" type="button" onClick={() => navigate('/')}>Back to Login</button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

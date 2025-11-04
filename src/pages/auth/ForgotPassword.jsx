@@ -28,14 +28,9 @@ export default function ForgotPassword({ setStatus }) {
       let data
       try { data = JSON.parse(text) } catch (e) { data = null }
       // do not display token here for security; token may be emailed instead
-      setStatus({ type: 'success', message: 'If the account exists, a reset token was generated (check your email).' })
-      // navigate to reset page; token (if returned) won't be exposed here
-      if (data?.token) {
-        // include token in URL but encoded (frontend will read it)
-        navigate(`/reset-password?token=${encodeURIComponent(data.token)}${isEmail(identifier) ? `&username=${encodeURIComponent(identifier)}` : `&username=${encodeURIComponent(identifier)}`}`)
-      } else {
-        navigate('/reset-password')
-      }
+      // Inform the user to check their email and do not redirect.
+      setStatus({ type: 'success', message: 'If the account exists, a reset token was generated — check your email for the reset link.' })
+      // Do not navigate; the user should click the link sent by email to reach the reset page.
     } catch (err) {
       setStatus({ type: 'error', message: err.message || String(err) })
     } finally {
@@ -44,19 +39,22 @@ export default function ForgotPassword({ setStatus }) {
   }
 
   return (
-    <div style={{ maxWidth: 480 }}>
-      <h2>Forgot password</h2>
-      <p>Enter your username or email and we'll generate a reset token for you.</p>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Username or Email
-          <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} required style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }} />
-        </label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={loading} style={{ padding: '8px 12px' }}>{loading ? 'Sending...' : 'Send reset token'}</button>
-          <button type="button" onClick={() => navigate(-1)} style={{ padding: '8px 12px' }}>Back</button>
-        </div>
-      </form>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <h2>Forgot password</h2>
+        <p>Enter your username or email and we'll generate a reset token for you.</p>
+        <form onSubmit={handleSubmit}>
+          <div className="form-row">
+            <label>Username or Email</label>
+            <input className="form-input" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required />
+          </div>
+
+          <div className="form-actions">
+            <button className="btn btn-primary" type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send reset token'}</button>
+            <button className="btn btn-ghost" type="button" onClick={() => navigate(-1)}>Back</button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

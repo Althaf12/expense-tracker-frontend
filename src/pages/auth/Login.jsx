@@ -64,43 +64,46 @@ export default function Login({ onLogin, setStatus }) {
   }
 
   return (
-    <div style={{ maxWidth: 480 }}>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: 'block', marginBottom: 8 }}>
-          Username or Email
-          <input
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            required
-            style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }}
-          />
-        </label>
-        <label style={{ display: 'block', marginBottom: 12 }}>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ display: 'block', width: '100%', padding: 8, marginTop: 6 }}
-          />
-        </label>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <h2>Login</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-row">
+            <label>Username or Email</label>
+            <input
+              className="form-input"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              required
+            />
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={loading} style={{ padding: '8px 12px' }}>
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-          <button type="button" onClick={() => navigate('/register')} style={{ padding: '8px 12px' }}>
-            Register
+          <div className="form-row">
+            <label>Password</label>
+            <input
+              className="form-input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-actions">
+            <button className="btn btn-primary" type="submit" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
+            </button>
+            <button className="btn btn-ghost" type="button" onClick={() => navigate('/register')}>
+              Register
+            </button>
+          </div>
+        </form>
+
+        <div style={{ marginTop: 12 }}>
+          <button className="link-plain" type="button" onClick={() => navigate('/forgot-password')}>
+            Forgot password?
           </button>
         </div>
-      </form>
-
-      <div style={{ marginTop: 12 }}>
-        <button type="button" onClick={() => navigate('/forgot-password')} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }}>
-          Forgot password?
-        </button>
       </div>
     </div>
   )
