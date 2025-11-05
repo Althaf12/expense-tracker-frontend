@@ -1,0 +1,31 @@
+.appShell {
+  min-height: 100vh;
+}
+
+.statusBanner {
+  margin: 1rem auto;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  max-width: 42rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.error {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+
+.success {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #14532d;
+}
+
+.loading {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}

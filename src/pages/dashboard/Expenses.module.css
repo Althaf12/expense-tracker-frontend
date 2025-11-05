@@ -1,0 +1,73 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+}
+
+.caption {
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.empty {
+  margin: 0;
+  padding: 1.5rem;
+  border-radius: 0.85rem;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+}
+
+.tableContainer {
+  overflow-x: auto;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 36rem;
+}
+
+.table th,
+.table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  text-align: left;
+}
+
+.table thead th {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.table tbody tr:hover {
+  background: rgba(51, 65, 85, 0.3);
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .table {
+    min-width: auto;
+  }
+}

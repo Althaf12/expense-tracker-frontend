@@ -1,0 +1,66 @@
+import type { Expense } from '../../types/app'
+import type { ReactElement } from 'react'
+import styles from './Expenses.module.css'
+
+type ExpensesProps = {
+  expenses?: Expense[]
+}
+
+const formatAmount = (value: unknown): string => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value.toFixed(2)
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed.toFixed(2) : value
+  }
+  return '-'
+}
+
+const formatDate = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value
+  }
+  return '-'
+}
+
+export default function Expenses({ expenses = [] }: ExpensesProps): ReactElement {
+  const items = Array.isArray(expenses) ? expenses : []
+
+  return (
+    <section className={styles.wrapper}>
+      <header className={styles.header}>
+        <h2 className={styles.title}>My Expenses</h2>
+        <p className={styles.caption}>{items.length} recorded item{items.length === 1 ? '' : 's'}</p>
+      </header>
+
+      {items.length === 0 ? (
+        <p className={styles.empty}>No expenses found.</p>
+      ) : (
+        <div className={styles.tableContainer}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col" className={styles.numeric}>Amount</th>
+                <th scope="col">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((expense, index) => {
+                const key = String(expense.expensesId ?? `${expense.expenseDate ?? 'unknown'}-${expense.expenseName ?? index}`)
+                return (
+                  <tr key={key}>
+                    <td>{expense.expenseName ?? '-'}</td>
+                    <td className={styles.numeric}>{formatAmount(expense.expenseAmount)}</td>
+                    <td>{formatDate(expense.expenseDate)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}

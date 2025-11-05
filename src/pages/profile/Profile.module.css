@@ -1,0 +1,62 @@
+.wrapper {
+  max-width: 32rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+}
+
+.details {
+  margin: 0;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.row {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.row dt {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.row dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.resetButton {
+  align-self: flex-start;
+  padding: 0.65rem 1.2rem;
+  border-radius: 0.65rem;
+  border: none;
+  background: #60a5fa;
+  color: #0b1120;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.resetButton:hover:not(:disabled) {
+  background: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.resetButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
