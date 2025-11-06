@@ -1,27 +1,10 @@
 import type { Expense } from '../../types/app'
 import type { ReactElement } from 'react'
+import { formatAmount, formatDate } from '../../utils/format'
 import styles from './Expenses.module.css'
 
 type ExpensesProps = {
   expenses?: Expense[]
-}
-
-const formatAmount = (value: unknown): string => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value.toFixed(2)
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed.toFixed(2) : value
-  }
-  return '-'
-}
-
-const formatDate = (value: unknown): string => {
-  if (typeof value === 'string') {
-    return value
-  }
-  return '-'
 }
 
 export default function Expenses({ expenses = [] }: ExpensesProps): ReactElement {

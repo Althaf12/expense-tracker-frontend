@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
 import styles from './ForgotPassword.module.css'
+import { forgotPassword } from '../../api'
 
 type StatusSetter = (status: StatusMessage | null) => void
 
@@ -23,19 +24,10 @@ export default function ForgotPassword({ setStatus }: ForgotPasswordProps): Reac
 
     try {
       const payload = isEmail(identifier) ? { email: identifier } : { username: identifier }
-      const response = await fetch('http://localhost:8080/api/user/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const text = await response.text().catch(() => '')
-      if (!response.ok) {
-        throw new Error(`${response.status} ${text || response.statusText}`)
-      }
-
+      await forgotPassword(payload)
       setStatus({
         type: 'success',
-        message: 'If the account exists, a reset token was generated � check your email for the reset link.',
+        message: 'If the account exists, a reset token was generated — check your email for the reset link.',
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

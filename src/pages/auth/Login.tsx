@@ -1,4 +1,5 @@
 import { ReactElement, useState, type FormEvent } from 'react'
+import { userDetails, fetchExpenses as apiFetchExpenses } from '../../api'
 import { useNavigate } from 'react-router-dom'
 import type { Expense, SessionData, StatusMessage } from '../../types/app'
 import styles from './Login.module.css'
@@ -46,23 +47,10 @@ export default function Login({ onLogin, setStatus }: LoginProps): ReactElement 
     try {
       const payload = isEmail(identifier) ? { email: identifier } : { username: identifier }
 
-      const response = await fetch('http://localhost:8080/api/user/details', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '')
-        throw new Error(`Details request failed: ${response.status} ${text || response.statusText}`)
-      }
-
-      const rawUser = (await response.json()) as unknown
-      if (typeof rawUser !== 'object' || rawUser === null) {
+      const user = (await userDetails(payload)) as Record<string, unknown> | null
+      if (!user) {
         throw new Error('User not found in response')
       }
-
-      const user = rawUser as Record<string, unknown>
       const username = normaliseUsername(user, identifier)
       const session: SessionData = { username: String(username), identifier, user }
 
@@ -77,23 +65,14 @@ export default function Login({ onLogin, setStatus }: LoginProps): ReactElement 
 
       void (async () => {
         try {
-          const expensesResponse = await fetch('http://localhost:8080/api/expense/all', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: String(username) }),
-          })
-
-          if (!expensesResponse.ok) {
-            console.warn('Expenses request failed:', expensesResponse.status)
-            return
-          }
-
-          const expensesPayload = (await expensesResponse.json()) as unknown
+          const expensesPayload = await apiFetchExpenses(String(username))
           if (Array.isArray(expensesPayload)) {
             onLogin(session, expensesPayload as Expense[])
           }
         } catch (backgroundError) {
-          console.warn('Failed to fetch expenses after login', backgroundError)
+          const msg = backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
+          console.warn('Failed to fetch expenses after login', msg)
+          setStatus({ type: 'error', message: `Failed to fetch expenses after login: ${msg}` })
         }
       })()
     } catch (error) {

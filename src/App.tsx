@@ -1,13 +1,22 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import ForgotPassword from './pages/auth/ForgotPassword'
 import ResetPassword from './pages/auth/ResetPassword'
-import Expenses from './pages/dashboard/Expenses'
+import Dashboard from './pages/dashboard/Dashboard'
+import ExpensesOperations from './pages/operations/ExpensesOperations'
+import IncomeOperations from './pages/operations/IncomeOperations'
 import Profile from './pages/profile/Profile'
-import type { Expense, SessionData, StatusMessage } from './types/app'
+import type { Expense, ExpenseCategory, Income, SessionData, StatusMessage } from './types/app'
+import {
+  fetchExpenses as apiFetchExpenses,
+  forgotPassword as apiForgotPassword,
+  fetchExpenseCategories as apiFetchExpenseCategories,
+  fetchIncomeLastYear as apiFetchIncomeLastYear,
+} from './api'
+import { AppDataProvider } from './context/AppDataContext'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
@@ -40,39 +49,17 @@ const parseSession = (raw: string | null): SessionData | null => {
 
 export default function App(): ReactElement {
   const [session, setSession] = useState<SessionData | null>(null)
-  const [expenses, setExpenses] = useState<Expense[]>([])
   const [status, setStatusState] = useState<StatusState>(null)
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
+  const [expensesCache, setExpensesCache] = useState<Expense[]>([])
+  const [incomesCache, setIncomesCache] = useState<Income[]>([])
 
   const updateStatus = (next: StatusState) => {
     setStatusState(next)
   }
 
-  const fetchExpensesForUser = async (username: string) => {
-    if (!username) return
-    setStatusState({ type: 'loading', message: 'Loading expenses...' })
-    try {
-      const response = await fetch('http://localhost:8080/api/expense/all', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      })
-      if (!response.ok) {
-        const text = await response.text().catch(() => '')
-        throw new Error(`Expenses request failed: ${response.status} ${text || response.statusText}`)
-      }
-      const payload = (await response.json()) as unknown
-      const nextExpenses = Array.isArray(payload) ? (payload.filter(isRecord) as Expense[]) : []
-      setExpenses(nextExpenses)
-      setStatusState(null)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setStatusState({ type: 'error', message })
-    }
-  }
-
-  const handleLogin = (sessionData: SessionData, initialExpenses: Expense[] = []) => {
+  const handleLogin = (sessionData: SessionData, _initialExpenses: Expense[] = []) => {
     setSession(sessionData)
-    setExpenses(initialExpenses)
     try {
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData))
     } catch {
@@ -82,7 +69,9 @@ export default function App(): ReactElement {
 
   const handleLogout = () => {
     setSession(null)
-    setExpenses([])
+    setExpensesCache([])
+    setExpenseCategories([])
+    setIncomesCache([])
     try {
       window.localStorage.removeItem(SESSION_STORAGE_KEY)
     } catch {
@@ -95,35 +84,44 @@ export default function App(): ReactElement {
     }
   }
 
+  const ensureExpenseCategories = useCallback(async (): Promise<ExpenseCategory[]> => {
+    if (expenseCategories.length > 0) {
+      return expenseCategories
+    }
+    const categories = await apiFetchExpenseCategories()
+    setExpenseCategories(categories)
+    return categories
+  }, [expenseCategories])
+
+  const reloadExpensesCache = useCallback(async (username: string): Promise<Expense[]> => {
+    if (!username) return []
+    const list = await apiFetchExpenses(username)
+    setExpensesCache(list)
+    return list
+  }, [])
+
+  const reloadIncomesCache = useCallback(async (username: string): Promise<Income[]> => {
+    if (!username) return []
+    const currentYear = new Date().getFullYear()
+    const list = await apiFetchIncomeLastYear(username, currentYear)
+    setIncomesCache(list)
+    return list
+  }, [])
+
   const handleGenerateTokenForUser = async (usernameOrEmail: string) => {
     if (!usernameOrEmail) return
     setStatusState({ type: 'loading', message: 'Generating reset token...' })
     try {
       const isEmail = usernameOrEmail.includes('@')
       const payload = isEmail ? { email: usernameOrEmail } : { username: usernameOrEmail }
-      const response = await fetch('http://localhost:8080/api/user/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const text = await response.text().catch(() => '')
-      if (!response.ok) {
-        throw new Error(`${response.status} ${text || response.statusText}`)
-      }
+      const json = await apiForgotPassword(payload)
 
-      let json: unknown = null
-      if (text) {
-        try {
-          json = JSON.parse(text)
-        } catch {
-          json = null
-        }
-      }
-
-      if (isRecord(json) && typeof json.token === 'string') {
+      if (isRecord(json) && typeof (json as Record<string, unknown>).token === 'string') {
         setStatusState({ type: 'success', message: 'Token generated. Proceed to reset password.' })
         try {
-          window.location.href = `/reset-password?token=${encodeURIComponent(json.token)}&username=${encodeURIComponent(usernameOrEmail)}`
+          window.location.href = `/reset-password?token=${encodeURIComponent(
+            String((json as Record<string, unknown>).token)
+          )}&username=${encodeURIComponent(usernameOrEmail)}`
         } catch {
           /* ignore navigation issues */
         }
@@ -146,51 +144,83 @@ export default function App(): ReactElement {
     const stored = parseSession(window.localStorage.getItem(SESSION_STORAGE_KEY))
     if (stored) {
       setSession(stored)
-      void fetchExpensesForUser(stored.username)
     }
   }, [])
 
+  const contextValue = useMemo(
+    () => ({
+      session,
+      setSession,
+      status,
+      setStatus: updateStatus,
+      expenseCategories,
+      setExpenseCategories,
+      expensesCache,
+      setExpensesCache,
+      incomesCache,
+      setIncomesCache,
+      ensureExpenseCategories,
+      reloadExpensesCache,
+      reloadIncomesCache,
+    }),
+    [
+      session,
+      status,
+      expenseCategories,
+      expensesCache,
+      incomesCache,
+      ensureExpenseCategories,
+      reloadExpensesCache,
+      reloadIncomesCache,
+      updateStatus,
+    ],
+  )
+
   return (
-    <div className={styles.appShell}>
-      {status && (
-        <div
-          className={`${styles.statusBanner} ${
-            status.type === 'error'
-              ? styles.error
-              : status.type === 'success'
-              ? styles.success
-              : styles.loading
-          }`}
-        >
-          {status.message}
-        </div>
-      )}
+    <AppDataProvider value={contextValue}>
+      <div className={styles.appShell}>
+        {status && (
+          <div
+            className={`${styles.statusBanner} ${
+              status.type === 'error'
+                ? styles.error
+                : status.type === 'success'
+                ? styles.success
+                : styles.loading
+            }`}
+          >
+            {status.message}
+          </div>
+        )}
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            session ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Login onLogin={handleLogin} setStatus={updateStatus} />
-            )
-          }
-        />
-        <Route path="/register" element={<Register setStatus={updateStatus} />} />
-        <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
-        <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
-
-        <Route element={<Layout session={session} onLogout={handleLogout} />}>
-          <Route path="/dashboard" element={<Expenses expenses={expenses} />} />
+        <Routes>
           <Route
-            path="/profile"
-            element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
+            path="/"
+            element={
+              session ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Login onLogin={handleLogin} setStatus={updateStatus} />
+              )
+            }
           />
-        </Route>
+          <Route path="/register" element={<Register setStatus={updateStatus} />} />
+          <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
+          <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </div>
+          <Route element={<Layout session={session} onLogout={handleLogout} />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/operations/expenses" element={<ExpensesOperations />} />
+            <Route path="/operations/income" element={<IncomeOperations />} />
+            <Route
+              path="/profile"
+              element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
+            />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </AppDataProvider>
   )
 }

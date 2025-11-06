@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
 import styles from './ResetPassword.module.css'
+import { resetPassword } from '../../api'
 
 type StatusSetter = (status: StatusMessage | null) => void
 
@@ -69,15 +70,7 @@ export default function ResetPassword({ setStatus }: ResetPasswordProps): ReactE
         payload.oldPassword = oldPassword
       }
 
-      const response = await fetch('http://localhost:8080/api/user/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const text = await response.text().catch(() => '')
-      if (!response.ok) {
-        throw new Error(`${response.status} ${text || response.statusText}`)
-      }
+      await resetPassword(payload)
 
       setStatus({ type: 'success', message: 'Password reset successful. Please login with your new password.' })
       navigate('/')

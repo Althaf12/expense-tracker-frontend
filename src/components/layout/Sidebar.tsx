@@ -49,6 +49,21 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps): 
               <span className={styles.label}>Profile</span>
             </NavLink>
           </li>
+          <li className={styles.sectionTitle} aria-hidden="true">
+            <span>User Operations</span>
+          </li>
+          <li>
+            <NavLink to="/operations/expenses" className={linkClassName}>
+              <span className={styles.icon} aria-hidden="true">EX</span>
+              <span className={styles.label}>Expenses</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/operations/income" className={linkClassName}>
+              <span className={styles.icon} aria-hidden="true">IN</span>
+              <span className={styles.label}>Income</span>
+            </NavLink>
+          </li>
         </ul>
       </nav>
     </aside>

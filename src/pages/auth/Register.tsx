@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
 import styles from './Register.module.css'
+import { registerUser } from '../../api'
 
 type StatusSetter = (status: StatusMessage | null) => void
 
@@ -22,18 +23,8 @@ export default function Register({ setStatus }: RegisterProps): ReactElement {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:8080/api/user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      })
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '')
-        throw new Error(`Register failed: ${response.status} ${text || response.statusText}`)
-      }
-
-      setStatus({ type: 'success', message: 'Registration successful � you can now log in.' })
+      await registerUser({ username, email, password })
+      setStatus({ type: 'success', message: 'Registration successful — you can now log in.' })
       navigate('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
