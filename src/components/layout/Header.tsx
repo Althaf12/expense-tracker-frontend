@@ -6,6 +6,9 @@ import styles from './Header.module.css'
 type HeaderProps = {
   session: SessionData | null
   onLogout?: () => void
+  onToggleSidebar?: () => void
+  sidebarOpen?: boolean
+  isMobile?: boolean
 }
 
 const getInitial = (session: SessionData | null): string => {
@@ -13,7 +16,7 @@ const getInitial = (session: SessionData | null): string => {
   return source.charAt(0).toUpperCase() || 'U'
 }
 
-export default function Header({ session, onLogout }: HeaderProps): ReactElement {
+export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen = false }: HeaderProps): ReactElement {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
@@ -43,10 +46,26 @@ export default function Header({ session, onLogout }: HeaderProps): ReactElement
 
   return (
     <header className={styles.header}>
-      <div className={styles.brand}> 
-        <Link to="/dashboard" className={styles.brandLink}>
-          Expense Tracker
-        </Link>
+      <div className={styles.left}>
+        {onToggleSidebar ? (
+          <button
+            type="button"
+            className={`${styles.menuButton} ${sidebarOpen ? styles.menuButtonActive : ''}`.trim()}
+            aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={sidebarOpen}
+            aria-controls="primary-sidebar"
+            onClick={onToggleSidebar}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        ) : null}
+        <div className={styles.brand}>
+          <Link to="/dashboard" className={styles.brandLink}>
+            Expense Tracker
+          </Link>
+        </div>
       </div>
 
       <nav className={styles.actions}>

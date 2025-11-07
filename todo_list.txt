@@ -1,0 +1,7 @@
+[x] Update ExpensesOperations category control (dropdown) and field order
+2. Rename description -> Expense fields and update labels/usage across UI
+3. Load current-year income view in IncomeOperations
+4. Align User Operations layout with dashboard cards
+5. Add table header filters for dashboard & operations
+6. Implement mobile burger-style sidebar behaviour
+7. Switch expenses/income editing to inline confirm flow

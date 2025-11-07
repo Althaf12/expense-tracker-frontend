@@ -5,35 +5,64 @@ import styles from './Sidebar.module.css'
 type SidebarProps = {
   collapsed?: boolean
   onToggle?: () => void
+  isMobile?: boolean
+  mobileOpen?: boolean
+  onClose?: () => void
 }
 
 const linkClassName = ({ isActive }: { isActive: boolean }) =>
   `${styles.link} ${isActive ? styles.active : ''}`.trim()
 
-export default function Sidebar({ collapsed = false, onToggle }: SidebarProps): ReactElement {
+export default function Sidebar({ collapsed = false, onToggle, isMobile = false, mobileOpen = false, onClose }: SidebarProps): ReactElement {
   const handleToggle = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     onToggle?.()
   }
 
+  const handleClose = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    onClose?.()
+  }
+
+  const sidebarClassName = [
+    styles.sidebar,
+    collapsed ? styles.collapsed : styles.expanded,
+    isMobile ? styles.mobile : '',
+    isMobile && mobileOpen ? styles.mobileOpen : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const expanded = isMobile ? mobileOpen : !collapsed
+
   return (
     <aside
-      className={`${styles.sidebar} ${collapsed ? styles.collapsed : styles.expanded}`.trim()}
-      aria-expanded={!collapsed}
+      id="primary-sidebar"
+      className={sidebarClassName}
+      aria-expanded={expanded}
     >
-      <div className={styles.toggleRow}>
-        <button type="button" className={styles.toggleButton} onClick={handleToggle} aria-label="Toggle sidebar">
-          <svg
-            className={`${styles.toggleIcon} ${collapsed ? styles.rotated : ''}`.trim()}
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
+      {isMobile ? (
+        <div className={styles.mobileHeader}>
+          <span className={styles.mobileTitle}>Navigation</span>
+          <button type="button" className={styles.mobileClose} onClick={handleClose} aria-label="Close sidebar">
+            ✕
+          </button>
+        </div>
+      ) : (
+        <div className={styles.toggleRow}>
+          <button type="button" className={styles.toggleButton} onClick={handleToggle} aria-label="Toggle sidebar">
+            <svg
+              className={`${styles.toggleIcon} ${collapsed ? styles.rotated : ''}`.trim()}
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <nav className={styles.navigation}>
         <ul className={styles.navList}>

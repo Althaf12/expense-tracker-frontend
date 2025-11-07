@@ -26,11 +26,10 @@ const readCollapsedState = (): boolean => {
 
 export default function Layout({ session, onLogout }: LayoutProps): ReactElement {
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsedState)
+  const [isMobile, setIsMobile] = useState<boolean>(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false)
 
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.classList.toggle('sidebar-collapsed', collapsed)
-    }
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(SIDEBAR_STATE_KEY, collapsed ? '1' : '0')
@@ -40,15 +39,78 @@ export default function Layout({ session, onLogout }: LayoutProps): ReactElement
     }
   }, [collapsed])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const mediaQuery = window.matchMedia('(max-width: 960px)')
+    const updateMatches = () => {
+      setIsMobile(mediaQuery.matches)
+    }
+    updateMatches()
+    mediaQuery.addEventListener('change', updateMatches)
+    return () => {
+      mediaQuery.removeEventListener('change', updateMatches)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileSidebarOpen(false)
+    }
+  }, [isMobile])
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('sidebar-collapsed', collapsed && !isMobile)
+      document.documentElement.classList.toggle('sidebar-mobile-open', isMobile && mobileSidebarOpen)
+    }
+  }, [collapsed, isMobile, mobileSidebarOpen])
+
   const toggleSidebar = () => {
-    setCollapsed((previous) => !previous)
+    if (isMobile) {
+      setMobileSidebarOpen((previous) => !previous)
+    } else {
+      setCollapsed((previous) => !previous)
+    }
+  }
+
+  const closeMobileSidebar = () => {
+    if (isMobile) {
+      setMobileSidebarOpen(false)
+    }
   }
 
   return (
-    <div className={`${styles.appRoot} ${collapsed ? styles.collapsed : ''}`.trim()}>
-      <Header session={session} onLogout={onLogout} />
-      <div className={`${styles.body} ${collapsed ? styles.bodyCollapsed : ''}`.trim()}>
-        <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
+    <div className={`${styles.appRoot} ${collapsed && !isMobile ? styles.collapsed : ''}`.trim()}>
+      <Header
+        session={session}
+        onLogout={onLogout}
+        onToggleSidebar={toggleSidebar}
+        sidebarOpen={isMobile ? mobileSidebarOpen : !collapsed}
+        isMobile={isMobile}
+      />
+      <div
+        className={`${styles.body} ${collapsed && !isMobile ? styles.bodyCollapsed : ''} ${
+          isMobile && mobileSidebarOpen ? styles.bodyMobileOpen : ''
+        }`.trim()}
+      >
+        <div
+          className={`${styles.sidebarWrapper} ${
+            isMobile ? styles.sidebarWrapperMobile : ''
+          } ${isMobile && mobileSidebarOpen ? styles.sidebarWrapperActive : ''}`.trim()}
+        >
+          <Sidebar
+            collapsed={!isMobile && collapsed}
+            onToggle={toggleSidebar}
+            isMobile={isMobile}
+            mobileOpen={mobileSidebarOpen}
+            onClose={closeMobileSidebar}
+          />
+        </div>
+        {isMobile && mobileSidebarOpen && (
+          <div className={styles.sidebarOverlay} onClick={closeMobileSidebar} aria-hidden="true" />
+        )}
         <main className={styles.main}>
           <Outlet />
         </main>

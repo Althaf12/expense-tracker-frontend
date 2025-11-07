@@ -24,7 +24,7 @@ export default function Expenses({ expenses = [] }: ExpensesProps): ReactElement
           <table className={styles.table}>
             <thead>
               <tr>
-                <th scope="col">Name</th>
+                <th scope="col">Expense</th>
                 <th scope="col" className={styles.numeric}>Amount</th>
                 <th scope="col">Date</th>
               </tr>

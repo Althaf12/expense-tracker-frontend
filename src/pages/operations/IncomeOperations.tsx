@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react'
-import {
-  addIncome,
-  deleteIncome,
-  fetchIncomeByMonth,
-  fetchIncomeByRange,
-  fetchIncomeLastYear,
-  updateIncome,
-} from '../../api'
+import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate, parseAmount } from '../../utils/format'
 import styles from './IncomeOperations.module.css'
 
-type IncomeViewMode = 'last-year' | 'month' | 'range'
+type IncomeViewMode = 'current-year' | 'month' | 'range'
 
 type IncomeFormState = {
   source: string
   amount: string
   receivedDate: string
+}
+
+type TableFilters = {
+  source: string
+  amount: string
+  date: string
+  month: string
+  year: string
 }
 
 const initialForm: IncomeFormState = {
@@ -59,21 +60,29 @@ export default function IncomeOperations(): ReactElement {
     incomesCache,
     reloadIncomesCache,
   } = useAppDataContext()
-  const [viewMode, setViewMode] = useState<IncomeViewMode>('last-year')
+  const [viewMode, setViewMode] = useState<IncomeViewMode>('current-year')
   const [results, setResults] = useState<Income[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [formState, setFormState] = useState<IncomeFormState>(initialForm)
-  const [editingIncome, setEditingIncome] = useState<Income | null>(null)
   const [lastQuery, setLastQuery] = useState<{ mode: IncomeViewMode; payload?: Record<string, unknown> } | null>(null)
   const [monthFilter, setMonthFilter] = useState<number>(new Date().getMonth() + 1)
   const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear())
   const [rangeStart, setRangeStart] = useState<string>('')
   const [rangeEnd, setRangeEnd] = useState<string>('')
+  const [editingRowId, setEditingRowId] = useState<string | null>(null)
+  const [editingRowDraft, setEditingRowDraft] = useState<IncomeFormState | null>(null)
+  const [tableFilters, setTableFilters] = useState<TableFilters>({
+    source: '',
+    amount: '',
+    date: '',
+    month: '',
+    year: '',
+  })
 
   useEffect(() => {
     if (!session) return
-    void reloadIncomesCache(session.username)
-    void loadIncomes('last-year')
+  void reloadIncomesCache(session.username)
+  void loadIncomes('current-year')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
@@ -96,9 +105,15 @@ export default function IncomeOperations(): ReactElement {
     setStatus({ type: 'loading', message: 'Fetching income records...' })
     try {
       let data: Income[] = []
-      if (mode === 'last-year') {
+      if (mode === 'current-year') {
         const currentYear = new Date().getFullYear()
-        data = await fetchIncomeLastYear(username, currentYear)
+        data = await fetchIncomeByRange({
+          username,
+          fromMonth: '01',
+          fromYear: String(currentYear),
+          toMonth: '12',
+          toYear: String(currentYear),
+        })
         setLastQuery({ mode })
       } else if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
@@ -126,6 +141,124 @@ export default function IncomeOperations(): ReactElement {
     }
   }
 
+  const filteredResults = useMemo(() => {
+    const sourceQuery = tableFilters.source.trim().toLowerCase()
+    const amountQuery = tableFilters.amount.trim().toLowerCase()
+    const dateQuery = tableFilters.date.trim().toLowerCase()
+    const monthQuery = tableFilters.month.trim().toLowerCase()
+    const yearQuery = tableFilters.year.trim().toLowerCase()
+
+    if (!sourceQuery && !amountQuery && !dateQuery && !monthQuery && !yearQuery) {
+      return results
+    }
+
+    return results.filter((income) => {
+      const sourceValue = (income.source ?? '').toString().toLowerCase()
+
+      const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
+      const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
+      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+
+      const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
+      const formattedDate = formatDate(income.receivedDate).toLowerCase()
+
+      const derived = income.receivedDate ? deriveMonthYear(String(income.receivedDate)) : null
+      const normalizedMonth =
+        typeof income.month === 'number' ? MONTHS[income.month - 1] ?? String(income.month) : income.month
+      const monthDisplay = (normalizedMonth ?? derived?.monthName ?? '').toString().toLowerCase()
+      const yearDisplay = String(income.year ?? derived?.year ?? '').toLowerCase()
+
+      if (sourceQuery && !sourceValue.includes(sourceQuery)) {
+        return false
+      }
+      if (amountQuery && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery)) {
+        return false
+      }
+      if (dateQuery && !rawDate.includes(dateQuery) && !formattedDate.includes(dateQuery)) {
+        return false
+      }
+      if (monthQuery && !monthDisplay.includes(monthQuery)) {
+        return false
+      }
+      if (yearQuery && !yearDisplay.includes(yearQuery)) {
+        return false
+      }
+
+      return true
+    })
+  }, [results, tableFilters])
+
+  const filtersApplied = useMemo(
+    () => Object.values(tableFilters).some((value) => value.trim().length > 0),
+    [tableFilters],
+  )
+
+  const startInlineEdit = (income: Income) => {
+    const key = ensureIncomeId(income)
+    setEditingRowId(key)
+    setEditingRowDraft({
+      source: income.source ?? '',
+      amount: String(income.amount ?? ''),
+      receivedDate: (income.receivedDate ?? '').slice(0, 10),
+    })
+  }
+
+  const cancelInlineEdit = () => {
+    setEditingRowId(null)
+    setEditingRowDraft(null)
+  }
+
+  const updateInlineDraft = (field: keyof IncomeFormState, value: string) => {
+    setEditingRowDraft((previous) => (previous ? { ...previous, [field]: value } : previous))
+  }
+
+  const confirmInlineEdit = async (income: Income) => {
+    if (!session || !editingRowDraft) return
+    const incomeId = income.incomeId
+    if (!incomeId) {
+      setStatus({ type: 'error', message: 'Unable to update income without identifier.' })
+      return
+    }
+
+    if (!editingRowDraft.source.trim()) {
+      setStatus({ type: 'error', message: 'Provide an income source.' })
+      return
+    }
+    const numericAmount = parseAmount(editingRowDraft.amount)
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setStatus({ type: 'error', message: 'Provide a valid income amount.' })
+      return
+    }
+    if (!editingRowDraft.receivedDate) {
+      setStatus({ type: 'error', message: 'Select a received date.' })
+      return
+    }
+
+  const { monthName, monthNumber, year } = deriveMonthYear(editingRowDraft.receivedDate)
+
+    setStatus({ type: 'loading', message: 'Updating income...' })
+    try {
+      await updateIncome({
+        incomeId,
+        username: session.username,
+        source: editingRowDraft.source,
+        amount: numericAmount,
+        receivedDate: editingRowDraft.receivedDate,
+        month: monthName || monthNumber,
+        year,
+      })
+      setStatus({ type: 'success', message: 'Income updated.' })
+      await reloadIncomesCache(session.username)
+      if (lastQuery) {
+        await loadIncomes(lastQuery.mode, lastQuery.payload)
+      }
+      cancelInlineEdit()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    }
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!session) return
@@ -145,53 +278,26 @@ export default function IncomeOperations(): ReactElement {
     }
 
     const { monthName, monthNumber, year } = deriveMonthYear(receivedDate)
-    setStatus({ type: 'loading', message: editingIncome ? 'Updating income...' : 'Adding income...' })
+    setStatus({ type: 'loading', message: 'Adding income...' })
     try {
-      if (editingIncome) {
-        const incomeId = editingIncome.incomeId
-        if (!incomeId) {
-          throw new Error('Missing income identifier for update.')
-        }
-        await updateIncome({
-          incomeId,
-          username: session.username,
-          source,
-          amount: numericAmount,
-          receivedDate,
-          month: monthNumber,
-          year,
-        })
-        setStatus({ type: 'success', message: 'Income updated.' })
-      } else {
-        await addIncome({
-          username: session.username,
-          source,
-          amount: numericAmount,
-          receivedDate,
-          month: monthName,
-          year,
-        })
-        setStatus({ type: 'success', message: 'Income added.' })
-      }
+      await addIncome({
+        username: session.username,
+        source,
+        amount: numericAmount,
+        receivedDate,
+        month: monthName,
+        year,
+      })
+      setStatus({ type: 'success', message: 'Income added.' })
       await reloadIncomesCache(session.username)
       if (lastQuery) {
         await loadIncomes(lastQuery.mode, lastQuery.payload)
       }
       setFormState(initialForm)
-      setEditingIncome(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
     }
-  }
-
-  const handleEdit = (income: Income) => {
-    setEditingIncome(income)
-    setFormState({
-      source: income.source ?? '',
-      amount: String(income.amount ?? ''),
-      receivedDate: (income.receivedDate ?? '').slice(0, 10),
-    })
   }
 
   const handleDelete = async (income: Income) => {
@@ -200,12 +306,16 @@ export default function IncomeOperations(): ReactElement {
       setStatus({ type: 'error', message: 'Cannot delete income without identifier.' })
       return
     }
+    const rowKey = ensureIncomeId(income)
     const confirmed = window.confirm('Delete this income entry?')
     if (!confirmed) return
     setStatus({ type: 'loading', message: 'Deleting income...' })
     try {
       await deleteIncome({ username: session.username, incomeId: income.incomeId })
       setStatus({ type: 'success', message: 'Income deleted.' })
+      if (editingRowId === rowKey) {
+        cancelInlineEdit()
+      }
       await reloadIncomesCache(session.username)
       if (lastQuery) {
         await loadIncomes(lastQuery.mode, lastQuery.payload)
@@ -217,9 +327,21 @@ export default function IncomeOperations(): ReactElement {
   }
 
   const totalIncome = useMemo(
-    () => results.reduce((sum, income) => sum + (typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)), 0),
-    [results],
+    () =>
+      filteredResults.reduce(
+        (sum, income) => sum + (typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)),
+        0,
+      ),
+    [filteredResults],
   )
+
+  const handleFilterChange = (field: keyof TableFilters, value: string) => {
+    setTableFilters((previous) => ({ ...previous, [field]: value }))
+  }
+
+  const clearFilters = () => {
+    setTableFilters({ source: '', amount: '', date: '', month: '', year: '' })
+  }
 
   return (
     <div className={styles.page}>
@@ -229,7 +351,7 @@ export default function IncomeOperations(): ReactElement {
             <h2 className={styles.title}>Income Overview</h2>
             <p className={styles.subtitle}>Review and manage income entries.</p>
           </div>
-          <span className={styles.badge}>{results.length} records</span>
+          <span className={styles.badge}>{filteredResults.length} records</span>
         </header>
 
         <form
@@ -244,11 +366,11 @@ export default function IncomeOperations(): ReactElement {
               <input
                 type="radio"
                 name="incomeMode"
-                value="last-year"
-                checked={viewMode === 'last-year'}
-                onChange={() => setViewMode('last-year')}
+                value="current-year"
+                checked={viewMode === 'current-year'}
+                onChange={() => setViewMode('current-year')}
               />
-              Last year
+              Current year
             </label>
             <label>
               <input
@@ -329,25 +451,150 @@ export default function IncomeOperations(): ReactElement {
                   <th scope="col">Year</th>
                   <th scope="col" className={styles.actions}>Actions</th>
                 </tr>
+                <tr className={styles.tableFilterRow}>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter source"
+                      value={tableFilters.source}
+                      onChange={(event) => handleFilterChange('source', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter amount"
+                      value={tableFilters.amount}
+                      onChange={(event) => handleFilterChange('amount', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter date"
+                      value={tableFilters.date}
+                      onChange={(event) => handleFilterChange('date', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter month"
+                      value={tableFilters.month}
+                      onChange={(event) => handleFilterChange('month', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter year"
+                      value={tableFilters.year}
+                      onChange={(event) => handleFilterChange('year', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col" className={styles.actions}>
+                    {filtersApplied && (
+                      <button type="button" onClick={clearFilters}>
+                        Clear
+                      </button>
+                    )}
+                  </th>
+                </tr>
               </thead>
               <tbody>
-                {results.map((income) => (
-                  <tr key={ensureIncomeId(income)}>
-                    <td>{income.source ?? '-'}</td>
-                    <td className={styles.numeric}>{formatAmount(income.amount)}</td>
-                    <td>{formatDate(income.receivedDate)}</td>
-                    <td>{income.month ?? deriveMonthYear(String(income.receivedDate ?? '')).monthName}</td>
-                    <td>{income.year ?? deriveMonthYear(String(income.receivedDate ?? '')).year}</td>
-                    <td className={styles.actions}>
-                      <button type="button" onClick={() => handleEdit(income)}>
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => void handleDelete(income)}>
-                        Delete
-                      </button>
-                    </td>
+                {filteredResults.length === 0 ? (
+                  <tr className={styles.emptyRow}>
+                    <td colSpan={6}>No income entries match the current filters.</td>
                   </tr>
-                ))}
+                ) : (
+                  filteredResults.map((income) => {
+                    const key = ensureIncomeId(income)
+                    const isEditing = editingRowId === key
+                    const draft = isEditing ? editingRowDraft : null
+                    const draftSource = draft?.source ?? income.source ?? ''
+                    const draftAmount = draft?.amount ?? String(income.amount ?? '')
+                    const draftDate = draft?.receivedDate ?? (income.receivedDate ? String(income.receivedDate).slice(0, 10) : '')
+                    const derived = draftDate ? deriveMonthYear(draftDate) : null
+                    const fallbackDerived = income.receivedDate ? deriveMonthYear(String(income.receivedDate)) : null
+                    const normalizedMonth =
+                      typeof income.month === 'number'
+                        ? MONTHS[income.month - 1] ?? String(income.month)
+                        : income.month
+                    const monthDisplay = derived?.monthName ?? normalizedMonth ?? fallbackDerived?.monthName ?? '-'
+                    const yearDisplay = derived?.year ?? income.year ?? fallbackDerived?.year ?? ''
+
+                    return (
+                      <tr key={key}>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className={styles.inlineInput}
+                              type="text"
+                              value={draftSource}
+                              onChange={(event) => updateInlineDraft('source', event.target.value)}
+                            />
+                          ) : (
+                            draftSource || '-'
+                          )}
+                        </td>
+                        <td className={styles.numeric}>
+                          {isEditing ? (
+                            <input
+                              className={styles.inlineInput}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={draftAmount}
+                              onChange={(event) => updateInlineDraft('amount', event.target.value)}
+                            />
+                          ) : (
+                            formatAmount(income.amount)
+                          )}
+                        </td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              className={styles.inlineInput}
+                              type="date"
+                              value={draftDate}
+                              onChange={(event) => updateInlineDraft('receivedDate', event.target.value)}
+                            />
+                          ) : (
+                            formatDate(income.receivedDate)
+                          )}
+                        </td>
+                        <td>{monthDisplay}</td>
+                        <td>{yearDisplay}</td>
+                        <td className={styles.actions}>
+                          {isEditing ? (
+                            <>
+                              <button type="button" onClick={() => void confirmInlineEdit(income)}>
+                                Confirm
+                              </button>
+                              <button type="button" onClick={cancelInlineEdit}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button type="button" onClick={() => startInlineEdit(income)}>
+                                Edit
+                              </button>
+                              <button type="button" onClick={() => void handleDelete(income)}>
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
               <tfoot>
                 <tr>
@@ -364,10 +611,8 @@ export default function IncomeOperations(): ReactElement {
       <section className={styles.card}>
         <header className={styles.cardHeader}>
           <div>
-            <h2 className={styles.title}>{editingIncome ? 'Update Income' : 'Add Income'}</h2>
-            <p className={styles.subtitle}>
-              {editingIncome ? 'Modify the selected income entry.' : 'Capture a new income item.'}
-            </p>
+            <h2 className={styles.title}>Add Income</h2>
+            <p className={styles.subtitle}>Capture a new income item.</p>
           </div>
         </header>
 
@@ -413,13 +658,12 @@ export default function IncomeOperations(): ReactElement {
 
           <div className={styles.formActions}>
             <button className={styles.primaryButton} type="submit">
-              {editingIncome ? 'Update Income' : 'Add Income'}
+              Add Income
             </button>
             <button
               className={styles.secondaryButton}
               type="button"
               onClick={() => {
-                setEditingIncome(null)
                 setFormState(initialForm)
               }}
             >

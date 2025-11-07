@@ -54,9 +54,9 @@ export default function App(): ReactElement {
   const [expensesCache, setExpensesCache] = useState<Expense[]>([])
   const [incomesCache, setIncomesCache] = useState<Income[]>([])
 
-  const updateStatus = (next: StatusState) => {
+  const updateStatus = useCallback((next: StatusState) => {
     setStatusState(next)
-  }
+  }, [])
 
   const handleLogin = (sessionData: SessionData, _initialExpenses: Expense[] = []) => {
     setSession(sessionData)

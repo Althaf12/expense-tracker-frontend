@@ -106,9 +106,9 @@ export async function fetchExpensesByYear(payload: { username: string; year: num
 export async function addExpense(payload: {
   username: string
   expenseCategoryId: number | string
-  amount: number
+  expenseAmount: number
   expenseDate: string
-  description?: string
+  expenseName?: string
 }): Promise<unknown> {
   return await request('/expense/add', { body: payload })
 }
@@ -120,8 +120,8 @@ export async function deleteExpense(payload: { username: string; expensesId: str
 export async function updateExpense(payload: {
   expensesId: string | number
   username: string
-  amount?: number
-  description?: string
+  expenseAmount?: number
+  expenseName?: string
   expenseDate?: string
   expenseCategoryId?: string | number
 }): Promise<unknown> {

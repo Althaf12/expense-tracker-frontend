@@ -48,8 +48,10 @@ const buildCategorySummary = (expenses: Expense[], categories: ExpenseCategory[]
   const totals = new Map<string, { name: string; total: number }>()
 
   expenses.forEach((expense) => {
+    // Prefer the category name supplied on the expense record itself (some APIs return it)
+    const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
     const key = expense.expenseCategoryId ?? 'uncategorised'
-    const name = categoryMap.get(key) ?? 'Uncategorised'
+    const name = explicitName ?? categoryMap.get(key) ?? 'Uncategorised'
     const amount = amountFromExpense(expense)
     if (!totals.has(name)) {
       totals.set(name, { name, total: 0 })
@@ -73,6 +75,9 @@ export default function Dashboard(): ReactElement {
   const [categorySummary, setCategorySummary] = useState<{ name: string; total: number }[]>([])
   const [previousMonthIncome, setPreviousMonthIncome] = useState<Income[]>([])
   const [loading, setLoading] = useState<boolean>(false)
+  const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
+  const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
+  const [incomeTableFilters, setIncomeTableFilters] = useState({ source: '', amount: '', date: '' })
 
   const { month, year, label } = useMemo(() => getCurrentMonthContext(), [])
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
@@ -112,10 +117,132 @@ export default function Dashboard(): ReactElement {
     })()
   }, [session, ensureExpenseCategories, month, year, previousContext.month, previousContext.year, setStatus])
 
-  const categoryTotal = useMemo(
-    () => categorySummary.reduce((sum, entry) => sum + entry.total, 0),
-    [categorySummary],
+  const filteredMonthlyExpenses = useMemo(() => {
+    const nameQuery = expenseTableFilters.name.trim().toLowerCase()
+    const amountQuery = expenseTableFilters.amount.trim().toLowerCase()
+    const dateQuery = expenseTableFilters.date.trim().toLowerCase()
+
+    if (!nameQuery && !amountQuery && !dateQuery) {
+      return monthlyExpenses
+    }
+
+    return monthlyExpenses.filter((expense) => {
+      const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
+      const numericAmount = amountFromExpense(expense)
+      const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
+      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const rawDate = (expense.expenseDate ?? '').toString().toLowerCase()
+      const prettyDate = formatDate(expense.expenseDate).toLowerCase()
+
+      if (nameQuery && !expenseName.includes(nameQuery)) {
+        return false
+      }
+      if (amountQuery && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery)) {
+        return false
+      }
+      if (dateQuery && !rawDate.includes(dateQuery) && !prettyDate.includes(dateQuery)) {
+        return false
+      }
+      return true
+    })
+  }, [monthlyExpenses, expenseTableFilters])
+
+  const filteredCategorySummary = useMemo(() => {
+    const nameQuery = categoryTableFilters.name.trim().toLowerCase()
+    const totalQuery = categoryTableFilters.total.trim().toLowerCase()
+
+    if (!nameQuery && !totalQuery) {
+      return categorySummary
+    }
+
+    return categorySummary.filter((entry) => {
+      const nameValue = entry.name.toLowerCase()
+      const totalString = entry.total.toFixed(2)
+      const formattedTotal = formatAmount(entry.total).toLowerCase()
+
+      if (nameQuery && !nameValue.includes(nameQuery)) {
+        return false
+      }
+      if (totalQuery && !totalString.includes(totalQuery) && !formattedTotal.includes(totalQuery)) {
+        return false
+      }
+      return true
+    })
+  }, [categorySummary, categoryTableFilters])
+
+  const filteredCategoryTotal = useMemo(
+    () => filteredCategorySummary.reduce((sum, entry) => sum + entry.total, 0),
+    [filteredCategorySummary],
   )
+
+  const filteredPreviousMonthIncome = useMemo(() => {
+    const sourceQuery = incomeTableFilters.source.trim().toLowerCase()
+    const amountQuery = incomeTableFilters.amount.trim().toLowerCase()
+    const dateQuery = incomeTableFilters.date.trim().toLowerCase()
+
+    if (!sourceQuery && !amountQuery && !dateQuery) {
+      return previousMonthIncome
+    }
+
+    return previousMonthIncome.filter((income) => {
+      const sourceValue = (income.source ?? '').toString().toLowerCase()
+      const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
+      const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
+      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
+      const prettyDate = formatDate(income.receivedDate).toLowerCase()
+
+      if (sourceQuery && !sourceValue.includes(sourceQuery)) {
+        return false
+      }
+      if (amountQuery && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery)) {
+        return false
+      }
+      if (dateQuery && !rawDate.includes(dateQuery) && !prettyDate.includes(dateQuery)) {
+        return false
+      }
+      return true
+    })
+  }, [previousMonthIncome, incomeTableFilters])
+
+  const expenseFiltersApplied = useMemo(
+    () => Object.values(expenseTableFilters).some((value) => value.trim().length > 0),
+    [expenseTableFilters],
+  )
+
+  const categoryFiltersApplied = useMemo(
+    () => Object.values(categoryTableFilters).some((value) => value.trim().length > 0),
+    [categoryTableFilters],
+  )
+
+  const incomeFiltersApplied = useMemo(
+    () => Object.values(incomeTableFilters).some((value) => value.trim().length > 0),
+    [incomeTableFilters],
+  )
+
+  const handleExpenseFilterChange = (field: 'name' | 'amount' | 'date', value: string) => {
+    setExpenseTableFilters((previous) => ({ ...previous, [field]: value }))
+  }
+
+  const handleCategoryFilterChange = (field: 'name' | 'total', value: string) => {
+    setCategoryTableFilters((previous) => ({ ...previous, [field]: value }))
+  }
+
+  const handleIncomeFilterChange = (field: 'source' | 'amount' | 'date', value: string) => {
+    setIncomeTableFilters((previous) => ({ ...previous, [field]: value }))
+  }
+
+  const clearExpenseFilters = () => {
+    setExpenseTableFilters({ name: '', amount: '', date: '' })
+  }
+
+  const clearCategoryFilters = () => {
+    setCategoryTableFilters({ name: '', total: '' })
+  }
+
+  const clearIncomeFilters = () => {
+    setIncomeTableFilters({ source: '', amount: '', date: '' })
+  }
 
   const incomeMonthLabel = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
@@ -130,7 +257,7 @@ export default function Dashboard(): ReactElement {
             <h2 className={styles.cardTitle}>Current Month Expenses</h2>
             <p className={styles.cardSubtitle}>{label}</p>
           </div>
-          <span className={styles.cardBadge}>{monthlyExpenses.length} items</span>
+          <span className={styles.cardBadge}>{filteredMonthlyExpenses.length} items</span>
         </header>
         {loading && monthlyExpenses.length === 0 ? (
           <p className={styles.placeholder}>Loading data…</p>
@@ -141,22 +268,70 @@ export default function Dashboard(): ReactElement {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th scope="col">Description</th>
+                  <th scope="col">Expense</th>
                   <th scope="col" className={styles.numeric}>Amount</th>
                   <th scope="col">Date</th>
                 </tr>
+                <tr className={styles.tableFilterRow}>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter expense"
+                      value={expenseTableFilters.name}
+                      onChange={(event) => handleExpenseFilterChange('name', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter amount"
+                      value={expenseTableFilters.amount}
+                      onChange={(event) => handleExpenseFilterChange('amount', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <div className={styles.filterControls}>
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter date"
+                        value={expenseTableFilters.date}
+                        onChange={(event) => handleExpenseFilterChange('date', event.target.value)}
+                      />
+                      {expenseFiltersApplied && (
+                        <button type="button" className={styles.clearButton} onClick={clearExpenseFilters}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                </tr>
               </thead>
               <tbody>
-                {monthlyExpenses.map((expense) => {
-                  const key = String(expense.expenseId ?? expense.expensesId ?? expense.description ?? expense.expenseDate)
-                  return (
-                    <tr key={key}>
-                      <td>{expense.description ?? expense.expenseName ?? '-'}</td>
-                      <td className={styles.numeric}>{formatAmount(expense.amount ?? expense.expenseAmount)}</td>
-                      <td>{formatDate(expense.expenseDate)}</td>
-                    </tr>
-                  )
-                })}
+                {filteredMonthlyExpenses.length === 0 ? (
+                  <tr className={styles.emptyRow}>
+                    <td colSpan={3}>No expenses match the current filters.</td>
+                  </tr>
+                ) : (
+                  filteredMonthlyExpenses.map((expense) => {
+                    const key = String(
+                      expense.expenseId ??
+                        expense.expensesId ??
+                        expense.expenseName ??
+                        expense.description ??
+                        expense.expenseDate,
+                    )
+                    return (
+                      <tr key={key}>
+                        <td>{expense.expenseName ?? expense.description ?? '-'}</td>
+                        <td className={styles.numeric}>{formatAmount(expense.amount ?? expense.expenseAmount)}</td>
+                        <td>{formatDate(expense.expenseDate)}</td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -169,7 +344,7 @@ export default function Dashboard(): ReactElement {
             <h2 className={styles.cardTitle}>Spend by Category</h2>
             <p className={styles.cardSubtitle}>{label}</p>
           </div>
-          <span className={styles.cardBadge}>{formatAmount(categoryTotal)}</span>
+          <span className={styles.cardBadge}>{formatAmount(filteredCategoryTotal)}</span>
         </header>
         {categorySummary.length === 0 ? (
           <p className={styles.placeholder}>No category spend recorded.</p>
@@ -181,14 +356,47 @@ export default function Dashboard(): ReactElement {
                   <th scope="col">Category</th>
                   <th scope="col" className={styles.numeric}>Total</th>
                 </tr>
+                <tr className={styles.tableFilterRow}>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter category"
+                      value={categoryTableFilters.name}
+                      onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <div className={styles.filterControls}>
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter total"
+                        value={categoryTableFilters.total}
+                        onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
+                      />
+                      {categoryFiltersApplied && (
+                        <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                </tr>
               </thead>
               <tbody>
-                {categorySummary.map((entry) => (
-                  <tr key={entry.name}>
-                    <td>{entry.name}</td>
-                    <td className={styles.numeric}>{formatAmount(entry.total)}</td>
+                {filteredCategorySummary.length === 0 ? (
+                  <tr className={styles.emptyRow}>
+                    <td colSpan={2}>No categories match the current filters.</td>
                   </tr>
-                ))}
+                ) : (
+                  filteredCategorySummary.map((entry) => (
+                    <tr key={entry.name}>
+                      <td>{entry.name}</td>
+                      <td className={styles.numeric}>{formatAmount(entry.total)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -201,7 +409,7 @@ export default function Dashboard(): ReactElement {
             <h2 className={styles.cardTitle}>Previous Month Income</h2>
             <p className={styles.cardSubtitle}>{incomeMonthLabel}</p>
           </div>
-          <span className={styles.cardBadge}>{previousMonthIncome.length} items</span>
+          <span className={styles.cardBadge}>{filteredPreviousMonthIncome.length} items</span>
         </header>
         {previousMonthIncome.length === 0 ? (
           <p className={styles.placeholder}>No income recorded for {incomeMonthLabel}.</p>
@@ -214,18 +422,60 @@ export default function Dashboard(): ReactElement {
                   <th scope="col" className={styles.numeric}>Amount</th>
                   <th scope="col">Received</th>
                 </tr>
+                <tr className={styles.tableFilterRow}>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter source"
+                      value={incomeTableFilters.source}
+                      onChange={(event) => handleIncomeFilterChange('source', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter amount"
+                      value={incomeTableFilters.amount}
+                      onChange={(event) => handleIncomeFilterChange('amount', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <div className={styles.filterControls}>
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter date"
+                        value={incomeTableFilters.date}
+                        onChange={(event) => handleIncomeFilterChange('date', event.target.value)}
+                      />
+                      {incomeFiltersApplied && (
+                        <button type="button" className={styles.clearButton} onClick={clearIncomeFilters}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                </tr>
               </thead>
               <tbody>
-                {previousMonthIncome.map((income) => {
-                  const key = String(income.incomeId ?? `${income.source ?? 'income'}-${income.receivedDate ?? ''}`)
-                  return (
-                    <tr key={key}>
-                      <td>{income.source ?? '-'}</td>
-                      <td className={styles.numeric}>{formatAmount(income.amount)}</td>
-                      <td>{formatDate(income.receivedDate)}</td>
-                    </tr>
-                  )
-                })}
+                {filteredPreviousMonthIncome.length === 0 ? (
+                  <tr className={styles.emptyRow}>
+                    <td colSpan={3}>No income entries match the current filters.</td>
+                  </tr>
+                ) : (
+                  filteredPreviousMonthIncome.map((income) => {
+                    const key = String(income.incomeId ?? `${income.source ?? 'income'}-${income.receivedDate ?? ''}`)
+                    return (
+                      <tr key={key}>
+                        <td>{income.source ?? '-'}</td>
+                        <td className={styles.numeric}>{formatAmount(income.amount)}</td>
+                        <td>{formatDate(income.receivedDate)}</td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>

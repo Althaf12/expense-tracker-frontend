@@ -11,11 +11,77 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+}
+
 .brandLink {
   font-weight: 600;
   color: inherit;
   text-decoration: none;
   letter-spacing: 0.01em;
+}
+
+.menuButton {
+  display: none;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(96, 165, 250, 0.14);
+  color: inherit;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.menuButton span {
+  position: absolute;
+  width: 60%;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.menuButton span:nth-child(1) {
+  transform: translateY(-6px);
+}
+
+.menuButton span:nth-child(2) {
+  transform: translateY(0);
+}
+
+.menuButton span:nth-child(3) {
+  transform: translateY(6px);
+}
+
+.menuButtonActive span:nth-child(1) {
+  transform: rotate(45deg);
+}
+
+.menuButtonActive span:nth-child(2) {
+  opacity: 0;
+}
+
+.menuButtonActive span:nth-child(3) {
+  transform: rotate(-45deg);
+}
+
+.menuButton:hover {
+  background: rgba(96, 165, 250, 0.2);
+  transform: translateY(-1px);
 }
 
 .actions {
@@ -89,4 +155,10 @@
 
 .menuItem:hover {
   background: rgba(96, 165, 250, 0.15);
+}
+
+@media (max-width: 960px) {
+  .menuButton {
+    display: inline-flex;
+  }
 }
