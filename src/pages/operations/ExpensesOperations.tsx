@@ -670,7 +670,7 @@ export default function ExpensesOperations(): ReactElement {
               <tfoot>
                 <tr>
                   <td colSpan={2}>Total</td>
-                  <td className={styles.numeric}>{formatAmount(totalAmount)}</td>
+                  <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(totalAmount)}</span></td>
                   <td colSpan={2} />
                 </tr>
               </tfoot>

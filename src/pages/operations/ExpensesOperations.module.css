@@ -147,6 +147,35 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* Mirror dashboard total highlight styles for operations pages */
+.table tfoot tr {
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+}
+
+.table tfoot td {
+  padding: 0.85rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.table tfoot td.numeric {
+  /* keep the td plain; the visual pill will be an inner element */
+  background: transparent;
+  color: #dff9ff;
+  padding: 0.45rem 0.8rem;
+}
+
+/* visual pill inside footer numeric cell */
+.totalPill {
+  background: linear-gradient(135deg, rgba(96,165,250,0.12), rgba(34,197,94,0.06));
+  color: #dff9ff;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  display: inline-block;
+  min-width: 6ch;
+}
+
 .tableFilterInput {
   width: 100%;
   height: 2.2rem;
@@ -284,5 +313,74 @@
 
   .table {
     min-width: 100%;
+  }
+}
+
+/* Mobile-specific tweaks: ensure filter controls wrap and load button stacks when space is tight */
+@media (max-width: 640px) {
+  .filterRow {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .modeSelector {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .monthInputs,
+  .rangeInputs {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Make the primary action (Load Expenses) flow to its own row and use full width */
+  .primaryButton {
+    width: 100%;
+    justify-self: stretch;
+    padding: 0.7rem 1rem;
+  }
+
+  .inlineField select,
+  .inlineField input,
+  .modeOption {
+    min-width: 0;
+  }
+}
+
+/* Medium breakpoint: ensure the Load button drops below the inputs on tablet/narrow desktops */
+@media (max-width: 820px) {
+  /* Use a wrapping flex layout to avoid grid placement edge-cases that allowed the
+     Load button to overlap other controls. This makes items wrap reliably and
+     lets the primary action occupy its own row. */
+  .filterRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  /* Let each child try to take a reasonable width but still be allowed to shrink */
+  .filterRow > * {
+    flex: 1 1 180px;
+    min-width: 0; /* allow inputs to shrink below their content width */
+  }
+
+  /* Make the primary action drop to its own row and stretch */
+  .primaryButton {
+    flex: 1 1 100%;
+    max-width: 100%;
+    padding: 0.65rem 1rem;
+  }
+
+  .modeSelector {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .monthInputs,
+  .rangeInputs {
+    gap: 0.5rem;
   }
 }

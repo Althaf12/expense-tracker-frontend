@@ -599,7 +599,7 @@ export default function IncomeOperations(): ReactElement {
               <tfoot>
                 <tr>
                   <td>Total</td>
-                  <td className={styles.numeric}>{formatAmount(totalIncome)}</td>
+              <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(totalIncome)}</span></td>
                   <td colSpan={4} />
                 </tr>
               </tfoot>

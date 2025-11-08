@@ -3,6 +3,7 @@ import {
   fetchExpensesByMonth,
   fetchIncomeByMonth,
 } from '../../api'
+import { Link } from 'react-router-dom'
 import type { Expense, ExpenseCategory, Income } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate } from '../../utils/format'
@@ -170,10 +171,12 @@ export default function Dashboard(): ReactElement {
     })
   }, [categorySummary, categoryTableFilters])
 
-  const filteredCategoryTotal = useMemo(
-    () => filteredCategorySummary.reduce((sum, entry) => sum + entry.total, 0),
-    [filteredCategorySummary],
-  )
+    const filteredCategoryTotal = useMemo(
+      () => filteredCategorySummary.reduce((sum, entry) => sum + entry.total, 0),
+      [filteredCategorySummary],
+    )
+
+    // total based on the currently filtered monthly expenses (updated below after filters)
 
   const filteredPreviousMonthIncome = useMemo(() => {
     const sourceQuery = incomeTableFilters.source.trim().toLowerCase()
@@ -204,6 +207,11 @@ export default function Dashboard(): ReactElement {
       return true
     })
   }, [previousMonthIncome, incomeTableFilters])
+
+  const incomeTotal = useMemo(
+    () => filteredPreviousMonthIncome.reduce((sum, inc) => sum + (typeof inc.amount === 'number' ? inc.amount : Number(inc.amount ?? 0)), 0),
+    [filteredPreviousMonthIncome],
+  )
 
   const expenseFiltersApplied = useMemo(
     () => Object.values(expenseTableFilters).some((value) => value.trim().length > 0),
@@ -249,6 +257,11 @@ export default function Dashboard(): ReactElement {
     return formatter.format(new Date(previousContext.year, previousContext.month - 1))
   }, [previousContext.month, previousContext.year])
 
+  const monthlyTotal = useMemo(
+    () => filteredMonthlyExpenses.reduce((sum, e) => sum + amountFromExpense(e), 0),
+    [filteredMonthlyExpenses],
+  )
+
   return (
     <div className={styles.dashboard}>
       <section className={styles.card} aria-busy={loading}>
@@ -257,7 +270,12 @@ export default function Dashboard(): ReactElement {
             <h2 className={styles.cardTitle}>Current Month Expenses</h2>
             <p className={styles.cardSubtitle}>{label}</p>
           </div>
-          <span className={styles.cardBadge}>{filteredMonthlyExpenses.length} items</span>
+          <div className={styles.headerActions}>
+            <span className={styles.cardBadge}>{filteredMonthlyExpenses.length} items</span>
+            <Link to="/operations/expenses" className={styles.addButton} aria-label="Add expense">
+              Add Expense
+            </Link>
+          </div>
         </header>
         {loading && monthlyExpenses.length === 0 ? (
           <p className={styles.placeholder}>Loading data…</p>
@@ -333,6 +351,13 @@ export default function Dashboard(): ReactElement {
                   })
                 )}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total</td>
+              <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(monthlyTotal)}</span></td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
@@ -344,7 +369,7 @@ export default function Dashboard(): ReactElement {
             <h2 className={styles.cardTitle}>Spend by Category</h2>
             <p className={styles.cardSubtitle}>{label}</p>
           </div>
-          <span className={styles.cardBadge}>{formatAmount(filteredCategoryTotal)}</span>
+          <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
         </header>
         {categorySummary.length === 0 ? (
           <p className={styles.placeholder}>No category spend recorded.</p>
@@ -477,6 +502,13 @@ export default function Dashboard(): ReactElement {
                   })
                 )}
               </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(incomeTotal)}</span></td>
+                <td />
+              </tr>
+            </tfoot>
             </table>
           </div>
         )}
