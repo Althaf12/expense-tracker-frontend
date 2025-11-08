@@ -2,7 +2,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #050608 0%, #0f172a 100%);
+  background: var(--layout-background);
 }
 
 .body {
@@ -39,7 +39,7 @@
 .sidebarOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(8, 11, 19, 0.55);
+  background: var(--overlay-scrim);
   backdrop-filter: blur(6px);
   z-index: 30;
 }
@@ -49,9 +49,9 @@
   min-height: calc(100vh - 12rem);
   padding: 1.75rem;
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 18px 48px rgba(3, 7, 18, 0.6);
+  background: var(--surface-main);
+  border: 1px solid var(--surface-main-border);
+  box-shadow: var(--surface-main-shadow);
   overflow: auto;
 }
 

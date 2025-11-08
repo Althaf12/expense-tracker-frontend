@@ -15,8 +15,8 @@
   margin: 0;
   padding: 1.25rem;
   border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--surface-card-border);
+  background: var(--surface-card);
   display: grid;
   gap: 0.85rem;
 }
@@ -30,7 +30,7 @@
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--auth-label);
 }
 
 .row dd {
@@ -44,15 +44,15 @@
   padding: 0.65rem 1.2rem;
   border-radius: 0.65rem;
   border: none;
-  background: #60a5fa;
-  color: #0b1120;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-strong));
+  color: var(--color-text-inverse);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .resetButton:hover:not(:disabled) {
-  background: #3b82f6;
+  background: linear-gradient(135deg, var(--accent-primary-strong), var(--accent-primary));
   transform: translateY(-1px);
 }
 

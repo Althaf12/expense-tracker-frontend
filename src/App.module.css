@@ -13,19 +13,19 @@
 }
 
 .error {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #7f1d1d;
+  background: var(--status-error-background);
+  border-color: var(--status-error-border);
+  color: var(--status-error-text);
 }
 
 .success {
-  background: #dcfce7;
-  border-color: #bbf7d0;
-  color: #14532d;
+  background: var(--status-success-background);
+  border-color: var(--status-success-border);
+  color: var(--status-success-text);
 }
 
 .loading {
-  background: #dbeafe;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background: var(--status-loading-background);
+  border-color: var(--status-loading-border);
+  color: var(--status-loading-text);
 }

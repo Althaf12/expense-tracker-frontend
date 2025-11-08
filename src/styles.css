@@ -1,8 +1,208 @@
 :root {
   color-scheme: dark;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background-color: #05070d;
-  color: #e2e8f0;
+  --color-text-primary: #e2e8f0;
+  --color-text-strong: #f8fafc;
+  --color-text-muted: rgba(148, 163, 184, 0.7);
+  --color-text-soft: rgba(226, 232, 240, 0.6);
+  --color-text-inverse: #0b1120;
+  --accent-primary: #60a5fa;
+  --accent-primary-strong: #2563eb;
+  --accent-primary-soft: rgba(96, 165, 250, 0.16);
+  --accent-primary-soft-strong: rgba(96, 165, 250, 0.2);
+  --accent-primary-border: rgba(96, 165, 250, 0.3);
+  --layout-background: linear-gradient(180deg, #050608 0%, #0f172a 100%);
+  --body-background: radial-gradient(circle at top, rgba(96, 165, 250, 0.12), transparent 55%),
+    radial-gradient(circle at center, rgba(30, 64, 175, 0.2), transparent 60%),
+    #05070d;
+  --surface-main: rgba(15, 23, 42, 0.75);
+  --surface-main-border: rgba(255, 255, 255, 0.06);
+  --surface-main-shadow: 0 18px 48px rgba(3, 7, 18, 0.6);
+  --surface-card: linear-gradient(145deg, rgba(30, 40, 60, 0.8), rgba(15, 20, 30, 0.95));
+  --surface-card-border: rgba(255, 255, 255, 0.04);
+  --surface-card-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  --surface-header: rgba(9, 11, 17, 0.85);
+  --surface-header-border: rgba(255, 255, 255, 0.08);
+  --surface-sidebar: rgba(10, 12, 20, 0.8);
+  --surface-sidebar-border: rgba(255, 255, 255, 0.06);
+  --surface-sidebar-shadow: 0 18px 48px rgba(3, 7, 18, 0.55);
+  --sidebar-toggle-border: rgba(255, 255, 255, 0.04);
+  --sidebar-toggle-background: rgba(6, 10, 20, 0.86);
+  --sidebar-toggle-icon: rgba(255, 255, 255, 0.92);
+  --sidebar-link-color: rgba(226, 232, 240, 0.9);
+  --sidebar-link-hover-bg: rgba(96, 165, 250, 0.12);
+  --sidebar-link-hover-text: #f8fafc;
+  --sidebar-link-active-bg: rgba(96, 165, 250, 0.2);
+  --sidebar-link-active-text: #f8fafc;
+  --sidebar-icon-background: rgba(96, 165, 250, 0.16);
+  --sidebar-icon-color: #93c5fd;
+  --surface-menu: #0f172a;
+  --surface-menu-border: rgba(255, 255, 255, 0.08);
+  --surface-menu-shadow: 0 18px 40px rgba(8, 11, 19, 0.5);
+  --menu-item-hover: rgba(96, 165, 250, 0.15);
+  --menu-button-background: rgba(96, 165, 250, 0.14);
+  --menu-button-border: rgba(255, 255, 255, 0.1);
+  --menu-button-icon: rgba(255, 255, 255, 0.86);
+  --menu-button-hover: rgba(96, 165, 250, 0.2);
+  --theme-toggle-background: rgba(96, 165, 250, 0.16);
+  --theme-toggle-border: rgba(255, 255, 255, 0.1);
+  --theme-toggle-icon: #f8fafc;
+  --theme-toggle-hover: rgba(96, 165, 250, 0.24);
+  --overlay-scrim: rgba(8, 11, 19, 0.55);
+  --surface-table-border: rgba(255, 255, 255, 0.06);
+  --surface-table-inner-border: rgba(255, 255, 255, 0.04);
+  --surface-table-head: rgba(255, 255, 255, 0.05);
+  --surface-table-filter-row: rgba(255, 255, 255, 0.02);
+  --surface-table-hover: rgba(255, 255, 255, 0.03);
+  --surface-table-footer: linear-gradient(90deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  --table-text-primary: rgba(255, 255, 255, 0.85);
+  --total-pill-background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(34, 197, 94, 0.06));
+  --total-pill-text: #dff9ff;
+  --input-background: rgba(10, 14, 23, 0.88);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --input-border-strong: rgba(255, 255, 255, 0.18);
+  --input-placeholder: rgba(148, 163, 184, 0.7);
+  --input-focus-outline: rgba(96, 165, 250, 0.2);
+  --secondary-button-background: rgba(255, 255, 255, 0.05);
+  --secondary-button-border: rgba(255, 255, 255, 0.1);
+  --secondary-button-text: rgba(255, 255, 255, 0.78);
+  --secondary-button-hover: rgba(96, 165, 250, 0.16);
+  --badge-background: rgba(80, 160, 255, 0.1);
+  --badge-text: #61dafb;
+  --badge-soft-background: rgba(255, 255, 255, 0.03);
+  --status-error-background: #fee2e2;
+  --status-error-border: #fecaca;
+  --status-error-text: #7f1d1d;
+  --status-success-background: #dcfce7;
+  --status-success-border: #bbf7d0;
+  --status-success-text: #14532d;
+  --status-loading-background: #dbeafe;
+  --status-loading-border: #bfdbfe;
+  --status-loading-text: #1d4ed8;
+  --auth-card-background: rgba(15, 23, 42, 0.55);
+  --auth-card-border: rgba(255, 255, 255, 0.08);
+  --auth-label: rgba(148, 163, 184, 0.8);
+  --auth-secondary-button-text: rgba(226, 232, 240, 0.8);
+  --auth-secondary-button-border: rgba(255, 255, 255, 0.15);
+  --auth-secondary-button-hover-border: rgba(96, 165, 250, 0.5);
+  --auth-secondary-button-hover-text: #bfdbfe;
+  --link-accent: #93c5fd;
+  --dropdown-background: rgba(9, 13, 22, 0.95);
+  --dropdown-border: rgba(255, 255, 255, 0.12);
+  --dropdown-item-hover: rgba(96, 165, 250, 0.18);
+  --dropdown-shadow: 0 20px 32px rgba(0, 0, 0, 0.45);
+  --footer-text: rgba(226, 232, 240, 0.7);
+  --mobile-close-background: rgba(96, 165, 250, 0.18);
+  --mobile-close-text: rgba(15, 23, 42, 0.92);
+  --mobile-close-hover: rgba(96, 165, 250, 0.26);
+  --section-heading: rgba(148, 163, 184, 0.65);
+  --table-empty-text: rgba(255, 255, 255, 0.6);
+  --placeholder-text: rgba(255, 255, 255, 0.55);
+  --selection-background: rgba(96, 165, 250, 0.35);
+  --selection-text: #f8fafc;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+  --color-text-primary: #0f172a;
+  --color-text-strong: #0f172a;
+  --color-text-muted: rgba(71, 85, 105, 0.8);
+  --color-text-soft: rgba(100, 116, 139, 0.7);
+  --color-text-inverse: #ffffff;
+  --accent-primary: #2563eb;
+  --accent-primary-strong: #1d4ed8;
+  --accent-primary-soft: rgba(59, 130, 246, 0.18);
+  --accent-primary-soft-strong: rgba(59, 130, 246, 0.22);
+  --accent-primary-border: rgba(59, 130, 246, 0.35);
+  --layout-background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  --body-background: radial-gradient(circle at top, rgba(79, 120, 203, 0.12), transparent 55%),
+    radial-gradient(circle at center, rgba(147, 197, 253, 0.18), transparent 60%),
+    #f5f7fb;
+  --surface-main: rgba(255, 255, 255, 0.9);
+  --surface-main-border: rgba(148, 163, 184, 0.2);
+  --surface-main-shadow: 0 18px 38px rgba(15, 23, 42, 0.12);
+  --surface-card: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(237, 242, 255, 0.92));
+  --surface-card-border: rgba(148, 163, 184, 0.18);
+  --surface-card-shadow: 0 18px 36px rgba(15, 23, 42, 0.15);
+  --surface-header: rgba(248, 250, 252, 0.85);
+  --surface-header-border: rgba(148, 163, 184, 0.2);
+  --surface-sidebar: rgba(248, 250, 252, 0.92);
+  --surface-sidebar-border: rgba(148, 163, 184, 0.22);
+  --surface-sidebar-shadow: 0 18px 48px rgba(15, 23, 42, 0.15);
+  --sidebar-toggle-border: rgba(148, 163, 184, 0.3);
+  --sidebar-toggle-background: rgba(241, 245, 249, 0.92);
+  --sidebar-toggle-icon: rgba(30, 41, 59, 0.8);
+  --sidebar-link-color: rgba(51, 65, 85, 0.9);
+  --sidebar-link-hover-bg: rgba(59, 130, 246, 0.14);
+  --sidebar-link-hover-text: #1e293b;
+  --sidebar-link-active-bg: rgba(59, 130, 246, 0.18);
+  --sidebar-link-active-text: #1e293b;
+  --sidebar-icon-background: rgba(59, 130, 246, 0.12);
+  --sidebar-icon-color: #2563eb;
+  --surface-menu: #ffffff;
+  --surface-menu-border: rgba(148, 163, 184, 0.24);
+  --surface-menu-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --menu-item-hover: rgba(59, 130, 246, 0.16);
+  --menu-button-background: rgba(241, 245, 249, 0.95);
+  --menu-button-border: rgba(148, 163, 184, 0.3);
+  --menu-button-icon: rgba(30, 41, 59, 0.8);
+  --menu-button-hover: rgba(59, 130, 246, 0.15);
+  --theme-toggle-background: rgba(59, 130, 246, 0.15);
+  --theme-toggle-border: rgba(148, 163, 184, 0.35);
+  --theme-toggle-icon: #1e293b;
+  --theme-toggle-hover: rgba(59, 130, 246, 0.24);
+  --overlay-scrim: rgba(15, 23, 42, 0.35);
+  --surface-table-border: rgba(148, 163, 184, 0.26);
+  --surface-table-inner-border: rgba(203, 213, 225, 0.6);
+  --surface-table-head: rgba(226, 232, 240, 0.65);
+  --surface-table-filter-row: rgba(226, 232, 240, 0.45);
+  --surface-table-hover: rgba(226, 232, 240, 0.55);
+  --surface-table-footer: linear-gradient(90deg, rgba(226, 232, 240, 0.55), rgba(203, 213, 225, 0.4));
+  --table-text-primary: rgba(30, 41, 59, 0.92);
+  --total-pill-background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(16, 185, 129, 0.14));
+  --total-pill-text: #0f172a;
+  --input-background: rgba(255, 255, 255, 0.95);
+  --input-border: rgba(148, 163, 184, 0.42);
+  --input-border-strong: rgba(148, 163, 184, 0.5);
+  --input-placeholder: rgba(100, 116, 139, 0.7);
+  --input-focus-outline: rgba(59, 130, 246, 0.25);
+  --secondary-button-background: rgba(226, 232, 240, 0.65);
+  --secondary-button-border: rgba(203, 213, 225, 0.9);
+  --secondary-button-text: rgba(30, 41, 59, 0.8);
+  --secondary-button-hover: rgba(148, 163, 184, 0.3);
+  --badge-background: rgba(147, 197, 253, 0.25);
+  --badge-text: #1d4ed8;
+  --badge-soft-background: rgba(148, 163, 184, 0.2);
+  --status-error-background: #fee2e2;
+  --status-error-border: #fecaca;
+  --status-error-text: #7f1d1d;
+  --status-success-background: #dcfce7;
+  --status-success-border: #bbf7d0;
+  --status-success-text: #166534;
+  --status-loading-background: #dbeafe;
+  --status-loading-border: #bfdbfe;
+  --status-loading-text: #1d4ed8;
+  --auth-card-background: rgba(255, 255, 255, 0.9);
+  --auth-card-border: rgba(148, 163, 184, 0.2);
+  --auth-label: rgba(71, 85, 105, 0.8);
+  --auth-secondary-button-text: rgba(51, 65, 85, 0.85);
+  --auth-secondary-button-border: rgba(148, 163, 184, 0.5);
+  --auth-secondary-button-hover-border: rgba(59, 130, 246, 0.45);
+  --auth-secondary-button-hover-text: #1d4ed8;
+  --link-accent: #1d4ed8;
+  --dropdown-background: #ffffff;
+  --dropdown-border: rgba(148, 163, 184, 0.35);
+  --dropdown-item-hover: rgba(59, 130, 246, 0.18);
+  --dropdown-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --footer-text: rgba(71, 85, 105, 0.75);
+  --mobile-close-background: rgba(59, 130, 246, 0.2);
+  --mobile-close-text: rgba(255, 255, 255, 0.95);
+  --mobile-close-hover: rgba(59, 130, 246, 0.28);
+  --section-heading: rgba(100, 116, 139, 0.75);
+  --table-empty-text: rgba(71, 85, 105, 0.7);
+  --placeholder-text: rgba(100, 116, 139, 0.7);
+  --selection-background: rgba(59, 130, 246, 0.25);
+  --selection-text: #0f172a;
 }
 
 * {
@@ -12,10 +212,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, rgba(96, 165, 250, 0.12), transparent 55%),
-    radial-gradient(circle at center, rgba(30, 64, 175, 0.2), transparent 60%),
-    #05070d;
-  color: inherit;
+  background: var(--body-background);
+  color: var(--color-text-primary);
 }
 
 a {
@@ -45,6 +243,6 @@ p {
 }
 
 ::selection {
-  background: rgba(96, 165, 250, 0.35);
-  color: #f8fafc;
+  background: var(--selection-background);
+  color: var(--selection-text);
 }

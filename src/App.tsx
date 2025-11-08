@@ -17,6 +17,7 @@ import {
   fetchIncomeLastYear as apiFetchIncomeLastYear,
 } from './api'
 import { AppDataProvider } from './context/AppDataContext'
+import { ThemeProvider } from './context/ThemeContext'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
@@ -177,8 +178,9 @@ export default function App(): ReactElement {
   )
 
   return (
-    <AppDataProvider value={contextValue}>
-      <div className={styles.appShell}>
+    <ThemeProvider>
+      <AppDataProvider value={contextValue}>
+        <div className={styles.appShell}>
         {status && (
           <div
             className={`${styles.statusBanner} ${
@@ -220,7 +222,8 @@ export default function App(): ReactElement {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
-    </AppDataProvider>
+        </div>
+      </AppDataProvider>
+    </ThemeProvider>
   )
 }
