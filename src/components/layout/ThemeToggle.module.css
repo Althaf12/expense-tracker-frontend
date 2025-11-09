@@ -17,6 +17,7 @@
   box-shadow:
     inset 6px 6px 14px rgba(0, 0, 0, 0.22),
     inset -6px -6px 14px rgba(255, 255, 255, 0.35);
+  overflow: hidden;
   transition:
     background 0.4s ease,
     box-shadow 0.4s ease,
@@ -51,12 +52,12 @@
 }
 
 .iconSun {
-  right: calc(var(--padding) * 3);
+  right: calc(var(--padding) * 4);
   opacity: 1;
 }
 
 .iconMoon {
-  left: calc(var(--padding) * 3);
+  left: calc(var(--padding) * 5);
   opacity: 0.4;
 }
 
@@ -75,7 +76,7 @@
 .knob {
   position: absolute;
   top: 50%;
-  left: calc(var(--padding) * 1.75);
+  left: calc(var(--padding) * 1.8);
   width: calc(var(--knob-size) - (var(--padding) * 2));
   height: calc(var(--knob-size) - (var(--padding) * 2));
   border-radius: 50%;

@@ -8,6 +8,9 @@ import {
   type PropsWithChildren,
   type ReactElement,
 } from 'react'
+import { CssBaseline } from '@mui/material'
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
+import { createAppTheme } from '../theme'
 
 export type Theme = 'light' | 'dark'
 
@@ -89,7 +92,16 @@ export function ThemeProvider({ children }: PropsWithChildren): ReactElement {
     [theme, setTheme, toggleTheme],
   )
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  const muiTheme = useMemo(() => createAppTheme(theme), [theme])
+
+  return (
+    <ThemeContext.Provider value={value}>
+      <MuiThemeProvider theme={muiTheme}>
+        <CssBaseline enableColorScheme />
+        {children}
+      </MuiThemeProvider>
+    </ThemeContext.Provider>
+  )
 }
 
 export const useTheme = (): ThemeContextValue => {

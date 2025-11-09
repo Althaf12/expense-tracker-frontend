@@ -1,3 +1,5 @@
+import Grid from '@mui/material/Grid'
+import { Typography } from '@mui/material'
 import { useEffect, useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
@@ -83,13 +85,15 @@ export default function ResetPassword({ setStatus }: ResetPasswordProps): ReactE
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <h2 className={styles.title}>Reset Password</h2>
+    <Grid container component="section" className={styles.page} direction="column" spacing={0}>
+      <Grid size={12} className={styles.card}>
+        <Typography variant="h4" component="h1" className={styles.title}>
+          Reset Password
+        </Typography>
         {username && (
-          <p className={styles.lead}>
+          <Typography variant="body1" component="p" className={styles.lead}>
             Resetting password for <strong>{username}</strong>
-          </p>
+          </Typography>
         )}
         <form className={styles.form} onSubmit={handleSubmit}>
           {!token && (
@@ -158,7 +162,7 @@ export default function ResetPassword({ setStatus }: ResetPasswordProps): ReactE
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </Grid>
+    </Grid>
   )
 }

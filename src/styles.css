@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  font-size: 62.5%;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --color-text-primary: #e2e8f0;
   --color-text-strong: #f8fafc;

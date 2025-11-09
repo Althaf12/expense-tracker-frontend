@@ -1,9 +1,12 @@
 .sidebar {
   width: 16rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--surface-sidebar);
   border: 1px solid var(--surface-sidebar-border);
-  border-radius: 1rem;
-  padding: 1rem;
+  border-radius: 0;
+  padding: 1.5rem 1.25rem;
   box-shadow: var(--surface-sidebar-shadow);
   transition: width 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
 }
@@ -207,6 +210,9 @@
 @media (max-width: 960px) {
   .sidebar {
     width: 16rem;
+    height: auto;
+    border-radius: 1rem;
+    padding: 1rem;
   }
 
   .collapsed,

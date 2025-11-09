@@ -1,3 +1,5 @@
+import Grid from '@mui/material/Grid'
+import { Typography } from '@mui/material'
 import { ReactElement, useState, type FormEvent } from 'react'
 import { userDetails, fetchExpenses as apiFetchExpenses } from '../../api'
 import { useNavigate } from 'react-router-dom'
@@ -84,9 +86,11 @@ export default function Login({ onLogin, setStatus }: LoginProps): ReactElement 
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <h2 className={styles.title}>Login</h2>
+    <Grid container component="section" className={styles.page} direction="column" spacing={0}>
+      <Grid size={12} className={styles.card}>
+        <Typography variant="h4" component="h1" className={styles.title}>
+          Login
+        </Typography>
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="login-identifier">
@@ -136,7 +140,7 @@ export default function Login({ onLogin, setStatus }: LoginProps): ReactElement 
             Forgot password?
           </button>
         </div>
-      </div>
-    </div>
+      </Grid>
+    </Grid>
   )
 }

@@ -1,13 +1,11 @@
 .page {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  align-items: start;
+  width: min(100%, 1200px);
+  margin: 0 auto;
 }
 
 .card {
   background: var(--surface-card);
-  border-radius: 16px;
+  border-radius: 1rem;
   padding: 1.75rem;
   border: 1px solid var(--surface-card-border);
   box-shadow: var(--surface-card-shadow);
@@ -58,7 +56,7 @@
   gap: 1rem;
   background: var(--badge-soft-background);
   padding: 0.75rem 1rem;
-  border-radius: 12px;
+  border-radius: 0.75rem;
   border: 1px solid var(--surface-table-border);
 }
 
@@ -87,7 +85,7 @@
 .inlineField select,
 .inlineField input {
   height: 2.4rem;
-  border-radius: 10px;
+  border-radius: 0.625rem;
   border: 1px solid var(--input-border);
   background: var(--input-background);
   color: var(--color-text-primary);
@@ -97,7 +95,7 @@
 .primaryButton,
 .secondaryButton {
   border: none;
-  border-radius: 12px;
+  border-radius: 0.75rem;
   padding: 0.65rem 1.4rem;
   font-weight: 600;
   cursor: pointer;
@@ -125,7 +123,7 @@
 }
 
 .tableContainer {
-  border-radius: 16px;
+  border-radius: 1rem;
   border: 1px solid var(--surface-table-border);
   overflow: hidden;
 }
@@ -133,7 +131,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 600px;
+  min-width: 37.5rem;
 }
 
 .table thead {
@@ -174,7 +172,7 @@
 .totalPill {
   background: var(--total-pill-background);
   color: var(--total-pill-text);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   padding: 0.45rem 0.8rem;
   display: inline-block;
   min-width: 6ch;
@@ -210,7 +208,7 @@
   background: transparent;
   border: 1px solid var(--input-border-strong);
   color: var(--color-text-primary);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   padding: 0.35rem 0.75rem;
   cursor: pointer;
   transition: background 0.2s ease;
@@ -251,7 +249,7 @@
 .field input,
 .field select {
   height: 2.6rem;
-  border-radius: 12px;
+  border-radius: 0.75rem;
   border: 1px solid var(--input-border);
   background: var(--input-background);
   color: var(--color-text-primary);
@@ -267,7 +265,7 @@
   overflow-y: auto;
   background: var(--dropdown-background);
   border: 1px solid var(--dropdown-border);
-  border-radius: 12px;
+  border-radius: 0.75rem;
   padding: 0.35rem 0;
   z-index: 10;
   box-shadow: var(--dropdown-shadow);
@@ -311,10 +309,6 @@
 }
 
 @media (max-width: 1200px) {
-  .page {
-    grid-template-columns: 1fr;
-  }
-
   .table {
     min-width: 100%;
   }

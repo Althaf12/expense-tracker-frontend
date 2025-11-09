@@ -1,3 +1,5 @@
+import Grid from '@mui/material/Grid'
+import { Typography } from '@mui/material'
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import {
   fetchExpensesByMonth,
@@ -263,256 +265,290 @@ export default function Dashboard(): ReactElement {
   )
 
   return (
-    <div className={styles.dashboard}>
-      <section className={styles.card} aria-busy={loading}>
-        <header className={styles.cardHeader}>
-          <div>
-            <h2 className={styles.cardTitle}>Current Month Expenses</h2>
-            <p className={styles.cardSubtitle}>{label}</p>
-          </div>
-          <div className={styles.headerActions}>
-            <span className={styles.cardBadge}>{filteredMonthlyExpenses.length} items</span>
-            <Link to="/operations/expenses" className={styles.addButton} aria-label="Add expense">
-              Add Expense
-            </Link>
-          </div>
-        </header>
-        {loading && monthlyExpenses.length === 0 ? (
-          <p className={styles.placeholder}>Loading data…</p>
-        ) : monthlyExpenses.length === 0 ? (
-          <p className={styles.placeholder}>No expenses recorded this month.</p>
-        ) : (
-          <div className={styles.tableContainer}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Expense</th>
-                  <th scope="col" className={styles.numeric}>Amount</th>
-                  <th scope="col">Date</th>
-                </tr>
-                <tr className={styles.tableFilterRow}>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter expense"
-                      value={expenseTableFilters.name}
-                      onChange={(event) => handleExpenseFilterChange('name', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter amount"
-                      value={expenseTableFilters.amount}
-                      onChange={(event) => handleExpenseFilterChange('amount', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <div className={styles.filterControls}>
+    <Grid container component="section" className={styles.dashboard} spacing={3}>
+      <Grid size={{ xs: 12, lg: 8 }}>
+        <section className={styles.card} aria-busy={loading}>
+          <header className={styles.cardHeader}>
+            <div>
+              <Typography variant="h5" component="h2" className={styles.cardTitle}>
+                Current Month Expenses
+              </Typography>
+              <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+                {label}
+              </Typography>
+            </div>
+            <div className={styles.headerActions}>
+              <span className={styles.cardBadge}>{filteredMonthlyExpenses.length} items</span>
+              <Link to="/operations/expenses" className={styles.addButton} aria-label="Add expense">
+                Add Expense
+              </Link>
+            </div>
+          </header>
+          {loading && monthlyExpenses.length === 0 ? (
+            <Typography variant="body2" component="p" className={styles.placeholder}>
+              Loading data…
+            </Typography>
+          ) : monthlyExpenses.length === 0 ? (
+            <Typography variant="body2" component="p" className={styles.placeholder}>
+              No expenses recorded this month.
+            </Typography>
+          ) : (
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Expense</th>
+                    <th scope="col" className={styles.numeric}>Amount</th>
+                    <th scope="col">Date</th>
+                  </tr>
+                  <tr className={styles.tableFilterRow}>
+                    <th scope="col">
                       <input
                         className={styles.tableFilterInput}
                         type="search"
-                        placeholder="Filter date"
-                        value={expenseTableFilters.date}
-                        onChange={(event) => handleExpenseFilterChange('date', event.target.value)}
+                        placeholder="Filter expense"
+                        value={expenseTableFilters.name}
+                        onChange={(event) => handleExpenseFilterChange('name', event.target.value)}
                       />
-                      {expenseFiltersApplied && (
-                        <button type="button" className={styles.clearButton} onClick={clearExpenseFilters}>
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMonthlyExpenses.length === 0 ? (
-                  <tr className={styles.emptyRow}>
-                    <td colSpan={3}>No expenses match the current filters.</td>
-                  </tr>
-                ) : (
-                  filteredMonthlyExpenses.map((expense) => {
-                    const key = String(
-                      expense.expenseId ??
-                        expense.expensesId ??
-                        expense.expenseName ??
-                        expense.description ??
-                        expense.expenseDate,
-                    )
-                    return (
-                      <tr key={key}>
-                        <td>{expense.expenseName ?? expense.description ?? '-'}</td>
-                        <td className={styles.numeric}>{formatAmount(expense.amount ?? expense.expenseAmount)}</td>
-                        <td>{formatDate(expense.expenseDate)}</td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Total</td>
-              <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(monthlyTotal)}</span></td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <h2 className={styles.cardTitle}>Spend by Category</h2>
-            <p className={styles.cardSubtitle}>{label}</p>
-          </div>
-          <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
-        </header>
-        {categorySummary.length === 0 ? (
-          <p className={styles.placeholder}>No category spend recorded.</p>
-        ) : (
-          <div className={styles.tableContainer}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Category</th>
-                  <th scope="col" className={styles.numeric}>Total</th>
-                </tr>
-                <tr className={styles.tableFilterRow}>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter category"
-                      value={categoryTableFilters.name}
-                      onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <div className={styles.filterControls}>
+                    </th>
+                    <th scope="col">
                       <input
                         className={styles.tableFilterInput}
                         type="search"
-                        placeholder="Filter total"
-                        value={categoryTableFilters.total}
-                        onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
+                        placeholder="Filter amount"
+                        value={expenseTableFilters.amount}
+                        onChange={(event) => handleExpenseFilterChange('amount', event.target.value)}
                       />
-                      {categoryFiltersApplied && (
-                        <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCategorySummary.length === 0 ? (
-                  <tr className={styles.emptyRow}>
-                    <td colSpan={2}>No categories match the current filters.</td>
+                    </th>
+                    <th scope="col">
+                      <div className={styles.filterControls}>
+                        <input
+                          className={styles.tableFilterInput}
+                          type="search"
+                          placeholder="Filter date"
+                          value={expenseTableFilters.date}
+                          onChange={(event) => handleExpenseFilterChange('date', event.target.value)}
+                        />
+                        {expenseFiltersApplied && (
+                          <button type="button" className={styles.clearButton} onClick={clearExpenseFilters}>
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </th>
                   </tr>
-                ) : (
-                  filteredCategorySummary.map((entry) => (
-                    <tr key={entry.name}>
-                      <td>{entry.name}</td>
-                      <td className={styles.numeric}>{formatAmount(entry.total)}</td>
+                </thead>
+                <tbody>
+                  {filteredMonthlyExpenses.length === 0 ? (
+                    <tr className={styles.emptyRow}>
+                      <td colSpan={3}>No expenses match the current filters.</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <h2 className={styles.cardTitle}>Previous Month Income</h2>
-            <p className={styles.cardSubtitle}>{incomeMonthLabel}</p>
-          </div>
-          <span className={styles.cardBadge}>{filteredPreviousMonthIncome.length} items</span>
-        </header>
-        {previousMonthIncome.length === 0 ? (
-          <p className={styles.placeholder}>No income recorded for {incomeMonthLabel}.</p>
-        ) : (
-          <div className={styles.tableContainer}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Source</th>
-                  <th scope="col" className={styles.numeric}>Amount</th>
-                  <th scope="col">Received</th>
-                </tr>
-                <tr className={styles.tableFilterRow}>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter source"
-                      value={incomeTableFilters.source}
-                      onChange={(event) => handleIncomeFilterChange('source', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter amount"
-                      value={incomeTableFilters.amount}
-                      onChange={(event) => handleIncomeFilterChange('amount', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <div className={styles.filterControls}>
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter date"
-                        value={incomeTableFilters.date}
-                        onChange={(event) => handleIncomeFilterChange('date', event.target.value)}
-                      />
-                      {incomeFiltersApplied && (
-                        <button type="button" className={styles.clearButton} onClick={clearIncomeFilters}>
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPreviousMonthIncome.length === 0 ? (
-                  <tr className={styles.emptyRow}>
-                    <td colSpan={3}>No income entries match the current filters.</td>
+                  ) : (
+                    filteredMonthlyExpenses.map((expense) => {
+                      const key = String(
+                        expense.expenseId ??
+                          expense.expensesId ??
+                          expense.expenseName ??
+                          expense.description ??
+                          expense.expenseDate,
+                      )
+                      return (
+                        <tr key={key}>
+                          <td>{expense.expenseName ?? expense.description ?? '-'}</td>
+                          <td className={styles.numeric}>{formatAmount(expense.amount ?? expense.expenseAmount)}</td>
+                          <td>{formatDate(expense.expenseDate)}</td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td className={styles.numeric}>
+                      <span className={styles.totalPill}>{formatAmount(monthlyTotal)}</span>
+                    </td>
+                    <td />
                   </tr>
-                ) : (
-                  filteredPreviousMonthIncome.map((income) => {
-                    const key = String(income.incomeId ?? `${income.source ?? 'income'}-${income.receivedDate ?? ''}`)
-                    return (
-                      <tr key={key}>
-                        <td>{income.source ?? '-'}</td>
-                        <td className={styles.numeric}>{formatAmount(income.amount)}</td>
-                        <td>{formatDate(income.receivedDate)}</td>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </section>
+      </Grid>
+      <Grid size={{ xs: 12, lg: 4 }}>
+        <Grid container direction="column" rowSpacing={3} columnSpacing={0}>
+          <Grid size={12}>
+            <section className={styles.card}>
+              <header className={styles.cardHeader}>
+                <div>
+                  <Typography variant="h5" component="h2" className={styles.cardTitle}>
+                    Spend by Category
+                  </Typography>
+                  <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+                    {label}
+                  </Typography>
+                </div>
+                <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
+              </header>
+              {categorySummary.length === 0 ? (
+                <Typography variant="body2" component="p" className={styles.placeholder}>
+                  No category spend recorded.
+                </Typography>
+              ) : (
+                <div className={styles.tableContainer}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th scope="col">Category</th>
+                        <th scope="col" className={styles.numeric}>Total</th>
                       </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            <tfoot>
-              <tr>
-                <td>Total</td>
-                <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(incomeTotal)}</span></td>
-                <td />
-              </tr>
-            </tfoot>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
+                      <tr className={styles.tableFilterRow}>
+                        <th scope="col">
+                          <input
+                            className={styles.tableFilterInput}
+                            type="search"
+                            placeholder="Filter category"
+                            value={categoryTableFilters.name}
+                            onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
+                          />
+                        </th>
+                        <th scope="col">
+                          <div className={styles.filterControls}>
+                            <input
+                              className={styles.tableFilterInput}
+                              type="search"
+                              placeholder="Filter total"
+                              value={categoryTableFilters.total}
+                              onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
+                            />
+                            {categoryFiltersApplied && (
+                              <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCategorySummary.length === 0 ? (
+                        <tr className={styles.emptyRow}>
+                          <td colSpan={2}>No categories match the current filters.</td>
+                        </tr>
+                      ) : (
+                        filteredCategorySummary.map((entry) => (
+                          <tr key={entry.name}>
+                            <td>{entry.name}</td>
+                            <td className={styles.numeric}>{formatAmount(entry.total)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </Grid>
+          <Grid size={12}>
+            <section className={styles.card}>
+              <header className={styles.cardHeader}>
+                <div>
+                  <Typography variant="h5" component="h2" className={styles.cardTitle}>
+                    Previous Month Income
+                  </Typography>
+                  <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+                    {incomeMonthLabel}
+                  </Typography>
+                </div>
+                <span className={styles.cardBadge}>{filteredPreviousMonthIncome.length} items</span>
+              </header>
+              {previousMonthIncome.length === 0 ? (
+                <Typography variant="body2" component="p" className={styles.placeholder}>
+                  No income recorded for {incomeMonthLabel}.
+                </Typography>
+              ) : (
+                <div className={styles.tableContainer}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th scope="col">Source</th>
+                        <th scope="col" className={styles.numeric}>Amount</th>
+                        <th scope="col">Received</th>
+                      </tr>
+                      <tr className={styles.tableFilterRow}>
+                        <th scope="col">
+                          <input
+                            className={styles.tableFilterInput}
+                            type="search"
+                            placeholder="Filter source"
+                            value={incomeTableFilters.source}
+                            onChange={(event) => handleIncomeFilterChange('source', event.target.value)}
+                          />
+                        </th>
+                        <th scope="col">
+                          <input
+                            className={styles.tableFilterInput}
+                            type="search"
+                            placeholder="Filter amount"
+                            value={incomeTableFilters.amount}
+                            onChange={(event) => handleIncomeFilterChange('amount', event.target.value)}
+                          />
+                        </th>
+                        <th scope="col">
+                          <div className={styles.filterControls}>
+                            <input
+                              className={styles.tableFilterInput}
+                              type="search"
+                              placeholder="Filter date"
+                              value={incomeTableFilters.date}
+                              onChange={(event) => handleIncomeFilterChange('date', event.target.value)}
+                            />
+                            {incomeFiltersApplied && (
+                              <button type="button" className={styles.clearButton} onClick={clearIncomeFilters}>
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPreviousMonthIncome.length === 0 ? (
+                        <tr className={styles.emptyRow}>
+                          <td colSpan={3}>No income entries match the current filters.</td>
+                        </tr>
+                      ) : (
+                        filteredPreviousMonthIncome.map((income) => {
+                          const key = String(
+                            income.incomeId ?? `${income.source ?? 'income'}-${income.receivedDate ?? ''}`,
+                          )
+                          return (
+                            <tr key={key}>
+                              <td>{income.source ?? '-'}</td>
+                              <td className={styles.numeric}>{formatAmount(income.amount)}</td>
+                              <td>{formatDate(income.receivedDate)}</td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td>Total</td>
+                        <td className={styles.numeric}>
+                          <span className={styles.totalPill}>{formatAmount(incomeTotal)}</span>
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </section>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Grid>
   )
 }

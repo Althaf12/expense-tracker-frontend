@@ -1,3 +1,5 @@
+import Grid from '@mui/material/Grid'
+import { Typography } from '@mui/material'
 import { useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
@@ -38,10 +40,14 @@ export default function ForgotPassword({ setStatus }: ForgotPasswordProps): Reac
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <h2 className={styles.title}>Forgot password</h2>
-        <p className={styles.lead}>Enter your username or email and we will generate a reset token for you.</p>
+    <Grid container component="section" className={styles.page} direction="column" spacing={0}>
+      <Grid size={12} className={styles.card}>
+        <Typography variant="h4" component="h1" className={styles.title}>
+          Forgot password
+        </Typography>
+        <Typography variant="body1" component="p" className={styles.lead}>
+          Enter your username or email and we will generate a reset token for you.
+        </Typography>
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="forgot-identifier">
@@ -70,7 +76,7 @@ export default function ForgotPassword({ setStatus }: ForgotPasswordProps): Reac
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </Grid>
+    </Grid>
   )
 }

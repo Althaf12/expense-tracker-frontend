@@ -1,3 +1,5 @@
+import Grid from '@mui/material/Grid'
+import { Typography } from '@mui/material'
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income } from '../../types/app'
@@ -344,334 +346,351 @@ export default function IncomeOperations(): ReactElement {
   }
 
   return (
-    <div className={styles.page}>
-      <section className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <h2 className={styles.title}>Income Overview</h2>
-            <p className={styles.subtitle}>Review and manage income entries.</p>
-          </div>
-          <span className={styles.badge}>{filteredResults.length} records</span>
-        </header>
+    <Grid container component="section" className={styles.page} spacing={3}>
+      <Grid size={{ xs: 12, xl: 8 }}>
+        <section className={styles.card}>
+          <header className={styles.cardHeader}>
+            <div>
+              <Typography variant="h5" component="h2" className={styles.title}>
+                Income Overview
+              </Typography>
+              <Typography variant="body2" component="p" className={styles.subtitle}>
+                Review and manage income entries.
+              </Typography>
+            </div>
+            <span className={styles.badge}>{filteredResults.length} records</span>
+          </header>
 
-        <form
-          className={styles.filterRow}
-          onSubmit={(event) => {
-            event.preventDefault()
-            void loadIncomes(viewMode)
-          }}
-        >
-          <div className={styles.modeSelector}>
-            <label>
-              <input
-                type="radio"
-                name="incomeMode"
-                value="current-year"
-                checked={viewMode === 'current-year'}
-                onChange={() => setViewMode('current-year')}
-              />
-              Current year
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="incomeMode"
-                value="month"
-                checked={viewMode === 'month'}
-                onChange={() => setViewMode('month')}
-              />
-              Month
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="incomeMode"
-                value="range"
-                checked={viewMode === 'range'}
-                onChange={() => setViewMode('range')}
-              />
-              Range
-            </label>
-          </div>
-
-          {viewMode === 'month' && (
-            <div className={styles.monthInputs}>
+          <form
+            className={styles.filterRow}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void loadIncomes(viewMode)
+            }}
+          >
+            <div className={styles.modeSelector}>
               <label>
-                <span>Month</span>
-                <select value={monthFilter} onChange={(event) => setMonthFilter(Number(event.target.value))}>
-                  {MONTHS.map((monthName, index) => (
-                    <option key={monthName} value={index + 1}>
-                      {monthName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Year</span>
                 <input
-                  type="number"
-                  value={yearFilter}
-                  min={2000}
-                  max={2100}
-                  onChange={(event) => setYearFilter(Number(event.target.value))}
+                  type="radio"
+                  name="incomeMode"
+                  value="current-year"
+                  checked={viewMode === 'current-year'}
+                  onChange={() => setViewMode('current-year')}
                 />
-              </label>
-            </div>
-          )}
-
-          {viewMode === 'range' && (
-            <div className={styles.rangeInputs}>
-              <label>
-                <span>Start</span>
-                <input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} />
+                Current year
               </label>
               <label>
-                <span>End</span>
-                <input type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
+                <input
+                  type="radio"
+                  name="incomeMode"
+                  value="month"
+                  checked={viewMode === 'month'}
+                  onChange={() => setViewMode('month')}
+                />
+                Month
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="incomeMode"
+                  value="range"
+                  checked={viewMode === 'range'}
+                  onChange={() => setViewMode('range')}
+                />
+                Range
               </label>
             </div>
-          )}
 
-          <button className={styles.primaryButton} type="submit" disabled={loading}>
-            {loading ? 'Loading…' : 'Load Income'}
-          </button>
-        </form>
+            {viewMode === 'month' && (
+              <div className={styles.monthInputs}>
+                <label>
+                  <span>Month</span>
+                  <select value={monthFilter} onChange={(event) => setMonthFilter(Number(event.target.value))}>
+                    {MONTHS.map((monthName, index) => (
+                      <option key={monthName} value={index + 1}>
+                        {monthName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Year</span>
+                  <input
+                    type="number"
+                    value={yearFilter}
+                    min={2000}
+                    max={2100}
+                    onChange={(event) => setYearFilter(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+            )}
 
-        <div className={styles.tableContainer}>
-          {results.length === 0 ? (
-            <p className={styles.placeholder}>{loading ? 'Loading data…' : 'No income entries to display.'}</p>
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Source</th>
-                  <th scope="col" className={styles.numeric}>Amount</th>
-                  <th scope="col">Received</th>
-                  <th scope="col">Month</th>
-                  <th scope="col">Year</th>
-                  <th scope="col" className={styles.actions}>Actions</th>
-                </tr>
-                <tr className={styles.tableFilterRow}>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter source"
-                      value={tableFilters.source}
-                      onChange={(event) => handleFilterChange('source', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter amount"
-                      value={tableFilters.amount}
-                      onChange={(event) => handleFilterChange('amount', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter date"
-                      value={tableFilters.date}
-                      onChange={(event) => handleFilterChange('date', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter month"
-                      value={tableFilters.month}
-                      onChange={(event) => handleFilterChange('month', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col">
-                    <input
-                      className={styles.tableFilterInput}
-                      type="search"
-                      placeholder="Filter year"
-                      value={tableFilters.year}
-                      onChange={(event) => handleFilterChange('year', event.target.value)}
-                    />
-                  </th>
-                  <th scope="col" className={styles.actions}>
-                    {filtersApplied && (
-                      <button type="button" onClick={clearFilters}>
-                        Clear
-                      </button>
-                    )}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredResults.length === 0 ? (
-                  <tr className={styles.emptyRow}>
-                    <td colSpan={6}>No income entries match the current filters.</td>
+            {viewMode === 'range' && (
+              <div className={styles.rangeInputs}>
+                <label>
+                  <span>Start</span>
+                  <input type="date" value={rangeStart} onChange={(event) => setRangeStart(event.target.value)} />
+                </label>
+                <label>
+                  <span>End</span>
+                  <input type="date" value={rangeEnd} onChange={(event) => setRangeEnd(event.target.value)} />
+                </label>
+              </div>
+            )}
+
+            <button className={styles.primaryButton} type="submit" disabled={loading}>
+              {loading ? 'Loading…' : 'Load Income'}
+            </button>
+          </form>
+
+          <div className={styles.tableContainer}>
+            {results.length === 0 ? (
+              <Typography variant="body2" component="p" className={styles.placeholder}>
+                {loading ? 'Loading data…' : 'No income entries to display.'}
+              </Typography>
+            ) : (
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Source</th>
+                    <th scope="col" className={styles.numeric}>Amount</th>
+                    <th scope="col">Received</th>
+                    <th scope="col">Month</th>
+                    <th scope="col">Year</th>
+                    <th scope="col" className={styles.actions}>Actions</th>
                   </tr>
-                ) : (
-                  filteredResults.map((income) => {
-                    const key = ensureIncomeId(income)
-                    const isEditing = editingRowId === key
-                    const draft = isEditing ? editingRowDraft : null
-                    const draftSource = draft?.source ?? income.source ?? ''
-                    const draftAmount = draft?.amount ?? String(income.amount ?? '')
-                    const draftDate = draft?.receivedDate ?? (income.receivedDate ? String(income.receivedDate).slice(0, 10) : '')
-                    const derived = draftDate ? deriveMonthYear(draftDate) : null
-                    const fallbackDerived = income.receivedDate ? deriveMonthYear(String(income.receivedDate)) : null
-                    const normalizedMonth =
-                      typeof income.month === 'number'
-                        ? MONTHS[income.month - 1] ?? String(income.month)
-                        : income.month
-                    const monthDisplay = derived?.monthName ?? normalizedMonth ?? fallbackDerived?.monthName ?? '-'
-                    const yearDisplay = derived?.year ?? income.year ?? fallbackDerived?.year ?? ''
+                  <tr className={styles.tableFilterRow}>
+                    <th scope="col">
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter source"
+                        value={tableFilters.source}
+                        onChange={(event) => handleFilterChange('source', event.target.value)}
+                      />
+                    </th>
+                    <th scope="col">
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter amount"
+                        value={tableFilters.amount}
+                        onChange={(event) => handleFilterChange('amount', event.target.value)}
+                      />
+                    </th>
+                    <th scope="col">
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter date"
+                        value={tableFilters.date}
+                        onChange={(event) => handleFilterChange('date', event.target.value)}
+                      />
+                    </th>
+                    <th scope="col">
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter month"
+                        value={tableFilters.month}
+                        onChange={(event) => handleFilterChange('month', event.target.value)}
+                      />
+                    </th>
+                    <th scope="col">
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter year"
+                        value={tableFilters.year}
+                        onChange={(event) => handleFilterChange('year', event.target.value)}
+                      />
+                    </th>
+                    <th scope="col" className={styles.actions}>
+                      {filtersApplied && (
+                        <button type="button" onClick={clearFilters}>
+                          Clear
+                        </button>
+                      )}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredResults.length === 0 ? (
+                    <tr className={styles.emptyRow}>
+                      <td colSpan={6}>No income entries match the current filters.</td>
+                    </tr>
+                  ) : (
+                    filteredResults.map((income) => {
+                      const key = ensureIncomeId(income)
+                      const isEditing = editingRowId === key
+                      const draft = isEditing ? editingRowDraft : null
+                      const draftSource = draft?.source ?? income.source ?? ''
+                      const draftAmount = draft?.amount ?? String(income.amount ?? '')
+                      const draftDate =
+                        draft?.receivedDate ?? (income.receivedDate ? String(income.receivedDate).slice(0, 10) : '')
+                      const derived = draftDate ? deriveMonthYear(draftDate) : null
+                      const fallbackDerived = income.receivedDate ? deriveMonthYear(String(income.receivedDate)) : null
+                      const normalizedMonth =
+                        typeof income.month === 'number'
+                          ? MONTHS[income.month - 1] ?? String(income.month)
+                          : income.month
+                      const monthDisplay = derived?.monthName ?? normalizedMonth ?? fallbackDerived?.monthName ?? '-'
+                      const yearDisplay = derived?.year ?? income.year ?? fallbackDerived?.year ?? ''
 
-                    return (
-                      <tr key={key}>
-                        <td>
-                          {isEditing ? (
-                            <input
-                              className={styles.inlineInput}
-                              type="text"
-                              value={draftSource}
-                              onChange={(event) => updateInlineDraft('source', event.target.value)}
-                            />
-                          ) : (
-                            draftSource || '-'
-                          )}
-                        </td>
-                        <td className={styles.numeric}>
-                          {isEditing ? (
-                            <input
-                              className={styles.inlineInput}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={draftAmount}
-                              onChange={(event) => updateInlineDraft('amount', event.target.value)}
-                            />
-                          ) : (
-                            formatAmount(income.amount)
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <input
-                              className={styles.inlineInput}
-                              type="date"
-                              value={draftDate}
-                              onChange={(event) => updateInlineDraft('receivedDate', event.target.value)}
-                            />
-                          ) : (
-                            formatDate(income.receivedDate)
-                          )}
-                        </td>
-                        <td>{monthDisplay}</td>
-                        <td>{yearDisplay}</td>
-                        <td className={styles.actions}>
-                          {isEditing ? (
-                            <>
-                              <button type="button" onClick={() => void confirmInlineEdit(income)}>
-                                Confirm
-                              </button>
-                              <button type="button" onClick={cancelInlineEdit}>
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button type="button" onClick={() => startInlineEdit(income)}>
-                                Edit
-                              </button>
-                              <button type="button" onClick={() => void handleDelete(income)}>
-                                Delete
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Total</td>
-              <td className={styles.numeric}><span className={styles.totalPill}>{formatAmount(totalIncome)}</span></td>
-                  <td colSpan={4} />
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </div>
-      </section>
-
-      <section className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <h2 className={styles.title}>Add Income</h2>
-            <p className={styles.subtitle}>Capture a new income item.</p>
+                      return (
+                        <tr key={key}>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className={styles.inlineInput}
+                                type="text"
+                                value={draftSource}
+                                onChange={(event) => updateInlineDraft('source', event.target.value)}
+                              />
+                            ) : (
+                              draftSource || '-'
+                            )}
+                          </td>
+                          <td className={styles.numeric}>
+                            {isEditing ? (
+                              <input
+                                className={styles.inlineInput}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={draftAmount}
+                                onChange={(event) => updateInlineDraft('amount', event.target.value)}
+                              />
+                            ) : (
+                              formatAmount(income.amount)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className={styles.inlineInput}
+                                type="date"
+                                value={draftDate}
+                                onChange={(event) => updateInlineDraft('receivedDate', event.target.value)}
+                              />
+                            ) : (
+                              formatDate(income.receivedDate)
+                            )}
+                          </td>
+                          <td>{monthDisplay}</td>
+                          <td>{yearDisplay}</td>
+                          <td className={styles.actions}>
+                            {isEditing ? (
+                              <>
+                                <button type="button" onClick={() => void confirmInlineEdit(income)}>
+                                  Confirm
+                                </button>
+                                <button type="button" onClick={cancelInlineEdit}>
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button type="button" onClick={() => startInlineEdit(income)}>
+                                  Edit
+                                </button>
+                                <button type="button" onClick={() => void handleDelete(income)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td className={styles.numeric}>
+                      <span className={styles.totalPill}>{formatAmount(totalIncome)}</span>
+                    </td>
+                    <td colSpan={4} />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
           </div>
-        </header>
+        </section>
+      </Grid>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <label className={styles.field}>
-            <span>Source</span>
-            <input
-              list="income-source-suggestions"
-              value={formState.source}
-              onChange={(event) => setFormState((previous) => ({ ...previous, source: event.target.value }))}
-              placeholder="Salary, Freelance, Rent..."
-              autoComplete="off"
-              required
-            />
-            <datalist id="income-source-suggestions">
-              {sourceSuggestions.map((source) => (
-                <option key={source} value={source} />
-              ))}
-            </datalist>
-          </label>
+      <Grid size={{ xs: 12, xl: 4 }}>
+        <section className={styles.card}>
+          <header className={styles.cardHeader}>
+            <div>
+              <Typography variant="h5" component="h2" className={styles.title}>
+                Add Income
+              </Typography>
+              <Typography variant="body2" component="p" className={styles.subtitle}>
+                Capture a new income item.
+              </Typography>
+            </div>
+          </header>
 
-          <label className={styles.field}>
-            <span>Amount</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formState.amount}
-              onChange={(event) => setFormState((previous) => ({ ...previous, amount: event.target.value }))}
-              required
-            />
-          </label>
+          <form className={styles.form} onSubmit={handleSubmit}>
+            <label className={styles.field}>
+              <span>Source</span>
+              <input
+                list="income-source-suggestions"
+                value={formState.source}
+                onChange={(event) => setFormState((previous) => ({ ...previous, source: event.target.value }))}
+                placeholder="Salary, Freelance, Rent..."
+                autoComplete="off"
+                required
+              />
+              <datalist id="income-source-suggestions">
+                {sourceSuggestions.map((source) => (
+                  <option key={source} value={source} />
+                ))}
+              </datalist>
+            </label>
 
-          <label className={styles.field}>
-            <span>Received Date</span>
-            <input
-              type="date"
-              value={formState.receivedDate}
-              onChange={(event) => setFormState((previous) => ({ ...previous, receivedDate: event.target.value }))}
-              required
-            />
-          </label>
+            <label className={styles.field}>
+              <span>Amount</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formState.amount}
+                onChange={(event) => setFormState((previous) => ({ ...previous, amount: event.target.value }))}
+                required
+              />
+            </label>
 
-          <div className={styles.formActions}>
-            <button className={styles.primaryButton} type="submit">
-              Add Income
-            </button>
-            <button
-              className={styles.secondaryButton}
-              type="button"
-              onClick={() => {
-                setFormState(initialForm)
-              }}
-            >
-              Clear
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+            <label className={styles.field}>
+              <span>Received Date</span>
+              <input
+                type="date"
+                value={formState.receivedDate}
+                onChange={(event) => setFormState((previous) => ({ ...previous, receivedDate: event.target.value }))}
+                required
+              />
+            </label>
+
+            <div className={styles.formActions}>
+              <button className={styles.primaryButton} type="submit">
+                Add Income
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                onClick={() => {
+                  setFormState(initialForm)
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </form>
+        </section>
+      </Grid>
+    </Grid>
   )
 }

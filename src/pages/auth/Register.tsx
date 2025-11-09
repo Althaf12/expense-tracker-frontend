@@ -1,3 +1,5 @@
+import Grid from '@mui/material/Grid'
+import { Typography } from '@mui/material'
 import { useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
@@ -35,9 +37,11 @@ export default function Register({ setStatus }: RegisterProps): ReactElement {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <h2 className={styles.title}>Register</h2>
+    <Grid container component="section" className={styles.page} direction="column" spacing={0}>
+      <Grid size={12} className={styles.card}>
+        <Typography variant="h4" component="h1" className={styles.title}>
+          Register
+        </Typography>
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="register-username">
@@ -92,7 +96,7 @@ export default function Register({ setStatus }: RegisterProps): ReactElement {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </Grid>
+    </Grid>
   )
 }
