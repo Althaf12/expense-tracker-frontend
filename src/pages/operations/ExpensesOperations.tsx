@@ -525,7 +525,7 @@ export default function ExpensesOperations(): ReactElement {
                     <th scope="col">Expense</th>
                     <th scope="col">Category</th>
                     <th scope="col" className={styles.numeric}>Amount</th>
-                    <th scope="col">Date</th>
+                    <th scope="col" className={styles.date}>Date</th>
                     <th scope="col" className={styles.actions}>Actions</th>
                   </tr>
                   <tr className={styles.tableFilterRow}>
@@ -565,7 +565,7 @@ export default function ExpensesOperations(): ReactElement {
                         onChange={(event) => handleFilterChange('date', event.target.value)}
                       />
                     </th>
-                    <th scope="col" className={styles.actions}>
+                    <th scope="col">
                       {filtersApplied && (
                         <button type="button" onClick={clearFilters}>
                           Clear

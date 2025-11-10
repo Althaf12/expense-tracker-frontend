@@ -5,7 +5,7 @@
 
 .card {
   background: var(--surface-card);
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   padding: 1.75rem;
   border: 1px solid var(--surface-card-border);
   box-shadow: var(--surface-card-shadow);
@@ -105,7 +105,7 @@
 .primaryButton {
   background: linear-gradient(135deg, #60a5fa, #2563eb);
   color: var(--color-text-inverse);
-  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 2.5px 5px rgba(37, 99, 235, 0.35);
 }
 
 .primaryButton:hover {
@@ -123,15 +123,15 @@
 }
 
 .tableContainer {
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   border: 1px solid var(--surface-table-border);
-  overflow: hidden;
+  overflow: scroll;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 37.5rem;
+  min-width: 1rem;
 }
 
 .table thead {
@@ -197,11 +197,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+.date {
+  text-align: center;
+  justify-content: center;
+}
+
 .actions {
-  text-align: right;
+  text-align: center;
   display: flex;
   gap: 0.5rem;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .actions button {

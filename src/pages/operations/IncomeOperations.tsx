@@ -506,7 +506,7 @@ export default function IncomeOperations(): ReactElement {
                         onChange={(event) => handleFilterChange('year', event.target.value)}
                       />
                     </th>
-                    <th scope="col" className={styles.actions}>
+                    <th scope="col">
                       {filtersApplied && (
                         <button type="button" onClick={clearFilters}>
                           Clear

@@ -23,10 +23,11 @@
 }
 
 .sidebarWrapper {
+
   display: flex;
   flex-shrink: 0;
   align-self: stretch;
-  height: 100%;
+  height: -webkit-fill-available;
 }
 
 .sidebarWrapperMobile {

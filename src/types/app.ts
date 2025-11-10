@@ -1,42 +1,35 @@
+export type SessionData = {
+  username: string
+  // other session properties may exist
+}
+
+export type StatusMessage = {
+  type: 'loading' | 'error' | 'success' | 'info'
+  message: string
+}
+
 export type Expense = {
-  expenseId?: string | number
   expensesId?: string | number
-  username?: string
-  expenseCategoryId?: string | number
+  expenseId?: string | number
   expenseName?: string
   description?: string
-  expenseAmount?: number
-  amount?: number
+  expenseCategoryId?: string | number
+  expenseCategoryName?: string
+  amount?: number | string
+  expenseAmount?: number | string
   expenseDate?: string
-  lastUpdateTmstp?: string
-  [key: string]: unknown
 }
 
 export type ExpenseCategory = {
   expenseCategoryId: string | number
   expenseCategoryName: string
-  lastUpdateTmstp?: string | null
 }
 
 export type Income = {
   incomeId?: string | number
-  username?: string
   source?: string
-  amount?: number
+  amount?: number | string
   receivedDate?: string
-  lastUpdateTmstp?: string
-  month?: string | number
+  month?: number | string
   year?: number
-  [key: string]: unknown
-}
-
-export type SessionData = {
-  username: string
-  identifier?: string
-  user?: Record<string, unknown>
-}
-
-export type StatusMessage = {
-  type: 'loading' | 'error' | 'success'
-  message: string
 }
