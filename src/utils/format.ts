@@ -30,7 +30,17 @@ export const formatAmount = (value: unknown): string => {
   if (!Number.isFinite(parsed)) {
     return typeof value === 'string' ? value : '-'
   }
-  return parsed.toFixed(2)
+  // Use Indian number formatting (lakhs/crores) with two decimal places and grouping commas,
+  // e.g. 152000 -> "1,52,000.00"
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(parsed)
+  } catch {
+    // Fallback
+    return parsed.toFixed(2)
+  }
 }
 
 export const parseAmount = (value: unknown): number => {
