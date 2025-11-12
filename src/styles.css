@@ -1,7 +1,8 @@
 :root {
   color-scheme: dark;
-  /* Increased by 25% from previous 62.5% to 78.125% to scale rem-based sizes up */
-  font-size: 78.125%;
+  /* Increased by 10% from previous value to make UI text slightly larger across the app */
+  /* Previous: 58.59375% -> New: 64.453125% (approx) */
+  font-size: 64.453125%;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --color-text-primary: #e2e8f0;
   --color-text-strong: #f8fafc;

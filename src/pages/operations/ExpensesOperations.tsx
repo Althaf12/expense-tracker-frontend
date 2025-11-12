@@ -9,7 +9,7 @@ import {
   fetchExpensesByRange,
   updateExpense,
 } from '../../api'
-import type { Expense } from '../../types/app'
+import type { Expense, UserExpenseCategory } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate, parseAmount } from '../../utils/format'
 import styles from './ExpensesOperations.module.css'
@@ -27,6 +27,7 @@ type ExpenseFormState = {
 type InlineEditDraft = {
   expenseName: string
   expenseCategoryId: string
+  expenseCategoryName: string
   expenseAmount: string
   expenseDate: string
 }
@@ -73,6 +74,40 @@ const getAmount = (expense: Expense): number => {
   return typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0
 }
 
+type ExpenseWithUserCategory = Expense & {
+  userExpenseCategoryId?: string | number
+  userExpenseCategoryName?: string
+}
+
+const extractExpenseCategoryId = (expense: ExpenseWithUserCategory): string => {
+  const raw =
+    expense.expenseCategoryId ??
+    expense.userExpenseCategoryId ??
+    (expense as Expense & { categoryId?: string | number }).categoryId
+  if (raw === undefined || raw === null) {
+    return ''
+  }
+  const text = String(raw).trim()
+  return text
+}
+
+const extractExpenseCategoryName = (
+  expense: ExpenseWithUserCategory,
+  categories: UserExpenseCategory[],
+): string => {
+  const explicit =
+    expense.userExpenseCategoryName ??
+    expense.expenseCategoryName ??
+    (expense as Expense & { categoryName?: string }).categoryName
+  if (explicit && explicit.trim().length > 0) {
+    return explicit
+  }
+  const id = extractExpenseCategoryId(expense)
+  if (!id) return ''
+  const match = categories.find((category) => String(category.userExpenseCategoryId) === id)
+  return match?.userExpenseCategoryName ?? ''
+}
+
 export default function ExpensesOperations(): ReactElement {
   const {
     session,
@@ -96,13 +131,31 @@ export default function ExpensesOperations(): ReactElement {
   const [editingRowDraft, setEditingRowDraft] = useState<InlineEditDraft | null>(null)
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState<boolean>(false)
   const categoryFieldRef = useRef<HTMLLabelElement | null>(null)
+  const inlineCategoryFieldRef = useRef<HTMLDivElement | null>(null)
+  const [editingCategoryDropdownOpen, setEditingCategoryDropdownOpen] = useState<boolean>(false)
   const [tableFilters, setTableFilters] = useState<TableFilters>({ expenseName: '', category: '', amount: '', date: '' })
 
   useEffect(() => {
     if (!session) return
-    void ensureExpenseCategories()
-    void reloadExpensesCache(session.username)
-  }, [session, ensureExpenseCategories, reloadExpensesCache])
+
+    const now = new Date()
+    const defaultMonth = now.getMonth() + 1
+    const defaultYear = now.getFullYear()
+
+    setSelectedMonth(defaultMonth)
+    setSelectedYear(defaultYear)
+
+    // Always refresh categories from API before loading expenses for defaults
+    void (async () => {
+      await ensureExpenseCategories()
+      await reloadExpensesCache(session.username)
+      await loadExpenses('month', {
+        month: defaultMonth,
+        year: defaultYear,
+      })
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   useEffect(() => {
     if (!categoryDropdownOpen) return
@@ -120,22 +173,87 @@ export default function ExpensesOperations(): ReactElement {
   }, [categoryDropdownOpen])
 
   useEffect(() => {
-    if (!session) return
-    void loadExpenses('month', {
-      username: session.username,
-      month: selectedMonth,
-      year: selectedYear,
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
+    if (!editingCategoryDropdownOpen) return
+
+    const handleClickAway = (event: MouseEvent) => {
+      if (inlineCategoryFieldRef.current && !inlineCategoryFieldRef.current.contains(event.target as Node)) {
+        setEditingCategoryDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickAway)
+    return () => {
+      document.removeEventListener('mousedown', handleClickAway)
+    }
+  }, [editingCategoryDropdownOpen])
+
+  useEffect(() => {
+    if (!editingRowId) {
+      setEditingCategoryDropdownOpen(false)
+    }
+  }, [editingRowId])
+
+  useEffect(() => {
+    const selectedCategoryId = formState.expenseCategoryId
+    if (!selectedCategoryId) {
+      return
+    }
+
+    const match = expenseCategories.find(
+      (category) => String(category.userExpenseCategoryId) === String(selectedCategoryId),
+    )
+
+    if (!match) {
+      setFormState((previous) => ({
+        ...previous,
+        expenseCategoryId: '',
+        categoryName: '',
+      }))
+      return
+    }
+
+    if (formState.categoryName !== match.userExpenseCategoryName) {
+      setFormState((previous) => ({
+        ...previous,
+        categoryName: match.userExpenseCategoryName,
+      }))
+    }
+  }, [expenseCategories, formState.expenseCategoryId, formState.categoryName])
+
+  const editingCategoryId = editingRowDraft?.expenseCategoryId ?? ''
+
+  useEffect(() => {
+    if (!editingCategoryId) {
+      return
+    }
+
+    const exists = expenseCategories.some(
+      (category) => String(category.userExpenseCategoryId) === String(editingCategoryId),
+    )
+
+    if (!exists) {
+      setEditingRowDraft((previous) =>
+        previous ? { ...previous, expenseCategoryId: '', expenseCategoryName: '' } : previous,
+      )
+    }
+  }, [expenseCategories, editingCategoryId])
 
   const categorySuggestions = useMemo(() => {
     const query = formState.categoryName.trim().toLowerCase()
     if (!query) return expenseCategories
     return expenseCategories.filter((category) =>
-      category.expenseCategoryName.toLowerCase().includes(query),
+      category.userExpenseCategoryName.toLowerCase().includes(query),
     )
   }, [formState.categoryName, expenseCategories])
+
+  const editingCategorySuggestions = useMemo(() => {
+    if (!editingRowDraft) return expenseCategories
+    const query = editingRowDraft.expenseCategoryName.trim().toLowerCase()
+    if (!query) return expenseCategories
+    return expenseCategories.filter((category) =>
+      category.userExpenseCategoryName.toLowerCase().includes(query),
+    )
+  }, [editingRowDraft, expenseCategories])
 
   const expenseSuggestions = useMemo(() => {
     const query = formState.expenseName.trim().toLowerCase()
@@ -148,6 +266,22 @@ export default function ExpensesOperations(): ReactElement {
     })
     return Array.from(unique).slice(0, 10)
   }, [formState.expenseName, expensesCache])
+
+  const syncInlineCategoryName = (value: string) => {
+    const normalized = value.trim().toLowerCase()
+    const match = expenseCategories.find(
+      (category) => category.userExpenseCategoryName.toLowerCase() === normalized,
+    )
+    setEditingRowDraft((previous) =>
+      previous
+        ? {
+            ...previous,
+            expenseCategoryName: value,
+            expenseCategoryId: match ? String(match.userExpenseCategoryId) : '',
+          }
+        : previous,
+    )
+  }
 
   const loadExpenses = async (mode: ViewMode, payload?: Record<string, unknown>) => {
     if (!session) return
@@ -192,12 +326,12 @@ export default function ExpensesOperations(): ReactElement {
 
   const syncFormCategory = (value: string) => {
     const match = expenseCategories.find(
-      (category) => category.expenseCategoryName.toLowerCase() === value.toLowerCase(),
+      (category) => category.userExpenseCategoryName.toLowerCase() === value.toLowerCase(),
     )
     setFormState((previous) => ({
       ...previous,
-      categoryName: match ? match.expenseCategoryName : value,
-      expenseCategoryId: match ? String(match.expenseCategoryId) : '',
+      categoryName: match ? match.userExpenseCategoryName : value,
+      expenseCategoryId: match ? String(match.userExpenseCategoryId) : '',
     }))
   }
 
@@ -226,11 +360,9 @@ export default function ExpensesOperations(): ReactElement {
 
     return results.filter((expense) => {
       const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
-      const explicitCategory = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
-      const categoryMatch = expenseCategories.find(
-        (entry) => String(entry.expenseCategoryId) === String(expense.expenseCategoryId),
-      )
-      const categoryName = (explicitCategory ?? categoryMatch?.expenseCategoryName ?? 'Uncategorised').toLowerCase()
+      const derivedCategoryName =
+        extractExpenseCategoryName(expense as ExpenseWithUserCategory, expenseCategories) || 'Uncategorised'
+      const categoryName = derivedCategoryName.toLowerCase()
 
       const numericAmount = getAmount(expense)
       const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
@@ -263,29 +395,26 @@ export default function ExpensesOperations(): ReactElement {
 
   const startInlineEdit = (expense: Expense) => {
     const key = ensureId(expense)
-    let derivedCategoryId = String(expense.expenseCategoryId ?? '')
-    if (!derivedCategoryId) {
-      const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
-      if (explicitName) {
-        const match = expenseCategories.find((category) => category.expenseCategoryName === explicitName)
-        if (match) {
-          derivedCategoryId = String(match.expenseCategoryId)
-        }
-      }
-    }
+    const derivedCategoryId = extractExpenseCategoryId(expense as ExpenseWithUserCategory)
+    const derivedCategoryName =
+      extractExpenseCategoryName(expense as ExpenseWithUserCategory, expenseCategories) ||
+      (derivedCategoryId ? '' : 'Uncategorised')
 
     setEditingRowId(key)
     setEditingRowDraft({
       expenseName: (expense.expenseName ?? expense.description ?? '').toString(),
       expenseCategoryId: derivedCategoryId,
+      expenseCategoryName: derivedCategoryName,
       expenseAmount: String(expense.amount ?? expense.expenseAmount ?? ''),
       expenseDate: (expense.expenseDate ?? '').slice(0, 10),
     })
+    setEditingCategoryDropdownOpen(false)
   }
 
   const cancelInlineEdit = () => {
     setEditingRowId(null)
     setEditingRowDraft(null)
+    setEditingCategoryDropdownOpen(false)
   }
 
   const updateInlineDraft = (
@@ -582,12 +711,8 @@ export default function ExpensesOperations(): ReactElement {
                   ) : (
                     filteredResults.map((expense) => {
                       const key = ensureId(expense)
-                      const category = expenseCategories.find(
-                        (entry) => String(entry.expenseCategoryId) === String(expense.expenseCategoryId),
-                      )
                       const displayCategory =
-                        (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName ??
-                        category?.expenseCategoryName ??
+                        extractExpenseCategoryName(expense as ExpenseWithUserCategory, expenseCategories) ||
                         'Uncategorised'
                       const isEditing = editingRowId === key
                       const draft = isEditing ? editingRowDraft : null
@@ -608,18 +733,51 @@ export default function ExpensesOperations(): ReactElement {
                           </td>
                           <td>
                             {isEditing ? (
-                              <select
-                                className={styles.inlineSelect}
-                                value={draft?.expenseCategoryId ?? ''}
-                                onChange={(event) => updateInlineDraft('expenseCategoryId', event.target.value)}
+                              <div
+                                className={styles.inlineDropdownField}
+                                ref={isEditing ? inlineCategoryFieldRef : null}
                               >
-                                <option value="">Select…</option>
-                                {expenseCategories.map((entry) => (
-                                  <option key={entry.expenseCategoryId} value={entry.expenseCategoryId}>
-                                    {entry.expenseCategoryName}
-                                  </option>
-                                ))}
-                              </select>
+                                <input
+                                  className={styles.inlineInput}
+                                  value={draft?.expenseCategoryName ?? ''}
+                                  onChange={(event) => {
+                                    setEditingCategoryDropdownOpen(true)
+                                    syncInlineCategoryName(event.target.value)
+                                  }}
+                                  onFocus={() => setEditingCategoryDropdownOpen(true)}
+                                  placeholder="Category"
+                                  autoComplete="off"
+                                />
+                                {editingCategoryDropdownOpen && editingRowId === key && (
+                                  <ul className={styles.dropdownList} role="listbox">
+                                    {editingCategorySuggestions.length === 0 ? (
+                                      <li className={styles.dropdownEmpty}>No categories found</li>
+                                    ) : (
+                                      editingCategorySuggestions.map((category) => (
+                                        <li
+                                          key={category.userExpenseCategoryId}
+                                          className={styles.dropdownItem}
+                                          onMouseDown={(event) => {
+                                            event.preventDefault()
+                                            setEditingCategoryDropdownOpen(false)
+                                            setEditingRowDraft((previous) =>
+                                              previous
+                                                ? {
+                                                    ...previous,
+                                                    expenseCategoryId: String(category.userExpenseCategoryId),
+                                                    expenseCategoryName: category.userExpenseCategoryName,
+                                                  }
+                                                : previous,
+                                            )
+                                          }}
+                                        >
+                                          {category.userExpenseCategoryName}
+                                        </li>
+                                      ))
+                                    )}
+                                  </ul>
+                                )}
+                              </div>
                             ) : (
                               displayCategory
                             )}
@@ -743,15 +901,15 @@ export default function ExpensesOperations(): ReactElement {
                   ) : (
                     categorySuggestions.map((category) => (
                       <li
-                        key={category.expenseCategoryId}
+                        key={category.userExpenseCategoryId}
                         className={styles.dropdownItem}
                         onMouseDown={(event) => {
                           event.preventDefault()
-                          syncFormCategory(category.expenseCategoryName)
+                          syncFormCategory(category.userExpenseCategoryName)
                           setCategoryDropdownOpen(false)
                         }}
                       >
-                        {category.expenseCategoryName}
+                        {category.userExpenseCategoryName}
                       </li>
                     ))
                   )}

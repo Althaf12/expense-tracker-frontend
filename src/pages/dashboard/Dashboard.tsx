@@ -6,7 +6,7 @@ import {
   fetchIncomeByMonth,
 } from '../../api'
 import { Link } from 'react-router-dom'
-import type { Expense, ExpenseCategory, Income } from '../../types/app'
+import type { Expense, UserExpenseCategory, Income } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate } from '../../utils/format'
 import styles from './Dashboard.module.css'
@@ -95,19 +95,19 @@ const calculateTrend = (current: number, previous: number, preferHigher: boolean
   }
 }
 
-const buildCategorySummary = (expenses: Expense[], categories: ExpenseCategory[]) => {
+const buildCategorySummary = (expenses: Expense[], categories: UserExpenseCategory[]) => {
   const categoryMap = new Map<string | number, string>()
   categories.forEach((category) => {
-    categoryMap.set(category.expenseCategoryId, category.expenseCategoryName)
+    categoryMap.set(category.userExpenseCategoryId, category.userExpenseCategoryName)
   })
 
   const totals = new Map<string, { name: string; total: number }>()
 
   expenses.forEach((expense) => {
     // Prefer the category name supplied on the expense record itself (some APIs return it)
-    const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
-    const key = expense.expenseCategoryId ?? 'uncategorised'
-    const name = explicitName ?? categoryMap.get(key) ?? 'Uncategorised'
+  const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
+  const key = expense.expenseCategoryId ?? 'uncategorised'
+  const name = explicitName ?? categoryMap.get(key) ?? 'Uncategorised'
     const amount = amountFromExpense(expense)
     if (!totals.has(name)) {
       totals.set(name, { name, total: 0 })
@@ -126,10 +126,10 @@ export default function Dashboard(): ReactElement {
     session,
     setStatus,
     ensureExpenseCategories,
+    expenseCategories,
   } = useAppDataContext()
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
-  const [categorySummary, setCategorySummary] = useState<{ name: string; total: number }[]>([])
   const [currentMonthIncome, setCurrentMonthIncome] = useState<Income[]>([])
   const [previousMonthIncome, setPreviousMonthIncome] = useState<Income[]>([])
   const [twoMonthsAgoIncome, setTwoMonthsAgoIncome] = useState<Income[]>([])
@@ -148,7 +148,6 @@ export default function Dashboard(): ReactElement {
     if (!session) {
       setMonthlyExpenses([])
       setPreviousMonthExpenses([])
-      setCategorySummary([])
       setCurrentMonthIncome([])
       setPreviousMonthIncome([])
       setTwoMonthsAgoIncome([])
@@ -161,25 +160,24 @@ export default function Dashboard(): ReactElement {
 
     void (async () => {
       try {
+        const categoriesPromise = ensureExpenseCategories()
         const [
-          categories,
           currentExpenses,
           previousExpenses,
           currentIncomeData,
           previousIncomeData,
           twoMonthsAgoIncomeData,
         ] = await Promise.all([
-          ensureExpenseCategories(),
           fetchExpensesByMonth({ username, month, year }),
           fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month, year }),
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
         ])
+        await categoriesPromise
 
         setMonthlyExpenses(currentExpenses)
         setPreviousMonthExpenses(previousExpenses)
-        setCategorySummary(buildCategorySummary(currentExpenses, categories))
         setCurrentMonthIncome(currentIncomeData)
         setPreviousMonthIncome(previousIncomeData)
         setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
@@ -232,6 +230,11 @@ export default function Dashboard(): ReactElement {
       return true
     })
   }, [monthlyExpenses, expenseTableFilters])
+
+  const categorySummary = useMemo(
+    () => buildCategorySummary(monthlyExpenses, expenseCategories),
+    [monthlyExpenses, expenseCategories],
+  )
 
   const filteredCategorySummary = useMemo(() => {
     const nameQuery = categoryTableFilters.name.trim().toLowerCase()

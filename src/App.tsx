@@ -9,12 +9,12 @@ import Dashboard from './pages/dashboard/Dashboard'
 import ExpensesOperations from './pages/operations/ExpensesOperations'
 import IncomeOperations from './pages/operations/IncomeOperations'
 import Profile from './pages/profile/Profile'
-import type { Expense, ExpenseCategory, Income, SessionData, StatusMessage } from './types/app'
+import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage } from './types/app'
 import {
   fetchExpenses as apiFetchExpenses,
   forgotPassword as apiForgotPassword,
-  fetchExpenseCategories as apiFetchExpenseCategories,
   fetchIncomeLastYear as apiFetchIncomeLastYear,
+  fetchUserExpenseCategoriesActive as apiFetchUserExpenseCategoriesActive,
 } from './api'
 import { AppDataProvider } from './context/AppDataContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -51,7 +51,7 @@ const parseSession = (raw: string | null): SessionData | null => {
 export default function App(): ReactElement {
   const [session, setSession] = useState<SessionData | null>(null)
   const [status, setStatusState] = useState<StatusState>(null)
-  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
+  const [expenseCategories, setExpenseCategories] = useState<UserExpenseCategory[]>([])
   const [expensesCache, setExpensesCache] = useState<Expense[]>([])
   const [incomesCache, setIncomesCache] = useState<Income[]>([])
 
@@ -85,14 +85,16 @@ export default function App(): ReactElement {
     }
   }
 
-  const ensureExpenseCategories = useCallback(async (): Promise<ExpenseCategory[]> => {
-    if (expenseCategories.length > 0) {
-      return expenseCategories
+  const ensureExpenseCategories = useCallback(async (): Promise<UserExpenseCategory[]> => {
+    const username = session?.username
+    if (!username) {
+      setExpenseCategories([])
+      return []
     }
-    const categories = await apiFetchExpenseCategories()
+    const categories = await apiFetchUserExpenseCategoriesActive(username)
     setExpenseCategories(categories)
     return categories
-  }, [expenseCategories])
+  }, [session?.username])
 
   const reloadExpensesCache = useCallback(async (username: string): Promise<Expense[]> => {
     if (!username) return []

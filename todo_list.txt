@@ -1,0 +1,10 @@
+- [x] Switch expense category fetches to user-specific API while keeping admin endpoints untouched.
+- [x] Profile: add "Edit User Expense Categories" card with list, edit/delete/status toggle, add button up to 20 items.
+- [x] Profile: wire reset default workflow with confirmation dialog calling copy-master endpoint.
+- [x] Update context/data hooks to expose user category CRUD helpers and reuse in profile.
+- [x] Review operations pages to ensure category dropdowns use new user-specific active list.
+- [ ] Run npm run dev and validate end-to-end category management.
+- [x] Update dashboard category summary and any category lookups to use user-specific active categories.
+- [x] Adjust operations pages (expenses, income if needed) to reference user-specific categories and refresh after profile updates.
+- [ ] Reduce global typography/spacing scale by 25% for mobile friendliness (login, registration, dashboard, operations, profile, sidebar, etc.).
+- [ ] Re-test responsive views after typography adjustment to confirm readability.

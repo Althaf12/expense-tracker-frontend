@@ -1,4 +1,4 @@
-import type { Expense, ExpenseCategory, Income } from '../types/app'
+import type { Expense, ExpenseCategory, Income, UserExpenseCategory } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -86,6 +86,70 @@ export async function updatePassword(payload: { username?: string; email?: strin
 export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
   const result = await request('/expense-category/all', { method: 'GET' })
   return Array.isArray(result) ? (result as ExpenseCategory[]) : []
+}
+
+const ensureUsername = (username: string): string => {
+  const value = String(username ?? '').trim()
+  if (!value) {
+    throw new Error('Username is required for this request')
+  }
+  return encodeURIComponent(value)
+}
+
+export async function fetchUserExpenseCategories(username: string): Promise<UserExpenseCategory[]> {
+  const safeUser = ensureUsername(username)
+  const result = await request(`/user-expense-category/${safeUser}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
+}
+
+export async function fetchUserExpenseCategoriesActive(username: string): Promise<UserExpenseCategory[]> {
+  const safeUser = ensureUsername(username)
+  const result = await request(`/user-expense-category/${safeUser}/active`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
+}
+
+export async function createUserExpenseCategory(payload: {
+  username: string
+  userExpenseCategoryName: string
+  status?: 'A' | 'I'
+}): Promise<void> {
+  const safeUser = ensureUsername(payload.username)
+  const body = {
+    userExpenseCategoryName: payload.userExpenseCategoryName,
+    status: payload.status ?? 'A',
+  }
+  await request(`/user-expense-category/${safeUser}`, { method: 'POST', body })
+}
+
+export async function updateUserExpenseCategory(payload: {
+  username: string
+  id: string | number
+  userExpenseCategoryName: string
+  status: 'A' | 'I'
+}): Promise<void> {
+  const safeUser = ensureUsername(payload.username)
+  const safeId = encodeURIComponent(String(payload.id))
+  const body = {
+    userExpenseCategoryName: payload.userExpenseCategoryName,
+    status: payload.status,
+  }
+  await request(`/user-expense-category/${safeUser}/${safeId}`, { method: 'PUT', body })
+}
+
+export async function deleteUserExpenseCategory(payload: { username: string; id: string | number }): Promise<void> {
+  const safeUser = ensureUsername(payload.username)
+  const safeId = encodeURIComponent(String(payload.id))
+  await request(`/user-expense-category/${safeUser}/${safeId}`, { method: 'DELETE' })
+}
+
+export async function deleteAllUserExpenseCategories(username: string): Promise<void> {
+  const safeUser = ensureUsername(username)
+  await request(`/user-expense-category/${safeUser}`, { method: 'DELETE' })
+}
+
+export async function copyUserExpenseCategoriesFromMaster(username: string): Promise<void> {
+  const safeUser = ensureUsername(username)
+  await request(`/user-expense-category/${safeUser}/copy-master`, { method: 'POST' })
 }
 
 export async function fetchExpensesByRange(payload: { username: string; start: string; end: string }): Promise<Expense[]> {
@@ -202,6 +266,13 @@ export default {
   resetPassword,
   updatePassword,
   fetchExpenseCategories,
+  fetchUserExpenseCategories,
+  fetchUserExpenseCategoriesActive,
+  createUserExpenseCategory,
+  updateUserExpenseCategory,
+  deleteUserExpenseCategory,
+  deleteAllUserExpenseCategories,
+  copyUserExpenseCategoriesFromMaster,
   fetchExpensesByRange,
   fetchExpensesByMonth,
   fetchExpensesByYear,

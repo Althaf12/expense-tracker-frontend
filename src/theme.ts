@@ -35,14 +35,14 @@ const buildPalette = (mode: PaletteMode) => {
 
 const baseTypography = {
   fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  h1: { fontWeight: 700, fontSize: '2.75rem', lineHeight: 1.15 },
-  h2: { fontWeight: 600, fontSize: '2rem', lineHeight: 1.25 },
-  h3: { fontWeight: 600, fontSize: '1.6rem', lineHeight: 1.3 },
-  h4: { fontWeight: 600, fontSize: '1.4rem', lineHeight: 1.3 },
-  body1: { fontSize: '1rem', lineHeight: 1.65 },
-  body2: { fontSize: '0.95rem', lineHeight: 1.6 },
-  subtitle1: { fontSize: '0.95rem', fontWeight: 500 },
-  subtitle2: { fontSize: '0.85rem', fontWeight: 500, letterSpacing: '0.06em' },
+  h1: { fontWeight: 700, fontSize: '2.0625rem', lineHeight: 1.15 },
+  h2: { fontWeight: 600, fontSize: '1.65rem', lineHeight: 1.25 },
+  h3: { fontWeight: 600, fontSize: '1.32rem', lineHeight: 1.3 },
+  h4: { fontWeight: 600, fontSize: '1.155rem', lineHeight: 1.3 },
+  body1: { fontSize: '0.825rem', lineHeight: 1.65 },
+  body2: { fontSize: '0.78375rem', lineHeight: 1.6 },
+  subtitle1: { fontSize: '0.78375rem', fontWeight: 500 },
+  subtitle2: { fontSize: '0.70125rem', fontWeight: 500, letterSpacing: '0.06em' },
   button: { fontWeight: 600, textTransform: 'none' as const },
 }
 
@@ -51,9 +51,9 @@ const buildTheme = (mode: PaletteMode) =>
     createTheme({
       palette: buildPalette(mode),
       breakpoints: { values: breakpointValues },
-      spacing: 6.25,
+  spacing: 4.6875,
       typography: baseTypography,
-      shape: { borderRadius: 10.9375 },
+  shape: { borderRadius: 8.203125 },
       components: {
         MuiTypography: { defaultProps: { color: 'inherit' } },
         MuiLink: { defaultProps: { underline: 'hover' } },

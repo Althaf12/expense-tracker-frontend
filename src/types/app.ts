@@ -1,5 +1,7 @@
 export type SessionData = {
   username: string
+  identifier?: string
+  user?: Record<string, unknown>
   // other session properties may exist
 }
 
@@ -20,9 +22,14 @@ export type Expense = {
   expenseDate?: string
 }
 
-export type ExpenseCategory = {
-  expenseCategoryId: string | number
-  expenseCategoryName: string
+// Removed ExpenseCategory type; use UserExpenseCategory everywhere
+
+export type UserExpenseCategory = {
+  userExpenseCategoryId: string | number
+  userExpenseCategoryName: string
+  status: 'A' | 'I'
+  lastUpdateTmstp?: string
+  username?: string
 }
 
 export type Income = {
