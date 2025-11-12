@@ -5,11 +5,97 @@
 
 .card {
   background: var(--surface-card);
+  height: -webkit-fill-available;
   border-radius: 0.5rem;
   box-shadow: var(--surface-card-shadow);
   padding: 1.5rem;
   border: 1px solid var(--surface-card-border);
   backdrop-filter: blur(6px);
+}
+
+.summaryCard {
+  padding: 1rem 1rem;
+  display: block;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summaryHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metricLabel {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.metricSubtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.metricValue {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.metricFooter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.metricHint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.trendIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.trendIndicator::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 0.35rem solid transparent;
+  border-right: 0.35rem solid transparent;
+}
+
+.trendIndicatorUp::before {
+  border-bottom: 0.5rem solid currentColor;
+}
+
+.trendIndicatorDown::before {
+  border-top: 0.5rem solid currentColor;
+}
+
+.trendIndicatorFlat::before {
+  display: none;
+}
+
+.trendPositive {
+  color: #16a34a;
+}
+
+.trendNegative {
+  color: #dc2626;
+}
+
+.trendNeutral {
+  color: var(--color-text-muted);
 }
 
 .cardHeader {

@@ -424,7 +424,7 @@ export default function ExpensesOperations(): ReactElement {
                 Expense Explorer
               </Typography>
               <Typography variant="body2" component="p" className={styles.subtitle}>
-                View expenses by month, date range, or all history.
+                Review and manage expense entries.
               </Typography>
             </div>
             <span className={styles.badge}>{filteredResults.length} records</span>

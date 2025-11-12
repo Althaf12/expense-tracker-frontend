@@ -42,6 +42,59 @@ const amountFromExpense = (expense: Expense): number => {
   return 0
 }
 
+const amountFromIncome = (income: Income): number => {
+  const value = income.amount
+  if (typeof value === 'number') {
+    return value
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+type TrendDeltaDirection = 'up' | 'down' | 'flat'
+type TrendTone = 'positive' | 'negative' | 'neutral'
+
+type TrendSummary = {
+  deltaDirection: TrendDeltaDirection
+  tone: TrendTone
+  percentage: number | null
+}
+
+const calculateTrend = (current: number, previous: number, preferHigher: boolean): TrendSummary => {
+  const safeCurrent = Number.isFinite(current) ? current : 0
+  const safePrevious = Number.isFinite(previous) ? previous : 0
+
+  if (!Number.isFinite(previous) || previous === 0) {
+    const delta = safeCurrent - safePrevious
+    if (delta === 0) {
+      return { deltaDirection: 'flat', tone: 'neutral', percentage: 0 }
+    }
+    const improvement = preferHigher ? delta > 0 : delta < 0
+    return {
+      deltaDirection: delta > 0 ? 'up' : 'down',
+      tone: improvement ? 'positive' : 'negative',
+      percentage: null,
+    }
+  }
+
+  const difference = safeCurrent - safePrevious
+  if (difference === 0) {
+    return { deltaDirection: 'flat', tone: 'neutral', percentage: 0 }
+  }
+
+  const percentage = Math.abs(difference) / Math.abs(safePrevious) * 100
+  const improvement = preferHigher ? difference > 0 : difference < 0
+
+  return {
+    deltaDirection: difference > 0 ? 'up' : 'down',
+    tone: improvement ? 'positive' : 'negative',
+    percentage,
+  }
+}
+
 const buildCategorySummary = (expenses: Expense[], categories: ExpenseCategory[]) => {
   const categoryMap = new Map<string | number, string>()
   categories.forEach((category) => {
@@ -75,21 +128,30 @@ export default function Dashboard(): ReactElement {
     ensureExpenseCategories,
   } = useAppDataContext()
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
+  const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
   const [categorySummary, setCategorySummary] = useState<{ name: string; total: number }[]>([])
+  const [currentMonthIncome, setCurrentMonthIncome] = useState<Income[]>([])
   const [previousMonthIncome, setPreviousMonthIncome] = useState<Income[]>([])
+  const [twoMonthsAgoIncome, setTwoMonthsAgoIncome] = useState<Income[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
   const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
-  const [incomeTableFilters, setIncomeTableFilters] = useState({ source: '', amount: '', date: '' })
 
   const { month, year, label } = useMemo(() => getCurrentMonthContext(), [])
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
+  const twoMonthsAgoContext = useMemo(
+    () => getPreviousMonth(previousContext.month, previousContext.year),
+    [previousContext.month, previousContext.year],
+  )
 
   useEffect(() => {
     if (!session) {
       setMonthlyExpenses([])
+      setPreviousMonthExpenses([])
       setCategorySummary([])
+      setCurrentMonthIncome([])
       setPreviousMonthIncome([])
+      setTwoMonthsAgoIncome([])
       return
     }
 
@@ -99,17 +161,28 @@ export default function Dashboard(): ReactElement {
 
     void (async () => {
       try {
-        const categories = await ensureExpenseCategories()
-        const expenses = await fetchExpensesByMonth({ username, month, year })
-        setMonthlyExpenses(expenses)
-        setCategorySummary(buildCategorySummary(expenses, categories))
+        const [
+          categories,
+          currentExpenses,
+          previousExpenses,
+          currentIncomeData,
+          previousIncomeData,
+          twoMonthsAgoIncomeData,
+        ] = await Promise.all([
+          ensureExpenseCategories(),
+          fetchExpensesByMonth({ username, month, year }),
+          fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
+          fetchIncomeByMonth({ username, month, year }),
+          fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
+          fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
+        ])
 
-        const incomes = await fetchIncomeByMonth({
-          username,
-          month: previousContext.month,
-          year: previousContext.year,
-        })
-        setPreviousMonthIncome(incomes)
+        setMonthlyExpenses(currentExpenses)
+        setPreviousMonthExpenses(previousExpenses)
+        setCategorySummary(buildCategorySummary(currentExpenses, categories))
+        setCurrentMonthIncome(currentIncomeData)
+        setPreviousMonthIncome(previousIncomeData)
+        setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -118,7 +191,17 @@ export default function Dashboard(): ReactElement {
         setLoading(false)
       }
     })()
-  }, [session, ensureExpenseCategories, month, year, previousContext.month, previousContext.year, setStatus])
+  }, [
+    session,
+    ensureExpenseCategories,
+    month,
+    year,
+    previousContext.month,
+    previousContext.year,
+    twoMonthsAgoContext.month,
+    twoMonthsAgoContext.year,
+    setStatus,
+  ])
 
   const filteredMonthlyExpenses = useMemo(() => {
     const nameQuery = expenseTableFilters.name.trim().toLowerCase()
@@ -173,48 +256,6 @@ export default function Dashboard(): ReactElement {
     })
   }, [categorySummary, categoryTableFilters])
 
-    const filteredCategoryTotal = useMemo(
-      () => filteredCategorySummary.reduce((sum, entry) => sum + entry.total, 0),
-      [filteredCategorySummary],
-    )
-
-    // total based on the currently filtered monthly expenses (updated below after filters)
-
-  const filteredPreviousMonthIncome = useMemo(() => {
-    const sourceQuery = incomeTableFilters.source.trim().toLowerCase()
-    const amountQuery = incomeTableFilters.amount.trim().toLowerCase()
-    const dateQuery = incomeTableFilters.date.trim().toLowerCase()
-
-    if (!sourceQuery && !amountQuery && !dateQuery) {
-      return previousMonthIncome
-    }
-
-    return previousMonthIncome.filter((income) => {
-      const sourceValue = (income.source ?? '').toString().toLowerCase()
-      const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
-      const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatAmount(numericAmount).toLowerCase()
-      const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
-      const prettyDate = formatDate(income.receivedDate).toLowerCase()
-
-      if (sourceQuery && !sourceValue.includes(sourceQuery)) {
-        return false
-      }
-      if (amountQuery && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery)) {
-        return false
-      }
-      if (dateQuery && !rawDate.includes(dateQuery) && !prettyDate.includes(dateQuery)) {
-        return false
-      }
-      return true
-    })
-  }, [previousMonthIncome, incomeTableFilters])
-
-  const incomeTotal = useMemo(
-    () => filteredPreviousMonthIncome.reduce((sum, inc) => sum + (typeof inc.amount === 'number' ? inc.amount : Number(inc.amount ?? 0)), 0),
-    [filteredPreviousMonthIncome],
-  )
-
   const expenseFiltersApplied = useMemo(
     () => Object.values(expenseTableFilters).some((value) => value.trim().length > 0),
     [expenseTableFilters],
@@ -225,11 +266,6 @@ export default function Dashboard(): ReactElement {
     [categoryTableFilters],
   )
 
-  const incomeFiltersApplied = useMemo(
-    () => Object.values(incomeTableFilters).some((value) => value.trim().length > 0),
-    [incomeTableFilters],
-  )
-
   const handleExpenseFilterChange = (field: 'name' | 'amount' | 'date', value: string) => {
     setExpenseTableFilters((previous) => ({ ...previous, [field]: value }))
   }
@@ -238,20 +274,12 @@ export default function Dashboard(): ReactElement {
     setCategoryTableFilters((previous) => ({ ...previous, [field]: value }))
   }
 
-  const handleIncomeFilterChange = (field: 'source' | 'amount' | 'date', value: string) => {
-    setIncomeTableFilters((previous) => ({ ...previous, [field]: value }))
-  }
-
   const clearExpenseFilters = () => {
     setExpenseTableFilters({ name: '', amount: '', date: '' })
   }
 
   const clearCategoryFilters = () => {
     setCategoryTableFilters({ name: '', total: '' })
-  }
-
-  const clearIncomeFilters = () => {
-    setIncomeTableFilters({ source: '', amount: '', date: '' })
   }
 
   const incomeMonthLabel = useMemo(() => {
@@ -264,8 +292,158 @@ export default function Dashboard(): ReactElement {
     [filteredMonthlyExpenses],
   )
 
+  const currentMonthExpenseTotal = useMemo(
+    () => monthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0),
+    [monthlyExpenses],
+  )
+
+  const previousMonthExpenseTotal = useMemo(
+    () => previousMonthExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0),
+    [previousMonthExpenses],
+  )
+
+  const currentMonthIncomeTotal = useMemo(
+    () => currentMonthIncome.reduce((sum, income) => sum + amountFromIncome(income), 0),
+    [currentMonthIncome],
+  )
+
+  const previousMonthIncomeTotal = useMemo(
+    () => previousMonthIncome.reduce((sum, income) => sum + amountFromIncome(income), 0),
+    [previousMonthIncome],
+  )
+
+  const twoMonthsAgoIncomeTotal = useMemo(
+    () => twoMonthsAgoIncome.reduce((sum, income) => sum + amountFromIncome(income), 0),
+    [twoMonthsAgoIncome],
+  )
+
+  const totalBalance = useMemo(
+    () => previousMonthIncomeTotal - currentMonthExpenseTotal,
+    [previousMonthIncomeTotal, currentMonthExpenseTotal],
+  )
+
+  const previousBalance = useMemo(
+    () => previousMonthIncomeTotal - previousMonthExpenseTotal,
+    [previousMonthIncomeTotal, previousMonthExpenseTotal],
+  )
+
+  const balanceTrend = useMemo(
+    () => calculateTrend(totalBalance, previousBalance, true),
+    [totalBalance, previousBalance],
+  )
+
+  const incomeTrend = useMemo(
+    () => calculateTrend(previousMonthIncomeTotal, twoMonthsAgoIncomeTotal, true),
+    [previousMonthIncomeTotal, twoMonthsAgoIncomeTotal],
+  )
+
+  const expenseTrend = useMemo(
+    () => calculateTrend(currentMonthExpenseTotal, previousMonthExpenseTotal, false),
+    [currentMonthExpenseTotal, previousMonthExpenseTotal],
+  )
+
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }),
+    [],
+  )
+
+  const formatCurrency = (value: number) => currencyFormatter.format(value)
+
+  const getTrendHint = (trend: TrendSummary | null) =>
+    trend && trend.percentage !== null ? 'vs previous month' : 'Insufficient data'
+
+  const renderTrend = (trend: TrendSummary | null) => {
+    if (!trend || trend.percentage === null) {
+      return (
+        <span className={`${styles.trendIndicator} ${styles.trendIndicatorFlat} ${styles.trendNeutral}`}>
+          No previous data
+        </span>
+      )
+    }
+
+    const orientationClass =
+      trend.deltaDirection === 'up'
+        ? styles.trendIndicatorUp
+        : trend.deltaDirection === 'down'
+          ? styles.trendIndicatorDown
+          : styles.trendIndicatorFlat
+
+    const toneClass =
+      trend.tone === 'positive'
+        ? styles.trendPositive
+        : trend.tone === 'negative'
+          ? styles.trendNegative
+          : styles.trendNeutral
+
+    const prefix = trend.deltaDirection === 'up' ? '+' : trend.deltaDirection === 'down' ? '-' : ''
+
+    return (
+      <span className={`${styles.trendIndicator} ${orientationClass} ${toneClass}`}>
+        {`${prefix}${trend.percentage.toFixed(1)}%`}
+      </span>
+    )
+  }
+
   return (
     <Grid container component="section" className={styles.dashboard} spacing={3}>
+      <Grid size={{ xs: 12 }}>
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+              <div className={styles.summaryHeader}>
+                <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+                  Total Balance
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+                  {label}
+                </Typography>
+              </div>
+              <Typography variant="h4" component="p" className={styles.metricValue}>
+                {formatCurrency(totalBalance)}
+              </Typography>
+              
+            </section>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+              <div className={styles.summaryHeader}>
+                <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+                  Total Income
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+                  {incomeMonthLabel}
+                </Typography>
+              </div>
+              <Typography variant="h4" component="p" className={styles.metricValue}>
+                {formatCurrency(previousMonthIncomeTotal)}
+              </Typography>
+              <div className={styles.metricFooter}>
+                {renderTrend(incomeTrend)}
+                <span className={styles.metricHint}>{getTrendHint(incomeTrend)}</span>
+              </div>
+            </section>
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+              <div className={styles.summaryHeader}>
+                <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+                  Total Expenses
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+                  {label}
+                </Typography>
+              </div>
+              <Typography variant="h4" component="p" className={styles.metricValue}>
+                {formatCurrency(currentMonthExpenseTotal)}
+              </Typography>
+              <div className={styles.metricFooter}>
+                {renderTrend(expenseTrend)}
+                <span className={styles.metricHint}>{getTrendHint(expenseTrend)}</span>
+              </div>
+            </section>
+          </Grid>
+        </Grid>
+      </Grid>
       <Grid size={{ xs: 12, lg: 8 }}>
         <section className={styles.card} aria-busy={loading}>
           <header className={styles.cardHeader}>
@@ -377,177 +555,76 @@ export default function Dashboard(): ReactElement {
         </section>
       </Grid>
       <Grid size={{ xs: 12, lg: 4 }}>
-        <Grid container direction="column" rowSpacing={3} columnSpacing={0}>
-          <Grid size={12}>
-            <section className={styles.card}>
-              <header className={styles.cardHeader}>
-                <div>
-                  <Typography variant="h5" component="h2" className={styles.cardTitle}>
-                    Spend by Category
-                  </Typography>
-                  <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-                    {label}
-                  </Typography>
-                </div>
-                <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
-              </header>
-              {categorySummary.length === 0 ? (
-                <Typography variant="body2" component="p" className={styles.placeholder}>
-                  No category spend recorded.
-                </Typography>
-              ) : (
-                <div className={styles.tableContainer}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th scope="col">Category</th>
-                        <th scope="col" className={styles.numeric}>Total</th>
+        <section className={styles.card}>
+          <header className={styles.cardHeader}>
+            <div>
+              <Typography variant="h5" component="h2" className={styles.cardTitle}>
+                Spend by Category
+              </Typography>
+              <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+                {label}
+              </Typography>
+            </div>
+            <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
+          </header>
+          {categorySummary.length === 0 ? (
+            <Typography variant="body2" component="p" className={styles.placeholder}>
+              No category spend recorded.
+            </Typography>
+          ) : (
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col" className={styles.numeric}>Total</th>
+                  </tr>
+                  <tr className={styles.tableFilterRow}>
+                    <th scope="col">
+                      <input
+                        className={styles.tableFilterInput}
+                        type="search"
+                        placeholder="Filter category"
+                        value={categoryTableFilters.name}
+                        onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
+                      />
+                    </th>
+                    <th scope="col">
+                      <div className={styles.filterControls}>
+                        <input
+                          className={styles.tableFilterInput}
+                          type="search"
+                          placeholder="Filter total"
+                          value={categoryTableFilters.total}
+                          onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
+                        />
+                        {categoryFiltersApplied && (
+                          <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCategorySummary.length === 0 ? (
+                    <tr className={styles.emptyRow}>
+                      <td colSpan={2}>No categories match the current filters.</td>
+                    </tr>
+                  ) : (
+                    filteredCategorySummary.map((entry) => (
+                      <tr key={entry.name}>
+                        <td>{entry.name}</td>
+                        <td className={styles.numeric}>{formatAmount(entry.total)}</td>
                       </tr>
-                      <tr className={styles.tableFilterRow}>
-                        <th scope="col">
-                          <input
-                            className={styles.tableFilterInput}
-                            type="search"
-                            placeholder="Filter category"
-                            value={categoryTableFilters.name}
-                            onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
-                          />
-                        </th>
-                        <th scope="col">
-                          <div className={styles.filterControls}>
-                            <input
-                              className={styles.tableFilterInput}
-                              type="search"
-                              placeholder="Filter total"
-                              value={categoryTableFilters.total}
-                              onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
-                            />
-                            {categoryFiltersApplied && (
-                              <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
-                                Clear
-                              </button>
-                            )}
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCategorySummary.length === 0 ? (
-                        <tr className={styles.emptyRow}>
-                          <td colSpan={2}>No categories match the current filters.</td>
-                        </tr>
-                      ) : (
-                        filteredCategorySummary.map((entry) => (
-                          <tr key={entry.name}>
-                            <td>{entry.name}</td>
-                            <td className={styles.numeric}>{formatAmount(entry.total)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </Grid>
-          <Grid size={12}>
-            <section className={styles.card}>
-              <header className={styles.cardHeader}>
-                <div>
-                  <Typography variant="h5" component="h2" className={styles.cardTitle}>
-                    Previous Month Income
-                  </Typography>
-                  <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-                    {incomeMonthLabel}
-                  </Typography>
-                </div>
-                <span className={styles.cardBadge}>{filteredPreviousMonthIncome.length} items</span>
-              </header>
-              {previousMonthIncome.length === 0 ? (
-                <Typography variant="body2" component="p" className={styles.placeholder}>
-                  No income recorded for {incomeMonthLabel}.
-                </Typography>
-              ) : (
-                <div className={styles.tableContainer}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th scope="col">Source</th>
-                        <th scope="col" className={styles.numeric}>Amount</th>
-                        <th scope="col">Received</th>
-                      </tr>
-                      <tr className={styles.tableFilterRow}>
-                        <th scope="col">
-                          <input
-                            className={styles.tableFilterInput}
-                            type="search"
-                            placeholder="Filter source"
-                            value={incomeTableFilters.source}
-                            onChange={(event) => handleIncomeFilterChange('source', event.target.value)}
-                          />
-                        </th>
-                        <th scope="col">
-                          <input
-                            className={styles.tableFilterInput}
-                            type="search"
-                            placeholder="Filter amount"
-                            value={incomeTableFilters.amount}
-                            onChange={(event) => handleIncomeFilterChange('amount', event.target.value)}
-                          />
-                        </th>
-                        <th scope="col">
-                          <div className={styles.filterControls}>
-                            <input
-                              className={styles.tableFilterInput}
-                              type="search"
-                              placeholder="Filter date"
-                              value={incomeTableFilters.date}
-                              onChange={(event) => handleIncomeFilterChange('date', event.target.value)}
-                            />
-                            {incomeFiltersApplied && (
-                              <button type="button" className={styles.clearButton} onClick={clearIncomeFilters}>
-                                Clear
-                              </button>
-                            )}
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPreviousMonthIncome.length === 0 ? (
-                        <tr className={styles.emptyRow}>
-                          <td colSpan={3}>No income entries match the current filters.</td>
-                        </tr>
-                      ) : (
-                        filteredPreviousMonthIncome.map((income) => {
-                          const key = String(
-                            income.incomeId ?? `${income.source ?? 'income'}-${income.receivedDate ?? ''}`,
-                          )
-                          return (
-                            <tr key={key}>
-                              <td>{income.source ?? '-'}</td>
-                              <td className={styles.numeric}>{formatAmount(income.amount)}</td>
-                              <td>{formatDate(income.receivedDate)}</td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td>Total</td>
-                        <td className={styles.numeric}>
-                          <span className={styles.totalPill}>{formatAmount(incomeTotal)}</span>
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-            </section>
-          </Grid>
-        </Grid>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </Grid>
     </Grid>
   )
