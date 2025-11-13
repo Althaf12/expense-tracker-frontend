@@ -8,6 +8,7 @@ import {
   fetchExpensesByMonth,
   fetchExpensesByRange,
   updateExpense,
+  fetchUserExpenseCategoriesActive,
 } from '../../api'
 import type { Expense, UserExpenseCategory } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
@@ -118,6 +119,10 @@ export default function ExpensesOperations(): ReactElement {
     reloadExpensesCache,
   } = useAppDataContext()
 
+  // Local active categories state — use the active-only API for operations UI so
+  // profile page can still fetch/preview 'all' categories without affecting this view.
+  const [activeCategories, setActiveCategories] = useState<UserExpenseCategory[]>([])
+
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
@@ -148,6 +153,27 @@ export default function ExpensesOperations(): ReactElement {
     // Always refresh categories from API before loading expenses for defaults
     void (async () => {
       await ensureExpenseCategories()
+      // load active categories directly for this component to avoid being
+      // overwritten by profile's 'all categories' flow
+      try {
+        const list = await fetchUserExpenseCategoriesActive(session.username)
+        // Some API implementations accidentally return all categories; defensively
+        // enforce status 'A' (active) on the client so operations UI only shows active ones.
+        const filtered = Array.isArray(list) ? list.filter((c) => (c as any).status === 'A') : list
+        setActiveCategories(filtered)
+        // Debug: log active vs context categories to help trace unexpected 'all' categories
+        // eslint-disable-next-line no-console
+        console.debug(
+          'ExpensesOperations: activeCategories fetched',
+          list.length,
+          'filtered->',
+          filtered.length,
+          filtered.map((c) => c.userExpenseCategoryName),
+        )
+      } catch (err) {
+        // non-fatal — keep context categories as fallback
+      }
+
       await reloadExpensesCache(session.username)
       await loadExpenses('month', {
         month: defaultMonth,
@@ -199,7 +225,7 @@ export default function ExpensesOperations(): ReactElement {
       return
     }
 
-    const match = expenseCategories.find(
+    const match = activeCategories.find(
       (category) => String(category.userExpenseCategoryId) === String(selectedCategoryId),
     )
 
@@ -218,7 +244,7 @@ export default function ExpensesOperations(): ReactElement {
         categoryName: match.userExpenseCategoryName,
       }))
     }
-  }, [expenseCategories, formState.expenseCategoryId, formState.categoryName])
+  }, [activeCategories, formState.expenseCategoryId, formState.categoryName])
 
   const editingCategoryId = editingRowDraft?.expenseCategoryId ?? ''
 
@@ -227,7 +253,7 @@ export default function ExpensesOperations(): ReactElement {
       return
     }
 
-    const exists = expenseCategories.some(
+    const exists = activeCategories.some(
       (category) => String(category.userExpenseCategoryId) === String(editingCategoryId),
     )
 
@@ -236,24 +262,24 @@ export default function ExpensesOperations(): ReactElement {
         previous ? { ...previous, expenseCategoryId: '', expenseCategoryName: '' } : previous,
       )
     }
-  }, [expenseCategories, editingCategoryId])
+  }, [activeCategories, editingCategoryId])
 
   const categorySuggestions = useMemo(() => {
     const query = formState.categoryName.trim().toLowerCase()
-    if (!query) return expenseCategories
-    return expenseCategories.filter((category) =>
+    if (!query) return activeCategories
+    return activeCategories.filter((category) =>
       category.userExpenseCategoryName.toLowerCase().includes(query),
     )
-  }, [formState.categoryName, expenseCategories])
+  }, [formState.categoryName, activeCategories])
 
   const editingCategorySuggestions = useMemo(() => {
-    if (!editingRowDraft) return expenseCategories
+    if (!editingRowDraft) return activeCategories
     const query = editingRowDraft.expenseCategoryName.trim().toLowerCase()
-    if (!query) return expenseCategories
-    return expenseCategories.filter((category) =>
+    if (!query) return activeCategories
+    return activeCategories.filter((category) =>
       category.userExpenseCategoryName.toLowerCase().includes(query),
     )
-  }, [editingRowDraft, expenseCategories])
+  }, [editingRowDraft, activeCategories])
 
   const expenseSuggestions = useMemo(() => {
     const query = formState.expenseName.trim().toLowerCase()
@@ -269,7 +295,7 @@ export default function ExpensesOperations(): ReactElement {
 
   const syncInlineCategoryName = (value: string) => {
     const normalized = value.trim().toLowerCase()
-    const match = expenseCategories.find(
+    const match = activeCategories.find(
       (category) => category.userExpenseCategoryName.toLowerCase() === normalized,
     )
     setEditingRowDraft((previous) =>
@@ -325,7 +351,7 @@ export default function ExpensesOperations(): ReactElement {
   }
 
   const syncFormCategory = (value: string) => {
-    const match = expenseCategories.find(
+    const match = activeCategories.find(
       (category) => category.userExpenseCategoryName.toLowerCase() === value.toLowerCase(),
     )
     setFormState((previous) => ({
@@ -361,7 +387,7 @@ export default function ExpensesOperations(): ReactElement {
     return results.filter((expense) => {
       const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
       const derivedCategoryName =
-        extractExpenseCategoryName(expense as ExpenseWithUserCategory, expenseCategories) || 'Uncategorised'
+        extractExpenseCategoryName(expense as ExpenseWithUserCategory, activeCategories) || 'Uncategorised'
       const categoryName = derivedCategoryName.toLowerCase()
 
       const numericAmount = getAmount(expense)
@@ -386,7 +412,7 @@ export default function ExpensesOperations(): ReactElement {
 
       return true
     })
-  }, [results, tableFilters, expenseCategories])
+  }, [results, tableFilters, activeCategories])
 
   const filtersApplied = useMemo(
     () => Object.values(tableFilters).some((value) => value.trim().length > 0),
@@ -396,8 +422,8 @@ export default function ExpensesOperations(): ReactElement {
   const startInlineEdit = (expense: Expense) => {
     const key = ensureId(expense)
     const derivedCategoryId = extractExpenseCategoryId(expense as ExpenseWithUserCategory)
-    const derivedCategoryName =
-      extractExpenseCategoryName(expense as ExpenseWithUserCategory, expenseCategories) ||
+      const derivedCategoryName =
+        extractExpenseCategoryName(expense as ExpenseWithUserCategory, activeCategories) ||
       (derivedCategoryId ? '' : 'Uncategorised')
 
     setEditingRowId(key)
@@ -712,7 +738,7 @@ export default function ExpensesOperations(): ReactElement {
                     filteredResults.map((expense) => {
                       const key = ensureId(expense)
                       const displayCategory =
-                        extractExpenseCategoryName(expense as ExpenseWithUserCategory, expenseCategories) ||
+                        extractExpenseCategoryName(expense as ExpenseWithUserCategory, activeCategories) ||
                         'Uncategorised'
                       const isEditing = editingRowId === key
                       const draft = isEditing ? editingRowDraft : null
