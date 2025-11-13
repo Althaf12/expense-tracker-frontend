@@ -79,7 +79,10 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }, [loginUsername, setStatus, syncActiveCategories])
 
   useEffect(() => {
-    if (categoryEditorOpen) {
+    // Always refresh the user's categories when the profile loads so the
+    // profile page shows the full set (not only the active ones). Also
+    // refresh when the category editor is opened to ensure fresh data.
+    if (loginUsername) {
       void refreshUserCategories()
     }
   }, [categoryEditorOpen, refreshUserCategories])

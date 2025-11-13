@@ -364,12 +364,20 @@ export default function Dashboard(): ReactElement {
       )
     }
 
+    // Use tone (positive/negative) to choose the visual orientation so that
+    // "good" changes (e.g. lower expenses) show an upward indicator even if
+    // the numeric deltaDirection is 'down'. Fall back to deltaDirection for
+    // neutral/ambiguous tones.
     const orientationClass =
-      trend.deltaDirection === 'up'
+      trend.tone === 'positive'
         ? styles.trendIndicatorUp
-        : trend.deltaDirection === 'down'
+        : trend.tone === 'negative'
           ? styles.trendIndicatorDown
-          : styles.trendIndicatorFlat
+          : trend.deltaDirection === 'up'
+            ? styles.trendIndicatorUp
+            : trend.deltaDirection === 'down'
+              ? styles.trendIndicatorDown
+              : styles.trendIndicatorFlat
 
     const toneClass =
       trend.tone === 'positive'
