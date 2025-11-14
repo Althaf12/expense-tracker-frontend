@@ -41,6 +41,7 @@ export type UserExpense = {
   userExpenseCategoryName: string
   userExpenseCategoryId?: string | number
   amount: number
+  paid?: 'Y' | 'N'
   status: 'A' | 'I'
   lastUpdateTmstp?: string
 }

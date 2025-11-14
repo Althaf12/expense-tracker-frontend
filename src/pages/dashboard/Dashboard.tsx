@@ -6,6 +6,7 @@ import {
   fetchExpensesByMonth,
   fetchIncomeByMonth,
   resolveUserExpenseCategoryId,
+  updateUserExpense,
 } from '../../api'
 import { useAppDataContext } from '../../context/AppDataContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
@@ -170,7 +171,6 @@ export default function Dashboard(): ReactElement {
   const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
   const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
   const [templateCategoryOrder, setTemplateCategoryOrder] = useState<string[]>([])
-  const [monthlyExpenseStatus, setMonthlyExpenseStatus] = useState<Record<string, boolean>>({})
   const [templateSaving, setTemplateSaving] = useState<Record<string, boolean>>({})
   const dragCategoryIdRef = useRef<string | null>(null)
 
@@ -354,11 +354,6 @@ export default function Dashboard(): ReactElement {
     [session?.username],
   )
 
-  const monthlyStatusStorageKey = useMemo(
-    () => (session ? `dashboard:template-status:${session.username}:${year}-${month}` : null),
-    [session?.username, month, year],
-  )
-
   useEffect(() => {
     if (!session) {
       setTemplateCategoryOrder([])
@@ -404,68 +399,6 @@ export default function Dashboard(): ReactElement {
       /* ignore storage errors */
     }
   }, [categoryOrderStorageKey, templateCategoryOrder])
-
-  useEffect(() => {
-    if (!monthlyStatusStorageKey) {
-      setMonthlyExpenseStatus({})
-      return
-    }
-    try {
-      const raw = window.localStorage.getItem(monthlyStatusStorageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, unknown>
-        if (parsed && typeof parsed === 'object') {
-          const sanitized = Object.entries(parsed).reduce<Record<string, boolean>>((acc, [key, value]) => {
-            if (typeof value === 'boolean') {
-              acc[key] = value
-            }
-            return acc
-          }, {})
-          setMonthlyExpenseStatus(sanitized)
-          return
-        }
-      }
-    } catch {
-      /* ignore storage errors */
-    }
-    setMonthlyExpenseStatus({})
-  }, [monthlyStatusStorageKey])
-
-  useEffect(() => {
-    if (!monthlyStatusStorageKey) return
-    try {
-      window.localStorage.setItem(monthlyStatusStorageKey, JSON.stringify(monthlyExpenseStatus))
-    } catch {
-      /* ignore storage errors */
-    }
-  }, [monthlyExpenseStatus, monthlyStatusStorageKey])
-
-  useEffect(() => {
-    // If there are no active templates yet, don't clear stored monthly status.
-    // Previously this branch cleared `monthlyExpenseStatus` whenever
-    // `activeUserExpenses` was empty which caused stored template state to
-    // reset during sign-out/sign-in cycles while the active templates were
-    // being re-fetched asynchronously. Avoid the transient clear here and
-    // only prune stored statuses once we have an actual list of active
-    // templates to compare against.
-    if (activeUserExpenses.length === 0) {
-      return
-    }
-
-    const activeIds = new Set(activeUserExpenses.map((expense) => String(expense.userExpensesId)))
-    setMonthlyExpenseStatus((previous) => {
-      const next: Record<string, boolean> = {}
-      let changed = false
-      Object.entries(previous).forEach(([key, value]) => {
-        if (activeIds.has(key)) {
-          next[key] = value
-        } else {
-          changed = true
-        }
-      })
-      return changed ? next : previous
-    })
-  }, [activeUserExpenses])
 
   const groupedUserExpenses = useMemo(() => {
     const groups = new Map<string, TemplateGroup>()
@@ -520,9 +453,8 @@ export default function Dashboard(): ReactElement {
   )
 
   const completedMonthlyTemplates = useMemo(
-    () =>
-      activeUserExpenses.filter((expense) => monthlyExpenseStatus[String(expense.userExpensesId)] === true).length,
-    [activeUserExpenses, monthlyExpenseStatus],
+    () => activeUserExpenses.filter((expense) => (expense.paid ?? 'N') === 'Y').length,
+    [activeUserExpenses],
   )
 
   const monthlyTemplateProgress = useMemo(() => {
@@ -533,13 +465,12 @@ export default function Dashboard(): ReactElement {
   const unpaidTemplatesTotal = useMemo(
     () =>
       activeUserExpenses.reduce((sum, expense) => {
-        const expenseId = String(expense.userExpensesId)
-        if (monthlyExpenseStatus[expenseId]) {
+        if ((expense.paid ?? 'N') === 'Y') {
           return sum
         }
         return sum + amountFromUserExpense(expense)
       }, 0),
-    [activeUserExpenses, monthlyExpenseStatus],
+    [activeUserExpenses],
   )
 
   const monthlyTotal = useMemo(
@@ -692,7 +623,7 @@ export default function Dashboard(): ReactElement {
   const handleTemplateMarkPaid = useCallback(
     async (expense: UserExpense) => {
       const expenseId = String(expense.userExpensesId)
-      if (monthlyExpenseStatus[expenseId] === true) {
+      if ((expense.paid ?? 'N') === 'Y') {
         return
       }
       if (!session) {
@@ -718,18 +649,22 @@ export default function Dashboard(): ReactElement {
 
       const expenseDate = toISODate(new Date())
       setTemplateSaving((previous) => ({ ...previous, [expenseId]: true }))
+      let paidUpdated = false
       try {
+        await updateUserExpense({
+          username: session.username,
+          id: expense.userExpensesId,
+          paid: 'Y',
+        })
+        paidUpdated = true
+
         const resolvedCategoryId = await resolveUserExpenseCategoryId({
           username: session.username,
           userExpenseCategoryName: categoryName,
         })
 
         if (resolvedCategoryId === null || resolvedCategoryId === undefined) {
-          setStatus({
-            type: 'error',
-            message: `Could not find a category for "${categoryName}". Check your profile categories.`,
-          })
-          return
+          throw new Error(`Could not find a category for "${categoryName}". Check your profile categories.`)
         }
 
         await addExpense({
@@ -740,12 +675,24 @@ export default function Dashboard(): ReactElement {
           expenseName: expense.userExpenseName,
         })
 
-        setMonthlyExpenseStatus((previous) => ({ ...previous, [expenseId]: true }))
         setStatus({ type: 'success', message: `${expense.userExpenseName} marked as paid for this month.` })
+
+        await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
 
         const refreshed = await fetchExpensesByMonth({ username: session.username, month, year })
         setMonthlyExpenses(refreshed)
       } catch (error) {
+        if (paidUpdated) {
+          try {
+            await updateUserExpense({
+              username: session.username,
+              id: expense.userExpensesId,
+              paid: 'N',
+            })
+          } catch {
+            /* ignore restore errors */
+          }
+        }
         const message = error instanceof Error ? error.message : String(error)
         setStatus({ type: 'error', message })
       } finally {
@@ -756,13 +703,54 @@ export default function Dashboard(): ReactElement {
         })
       }
     },
-    [month, year, monthlyExpenseStatus, session, setStatus],
+    [ensureActiveUserExpenses, ensureUserExpenses, month, session, setStatus, year],
   )
 
-  const handleResetMonthlyStatus = useCallback(() => {
-    setMonthlyExpenseStatus({})
-    setTemplateSaving({})
-  }, [])
+  const handleResetMonthlyStatus = useCallback(async () => {
+    if (!session) {
+      setStatus({ type: 'error', message: 'You need to be signed in to reset the month.' })
+      return
+    }
+
+    const confirmationMessage =
+      'Do this only if you want to start with a new month. This will reset your balance amount. Continue?'
+    const confirmed = typeof window !== 'undefined' ? window.confirm(confirmationMessage) : true
+    if (!confirmed) {
+      return
+    }
+
+    if (activeUserExpenses.length === 0) {
+      setStatus({ type: 'info', message: 'No active expense templates need resetting.' })
+      return
+    }
+
+    setTemplateSaving(
+      activeUserExpenses.reduce<Record<string, boolean>>((acc, item) => {
+        acc[String(item.userExpensesId)] = true
+        return acc
+      }, {}),
+    )
+
+    try {
+      await Promise.all(
+        activeUserExpenses.map((expense) =>
+          updateUserExpense({
+            username: session.username,
+            id: expense.userExpensesId,
+            paid: 'N',
+          }),
+        ),
+      )
+
+      await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
+      setStatus({ type: 'success', message: 'Monthly template status reset. All templates are marked unpaid.' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    } finally {
+      setTemplateSaving({})
+    }
+  }, [activeUserExpenses, ensureActiveUserExpenses, ensureUserExpenses, session, setStatus])
 
   return (
     <section className={styles.dashboard}>
@@ -904,7 +892,7 @@ export default function Dashboard(): ReactElement {
                       <ul className={styles.templateItems}>
                         {group.expenses.map((expense) => {
                           const expenseId = String(expense.userExpensesId)
-                          const checked = monthlyExpenseStatus[expenseId] === true
+                          const checked = (expense.paid ?? 'N') === 'Y'
                           const saving = templateSaving[expenseId] === true
                           const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Unpaid'
                           return (

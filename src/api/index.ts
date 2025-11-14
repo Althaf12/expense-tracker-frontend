@@ -1,4 +1,4 @@
-import type { Expense, Income, UserExpenseCategory } from '../types/app'
+import type { Expense, Income, UserExpense, UserExpenseCategory } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -112,16 +112,16 @@ export async function fetchUserExpenseCategoriesActive(username: string): Promis
   return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
 }
 
-export async function fetchUserExpenses(username: string): Promise<unknown[]> {
+export async function fetchUserExpenses(username: string): Promise<UserExpense[]> {
   const safeUser = ensureUsername(username)
   const result = await request(`/user-expenses/${safeUser}`, { method: 'GET' })
-  return Array.isArray(result) ? (result as unknown[]) : []
+  return Array.isArray(result) ? (result as UserExpense[]) : []
 }
 
-export async function fetchUserExpensesActive(username: string): Promise<unknown[]> {
+export async function fetchUserExpensesActive(username: string): Promise<UserExpense[]> {
   const safeUser = ensureUsername(username)
   const result = await request(`/user-expenses/${safeUser}/active`, { method: 'GET' })
-  return Array.isArray(result) ? (result as unknown[]) : []
+  return Array.isArray(result) ? (result as UserExpense[]) : []
 }
 
 export async function createUserExpense(payload: {
@@ -130,6 +130,7 @@ export async function createUserExpense(payload: {
   userExpenseCategoryId: string | number
   amount: number
   status?: 'A' | 'I'
+  paid?: 'Y' | 'N'
 }): Promise<void> {
   const safeUser = ensureUsername(payload.username)
   const body = {
@@ -137,6 +138,7 @@ export async function createUserExpense(payload: {
     userExpenseCategoryId: payload.userExpenseCategoryId,
     amount: payload.amount,
     status: payload.status ?? 'A',
+    paid: payload.paid ?? 'N',
   }
   await request(`/user-expenses/${safeUser}`, { method: 'POST', body })
 }
@@ -148,6 +150,7 @@ export async function updateUserExpense(payload: {
   userExpenseCategoryId?: string | number
   amount?: number
   status?: 'A' | 'I'
+  paid?: 'Y' | 'N'
 }): Promise<void> {
   const safeUser = ensureUsername(payload.username)
   const safeId = encodeURIComponent(String(payload.id))
@@ -156,6 +159,7 @@ export async function updateUserExpense(payload: {
   if (payload.userExpenseCategoryId !== undefined) body.userExpenseCategoryId = payload.userExpenseCategoryId
   if (payload.amount !== undefined) body.amount = payload.amount
   if (payload.status !== undefined) body.status = payload.status
+  if (payload.paid !== undefined) body.paid = payload.paid
   await request(`/user-expenses/${safeUser}/${safeId}`, { method: 'PUT', body })
 }
 
