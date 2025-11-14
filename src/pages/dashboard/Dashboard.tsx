@@ -1,13 +1,14 @@
-import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactElement } from 'react'
+import { Link } from 'react-router-dom'
 import {
+  addExpense,
   fetchExpensesByMonth,
   fetchIncomeByMonth,
+  resolveUserExpenseCategoryId,
 } from '../../api'
-import { Link } from 'react-router-dom'
-import type { Expense, UserExpenseCategory, Income } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
+import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
 import { formatAmount, formatDate } from '../../utils/format'
 import styles from './Dashboard.module.css'
 
@@ -52,6 +53,25 @@ const amountFromIncome = (income: Income): number => {
     return Number.isFinite(parsed) ? parsed : 0
   }
   return 0
+}
+
+const amountFromUserExpense = (expense: UserExpense): number => {
+  const value = expense.amount
+  if (typeof value === 'number') {
+    return value
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+const toISODate = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 type TrendDeltaDirection = 'up' | 'down' | 'flat'
@@ -104,10 +124,12 @@ const buildCategorySummary = (expenses: Expense[], categories: UserExpenseCatego
   const totals = new Map<string, { name: string; total: number }>()
 
   expenses.forEach((expense) => {
-    // Prefer the category name supplied on the expense record itself (some APIs return it)
-  const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
-  const key = expense.expenseCategoryId ?? 'uncategorised'
-  const name = explicitName ?? categoryMap.get(key) ?? 'Uncategorised'
+    const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
+    const key =
+      (expense as Expense & { userExpenseCategoryId?: string | number }).userExpenseCategoryId ??
+      expense.expenseCategoryId ??
+      'uncategorised'
+    const name = explicitName ?? categoryMap.get(key) ?? 'Uncategorised'
     const amount = amountFromExpense(expense)
     if (!totals.has(name)) {
       totals.set(name, { name, total: 0 })
@@ -121,13 +143,24 @@ const buildCategorySummary = (expenses: Expense[], categories: UserExpenseCatego
   return Array.from(totals.values()).sort((a, b) => b.total - a.total)
 }
 
+type TemplateGroup = {
+  categoryId: string
+  categoryName: string
+  expenses: UserExpense[]
+}
+
 export default function Dashboard(): ReactElement {
   const {
     session,
     setStatus,
     ensureExpenseCategories,
+    ensureUserExpenses,
+    ensureActiveUserExpenses,
     expenseCategories,
+    userExpenses,
+    activeUserExpenses,
   } = useAppDataContext()
+
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
   const [currentMonthIncome, setCurrentMonthIncome] = useState<Income[]>([])
@@ -136,6 +169,10 @@ export default function Dashboard(): ReactElement {
   const [loading, setLoading] = useState<boolean>(false)
   const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
   const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
+  const [templateCategoryOrder, setTemplateCategoryOrder] = useState<string[]>([])
+  const [monthlyExpenseStatus, setMonthlyExpenseStatus] = useState<Record<string, boolean>>({})
+  const [templateSaving, setTemplateSaving] = useState<Record<string, boolean>>({})
+  const dragCategoryIdRef = useRef<string | null>(null)
 
   const { month, year, label } = useMemo(() => getCurrentMonthContext(), [])
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
@@ -160,7 +197,6 @@ export default function Dashboard(): ReactElement {
 
     void (async () => {
       try {
-        const categoriesPromise = ensureExpenseCategories()
         const [
           currentExpenses,
           previousExpenses,
@@ -174,7 +210,12 @@ export default function Dashboard(): ReactElement {
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
         ])
-        await categoriesPromise
+
+        await Promise.all([
+          ensureExpenseCategories(),
+          ensureUserExpenses(),
+          ensureActiveUserExpenses(),
+        ])
 
         setMonthlyExpenses(currentExpenses)
         setPreviousMonthExpenses(previousExpenses)
@@ -192,6 +233,8 @@ export default function Dashboard(): ReactElement {
   }, [
     session,
     ensureExpenseCategories,
+    ensureUserExpenses,
+    ensureActiveUserExpenses,
     month,
     year,
     previousContext.month,
@@ -285,13 +328,222 @@ export default function Dashboard(): ReactElement {
     setCategoryTableFilters({ name: '', total: '' })
   }
 
-  const incomeMonthLabel = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
-    return formatter.format(new Date(previousContext.year, previousContext.month - 1))
-  }, [previousContext.month, previousContext.year])
+  const categoryNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    expenseCategories.forEach((category) => {
+      map.set(String(category.userExpenseCategoryId), category.userExpenseCategoryName)
+    })
+    return map
+  }, [expenseCategories])
+
+  const activeCategoryIds = useMemo(() => {
+    const unique = new Set<string>()
+    activeUserExpenses.forEach((expense) => {
+      const rawCategoryId =
+        expense.userExpenseCategoryId ??
+        (expense as UserExpense & { expenseCategoryId?: string | number }).expenseCategoryId
+      const categoryId =
+        rawCategoryId !== undefined && rawCategoryId !== null ? String(rawCategoryId) : 'uncategorised'
+      unique.add(categoryId)
+    })
+    return Array.from(unique)
+  }, [activeUserExpenses])
+
+  const categoryOrderStorageKey = useMemo(
+    () => (session ? `dashboard:template-category-order:${session.username}` : null),
+    [session?.username],
+  )
+
+  const monthlyStatusStorageKey = useMemo(
+    () => (session ? `dashboard:template-status:${session.username}:${year}-${month}` : null),
+    [session?.username, month, year],
+  )
+
+  useEffect(() => {
+    if (!session) {
+      setTemplateCategoryOrder([])
+      return
+    }
+    if (activeCategoryIds.length === 0) {
+      setTemplateCategoryOrder([])
+      return
+    }
+
+    let stored: string[] = []
+    if (categoryOrderStorageKey) {
+      try {
+        const raw = window.localStorage.getItem(categoryOrderStorageKey)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            stored = parsed.filter((value): value is string => typeof value === 'string')
+          }
+        }
+      } catch {
+        /* ignore parse errors */
+      }
+    }
+
+    const filteredStored = stored.filter((id) => activeCategoryIds.includes(id))
+    const missing = activeCategoryIds.filter((id) => !filteredStored.includes(id))
+    const nextOrder = [...filteredStored, ...missing]
+
+    setTemplateCategoryOrder((previous) => {
+      if (previous.length === nextOrder.length && previous.every((value, index) => value === nextOrder[index])) {
+        return previous
+      }
+      return nextOrder
+    })
+  }, [session, activeCategoryIds, categoryOrderStorageKey])
+
+  useEffect(() => {
+    if (!categoryOrderStorageKey) return
+    try {
+      window.localStorage.setItem(categoryOrderStorageKey, JSON.stringify(templateCategoryOrder))
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [categoryOrderStorageKey, templateCategoryOrder])
+
+  useEffect(() => {
+    if (!monthlyStatusStorageKey) {
+      setMonthlyExpenseStatus({})
+      return
+    }
+    try {
+      const raw = window.localStorage.getItem(monthlyStatusStorageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, unknown>
+        if (parsed && typeof parsed === 'object') {
+          const sanitized = Object.entries(parsed).reduce<Record<string, boolean>>((acc, [key, value]) => {
+            if (typeof value === 'boolean') {
+              acc[key] = value
+            }
+            return acc
+          }, {})
+          setMonthlyExpenseStatus(sanitized)
+          return
+        }
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+    setMonthlyExpenseStatus({})
+  }, [monthlyStatusStorageKey])
+
+  useEffect(() => {
+    if (!monthlyStatusStorageKey) return
+    try {
+      window.localStorage.setItem(monthlyStatusStorageKey, JSON.stringify(monthlyExpenseStatus))
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [monthlyExpenseStatus, monthlyStatusStorageKey])
+
+  useEffect(() => {
+    // If there are no active templates yet, don't clear stored monthly status.
+    // Previously this branch cleared `monthlyExpenseStatus` whenever
+    // `activeUserExpenses` was empty which caused stored template state to
+    // reset during sign-out/sign-in cycles while the active templates were
+    // being re-fetched asynchronously. Avoid the transient clear here and
+    // only prune stored statuses once we have an actual list of active
+    // templates to compare against.
+    if (activeUserExpenses.length === 0) {
+      return
+    }
+
+    const activeIds = new Set(activeUserExpenses.map((expense) => String(expense.userExpensesId)))
+    setMonthlyExpenseStatus((previous) => {
+      const next: Record<string, boolean> = {}
+      let changed = false
+      Object.entries(previous).forEach(([key, value]) => {
+        if (activeIds.has(key)) {
+          next[key] = value
+        } else {
+          changed = true
+        }
+      })
+      return changed ? next : previous
+    })
+  }, [activeUserExpenses])
+
+  const groupedUserExpenses = useMemo(() => {
+    const groups = new Map<string, TemplateGroup>()
+    activeUserExpenses.forEach((expense) => {
+      const rawCategoryId =
+        expense.userExpenseCategoryId ??
+        (expense as UserExpense & { expenseCategoryId?: string | number }).expenseCategoryId
+      const categoryId =
+        rawCategoryId !== undefined && rawCategoryId !== null ? String(rawCategoryId) : 'uncategorised'
+
+      const explicitName = expense.userExpenseCategoryName?.trim()
+      const alternativeName = (expense as UserExpense & { expenseCategoryName?: string }).expenseCategoryName?.trim()
+      const categoryName =
+        explicitName && explicitName.length > 0
+          ? explicitName
+          : alternativeName && alternativeName.length > 0
+            ? alternativeName
+            : categoryNameMap.get(categoryId) ?? 'Uncategorised'
+
+      if (!groups.has(categoryId)) {
+        groups.set(categoryId, { categoryId, categoryName, expenses: [] })
+      }
+      const group = groups.get(categoryId)
+      if (group) {
+        group.categoryName = categoryName
+        group.expenses.push(expense)
+      }
+    })
+
+    const sorted = Array.from(groups.values()).sort((a, b) => {
+      const indexA = templateCategoryOrder.indexOf(a.categoryId)
+      const indexB = templateCategoryOrder.indexOf(b.categoryId)
+      if (indexA !== -1 || indexB !== -1) {
+        if (indexA === -1) return 1
+        if (indexB === -1) return -1
+        if (indexA !== indexB) return indexA - indexB
+      }
+      return a.categoryName.localeCompare(b.categoryName)
+    })
+
+    sorted.forEach((group) => {
+      group.expenses.sort((a, b) => a.userExpenseName.localeCompare(b.userExpenseName))
+    })
+
+    return sorted
+  }, [activeUserExpenses, categoryNameMap, templateCategoryOrder])
+
+  const expenseTemplatesTotal = useMemo(
+    () =>
+      activeUserExpenses.reduce((sum, expense) => sum + amountFromUserExpense(expense), 0),
+    [activeUserExpenses],
+  )
+
+  const completedMonthlyTemplates = useMemo(
+    () =>
+      activeUserExpenses.filter((expense) => monthlyExpenseStatus[String(expense.userExpensesId)] === true).length,
+    [activeUserExpenses, monthlyExpenseStatus],
+  )
+
+  const monthlyTemplateProgress = useMemo(() => {
+    if (activeUserExpenses.length === 0) return 0
+    return (completedMonthlyTemplates / activeUserExpenses.length) * 100
+  }, [activeUserExpenses.length, completedMonthlyTemplates])
+
+  const unpaidTemplatesTotal = useMemo(
+    () =>
+      activeUserExpenses.reduce((sum, expense) => {
+        const expenseId = String(expense.userExpensesId)
+        if (monthlyExpenseStatus[expenseId]) {
+          return sum
+        }
+        return sum + amountFromUserExpense(expense)
+      }, 0),
+    [activeUserExpenses, monthlyExpenseStatus],
+  )
 
   const monthlyTotal = useMemo(
-    () => filteredMonthlyExpenses.reduce((sum, e) => sum + amountFromExpense(e), 0),
+    () => filteredMonthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0),
     [filteredMonthlyExpenses],
   )
 
@@ -345,12 +597,22 @@ export default function Dashboard(): ReactElement {
     [currentMonthExpenseTotal, previousMonthExpenseTotal],
   )
 
+  const totalAfterDueBalance = useMemo(
+    () => totalBalance - unpaidTemplatesTotal,
+    [totalBalance, unpaidTemplatesTotal],
+  )
+
   const currencyFormatter = useMemo(
     () => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }),
     [],
   )
 
   const formatCurrency = (value: number) => currencyFormatter.format(value)
+
+  const incomeMonthLabel = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+    return formatter.format(new Date(previousContext.year, previousContext.month - 1))
+  }, [previousContext.month, previousContext.year])
 
   const getTrendHint = (trend: TrendSummary | null) =>
     trend && trend.percentage !== null ? 'vs previous month' : 'Insufficient data'
@@ -364,10 +626,6 @@ export default function Dashboard(): ReactElement {
       )
     }
 
-    // Use tone (positive/negative) to choose the visual orientation so that
-    // "good" changes (e.g. lower expenses) show an upward indicator even if
-    // the numeric deltaDirection is 'down'. Fall back to deltaDirection for
-    // neutral/ambiguous tones.
     const orientationClass =
       trend.tone === 'positive'
         ? styles.trendIndicatorUp
@@ -395,67 +653,292 @@ export default function Dashboard(): ReactElement {
     )
   }
 
+  const handleCategoryDragStart = useCallback((categoryId: string) => {
+    dragCategoryIdRef.current = categoryId
+  }, [])
+
+  const handleCategoryDragOver = useCallback((event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const handleCategoryDrop = useCallback(
+    (event: DragEvent<HTMLLIElement>, targetId: string) => {
+      event.preventDefault()
+      const sourceId = dragCategoryIdRef.current
+      dragCategoryIdRef.current = null
+      if (!sourceId || sourceId === targetId) {
+        return
+      }
+      setTemplateCategoryOrder((previous) => {
+        const next = [...previous]
+        const sourceIndex = next.indexOf(sourceId)
+        const targetIndex = next.indexOf(targetId)
+        if (sourceIndex === -1 || targetIndex === -1) {
+          return next
+        }
+        next.splice(sourceIndex, 1)
+        next.splice(targetIndex, 0, sourceId)
+        return next
+      })
+    },
+    [],
+  )
+
+  const handleCategoryDragEnd = useCallback(() => {
+    dragCategoryIdRef.current = null
+  }, [])
+
+  const handleTemplateMarkPaid = useCallback(
+    async (expense: UserExpense) => {
+      const expenseId = String(expense.userExpensesId)
+      if (monthlyExpenseStatus[expenseId] === true) {
+        return
+      }
+      if (!session) {
+        setStatus({ type: 'error', message: 'You need to be signed in to record expenses.' })
+        return
+      }
+
+      const amount = amountFromUserExpense(expense)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setStatus({ type: 'error', message: 'Template amount must be greater than zero before recording.' })
+        return
+      }
+
+      const categoryName =
+        expense.userExpenseCategoryName && expense.userExpenseCategoryName.trim().length > 0
+          ? expense.userExpenseCategoryName
+          : (expense as UserExpense & { expenseCategoryName?: string }).expenseCategoryName
+
+      if (!categoryName) {
+        setStatus({ type: 'error', message: 'Template is missing a category name. Update it in your profile first.' })
+        return
+      }
+
+      const expenseDate = toISODate(new Date())
+      setTemplateSaving((previous) => ({ ...previous, [expenseId]: true }))
+      try {
+        const resolvedCategoryId = await resolveUserExpenseCategoryId({
+          username: session.username,
+          userExpenseCategoryName: categoryName,
+        })
+
+        if (resolvedCategoryId === null || resolvedCategoryId === undefined) {
+          setStatus({
+            type: 'error',
+            message: `Could not find a category for "${categoryName}". Check your profile categories.`,
+          })
+          return
+        }
+
+        await addExpense({
+          username: session.username,
+          userExpenseCategoryId: resolvedCategoryId,
+          expenseAmount: amount,
+          expenseDate,
+          expenseName: expense.userExpenseName,
+        })
+
+        setMonthlyExpenseStatus((previous) => ({ ...previous, [expenseId]: true }))
+        setStatus({ type: 'success', message: `${expense.userExpenseName} marked as paid for this month.` })
+
+        const refreshed = await fetchExpensesByMonth({ username: session.username, month, year })
+        setMonthlyExpenses(refreshed)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setStatus({ type: 'error', message })
+      } finally {
+        setTemplateSaving((previous) => {
+          const next = { ...previous }
+          delete next[expenseId]
+          return next
+        })
+      }
+    },
+    [month, year, monthlyExpenseStatus, session, setStatus],
+  )
+
+  const handleResetMonthlyStatus = useCallback(() => {
+    setMonthlyExpenseStatus({})
+    setTemplateSaving({})
+  }, [])
+
   return (
-    <Grid container component="section" className={styles.dashboard} spacing={3}>
-      <Grid size={{ xs: 12 }}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
-              <div className={styles.summaryHeader}>
-                <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
-                  Total Balance
-                </Typography>
-                <Typography variant="body2" component="p" className={styles.metricSubtitle}>
-                  {label}
-                </Typography>
-              </div>
-              <Typography variant="h4" component="p" className={styles.metricValue}>
-                {formatCurrency(totalBalance)}
+    <section className={styles.dashboard}>
+      <div className={styles.summaryGrid}>
+        <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+          <div className={styles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+              Total Balance
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <Typography variant="h4" component="p" className={styles.metricValue}>
+            {formatCurrency(totalBalance)}
+          </Typography>
+          <div className={styles.metricFooter}>
+            {renderTrend(balanceTrend)}
+            <span className={styles.metricHint}>{getTrendHint(balanceTrend)}</span>
+          </div>
+        </section>
+        <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+          <div className={styles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+              Total After Due Balance
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <Typography variant="h4" component="p" className={styles.metricValue}>
+            {formatCurrency(totalAfterDueBalance)}
+          </Typography>
+          <div className={styles.metricFooter}>
+            <span className={styles.metricHint}>
+              Unpaid templates: {formatCurrency(unpaidTemplatesTotal)}
+            </span>
+          </div>
+        </section>
+        <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+          <div className={styles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+              Total Income
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+              {incomeMonthLabel}
+            </Typography>
+          </div>
+          <Typography variant="h4" component="p" className={styles.metricValue}>
+            {formatCurrency(previousMonthIncomeTotal)}
+          </Typography>
+          <div className={styles.metricFooter}>
+            {renderTrend(incomeTrend)}
+            <span className={styles.metricHint}>{getTrendHint(incomeTrend)}</span>
+          </div>
+        </section>
+        <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
+          <div className={styles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
+              Total Expenses
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.metricSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <Typography variant="h4" component="p" className={styles.metricValue}>
+            {formatCurrency(currentMonthExpenseTotal)}
+          </Typography>
+          <div className={styles.metricFooter}>
+            {renderTrend(expenseTrend)}
+            <span className={styles.metricHint}>{getTrendHint(expenseTrend)}</span>
+          </div>
+        </section>
+      </div>
+
+      <div className={styles.templatesRow}>
+        <section className={styles.card} aria-live="polite">
+          <header className={styles.cardHeader}>
+            <div>
+              <Typography variant="h5" component="h2" className={styles.cardTitle}>
+                Expense Templates
               </Typography>
-              
-            </section>
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
-              <div className={styles.summaryHeader}>
-                <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
-                  Total Income
-                </Typography>
-                <Typography variant="body2" component="p" className={styles.metricSubtitle}>
-                  {incomeMonthLabel}
-                </Typography>
-              </div>
-              <Typography variant="h4" component="p" className={styles.metricValue}>
-                {formatCurrency(previousMonthIncomeTotal)}
+              <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+                Drag categories to prioritise and track their monthly status.
               </Typography>
-              <div className={styles.metricFooter}>
-                {renderTrend(incomeTrend)}
-                <span className={styles.metricHint}>{getTrendHint(incomeTrend)}</span>
+            </div>
+            <div className={styles.headerActions}>
+              <span className={styles.cardBadge}>
+                {completedMonthlyTemplates}/{activeUserExpenses.length} completed
+              </span>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={handleResetMonthlyStatus}
+                disabled={activeUserExpenses.length === 0}
+              >
+                Reset month
+              </button>
+            </div>
+          </header>
+
+          {activeUserExpenses.length === 0 ? (
+            <Typography variant="body2" component="p" className={styles.placeholder}>
+              {userExpenses.length === 0
+                ? 'No expense templates yet. Add them in your profile to plan monthly spending.'
+                : 'All expense templates are inactive. Activate templates in your profile to track them here.'}
+            </Typography>
+          ) : (
+            <>
+              <div
+                className={styles.progressTrack}
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(monthlyTemplateProgress)}
+              >
+                <div className={styles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
               </div>
-            </section>
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <section className={`${styles.card} ${styles.summaryCard}`} aria-live="polite">
-              <div className={styles.summaryHeader}>
-                <Typography variant="subtitle2" component="h3" className={styles.metricLabel}>
-                  Total Expenses
-                </Typography>
-                <Typography variant="body2" component="p" className={styles.metricSubtitle}>
-                  {label}
-                </Typography>
+              <ul className={styles.templateList} aria-label="Expense templates grouped by category">
+                {groupedUserExpenses.map((group) => {
+                  const groupTotal = group.expenses.reduce((sum, expense) => sum + amountFromUserExpense(expense), 0)
+                  return (
+                    <li
+                      key={group.categoryId}
+                      className={styles.templateGroup}
+                      draggable
+                      onDragStart={() => handleCategoryDragStart(group.categoryId)}
+                      onDragOver={handleCategoryDragOver}
+                      onDrop={(event) => handleCategoryDrop(event, group.categoryId)}
+                      onDragEnd={handleCategoryDragEnd}
+                    >
+                      <div className={styles.templateGroupHeader}>
+                        <span className={styles.dragHandle} aria-hidden="true">⋮⋮</span>
+                        <div className={styles.templateGroupMeta}>
+                          <span className={styles.templateGroupName}>{group.categoryName}</span>
+                          <span className={styles.templateGroupTotal}>{formatAmount(groupTotal)}</span>
+                        </div>
+                      </div>
+                      <ul className={styles.templateItems}>
+                        {group.expenses.map((expense) => {
+                          const expenseId = String(expense.userExpensesId)
+                          const checked = monthlyExpenseStatus[expenseId] === true
+                          const saving = templateSaving[expenseId] === true
+                          const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Unpaid'
+                          return (
+                            <li key={expenseId} className={styles.templateItem}>
+                              <div className={styles.templateInfo}>
+                                <span className={styles.templateName}>{expense.userExpenseName}</span>
+                                <span className={styles.templateAmount}>{formatAmount(amountFromUserExpense(expense))}</span>
+                              </div>
+                              <label className={styles.templateToggle}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={checked || saving}
+                                  onChange={() => handleTemplateMarkPaid(expense)}
+                                  aria-label={`Mark ${expense.userExpenseName} as paid for this month`}
+                                />
+                                <span>{statusLabel}</span>
+                              </label>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </li>
+                  )
+                })}
+              </ul>
+              <div className={styles.templateFooter}>
+                <span className={styles.templateFooterLabel}>Total planned</span>
+                <span className={styles.templateFooterAmount}>{formatAmount(expenseTemplatesTotal)}</span>
               </div>
-              <Typography variant="h4" component="p" className={styles.metricValue}>
-                {formatCurrency(currentMonthExpenseTotal)}
-              </Typography>
-              <div className={styles.metricFooter}>
-                {renderTrend(expenseTrend)}
-                <span className={styles.metricHint}>{getTrendHint(expenseTrend)}</span>
-              </div>
-            </section>
-          </Grid>
-        </Grid>
-      </Grid>
-      <Grid size={{ xs: 12, lg: 8 }}>
+            </>
+          )}
+        </section>
+
         <section className={styles.card} aria-busy={loading}>
           <header className={styles.cardHeader}>
             <div>
@@ -564,79 +1047,78 @@ export default function Dashboard(): ReactElement {
             </div>
           )}
         </section>
-      </Grid>
-      <Grid size={{ xs: 12, lg: 4 }}>
-        <section className={styles.card}>
-          <header className={styles.cardHeader}>
-            <div>
-              <Typography variant="h5" component="h2" className={styles.cardTitle}>
-                Spend by Category
-              </Typography>
-              <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-                {label}
-              </Typography>
-            </div>
-            <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
-          </header>
-          {categorySummary.length === 0 ? (
-            <Typography variant="body2" component="p" className={styles.placeholder}>
-              No category spend recorded.
+      </div>
+
+      <section className={`${styles.card} ${styles.halfCard}`}>
+        <header className={styles.cardHeader}>
+          <div>
+            <Typography variant="h5" component="h2" className={styles.cardTitle}>
+              Spend by Category
             </Typography>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th scope="col">Category</th>
-                    <th scope="col" className={styles.numeric}>Total</th>
-                  </tr>
-                  <tr className={styles.tableFilterRow}>
-                    <th scope="col">
+            <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
+        </header>
+        {categorySummary.length === 0 ? (
+          <Typography variant="body2" component="p" className={styles.placeholder}>
+            No category spend recorded.
+          </Typography>
+        ) : (
+          <div className={styles.tableContainer}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Category</th>
+                  <th scope="col" className={styles.numeric}>Total</th>
+                </tr>
+                <tr className={styles.tableFilterRow}>
+                  <th scope="col">
+                    <input
+                      className={styles.tableFilterInput}
+                      type="search"
+                      placeholder="Filter category"
+                      value={categoryTableFilters.name}
+                      onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
+                    />
+                  </th>
+                  <th scope="col">
+                    <div className={styles.filterControls}>
                       <input
                         className={styles.tableFilterInput}
                         type="search"
-                        placeholder="Filter category"
-                        value={categoryTableFilters.name}
-                        onChange={(event) => handleCategoryFilterChange('name', event.target.value)}
+                        placeholder="Filter total"
+                        value={categoryTableFilters.total}
+                        onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
                       />
-                    </th>
-                    <th scope="col">
-                      <div className={styles.filterControls}>
-                        <input
-                          className={styles.tableFilterInput}
-                          type="search"
-                          placeholder="Filter total"
-                          value={categoryTableFilters.total}
-                          onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
-                        />
-                        {categoryFiltersApplied && (
-                          <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
-                            Clear
-                          </button>
-                        )}
-                      </div>
-                    </th>
+                      {categoryFiltersApplied && (
+                        <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCategorySummary.length === 0 ? (
+                  <tr className={styles.emptyRow}>
+                    <td colSpan={2}>No categories match the current filters.</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredCategorySummary.length === 0 ? (
-                    <tr className={styles.emptyRow}>
-                      <td colSpan={2}>No categories match the current filters.</td>
+                ) : (
+                  filteredCategorySummary.map((entry) => (
+                    <tr key={entry.name}>
+                      <td>{entry.name}</td>
+                      <td className={styles.numeric}>{formatAmount(entry.total)}</td>
                     </tr>
-                  ) : (
-                    filteredCategorySummary.map((entry) => (
-                      <tr key={entry.name}>
-                        <td>{entry.name}</td>
-                        <td className={styles.numeric}>{formatAmount(entry.total)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </Grid>
-    </Grid>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </section>
   )
 }

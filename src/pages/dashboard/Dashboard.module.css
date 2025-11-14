@@ -13,9 +13,17 @@
   backdrop-filter: blur(6px);
 }
 
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 1rem;
+  row-gap: 1.25rem; /* slightly larger vertical spacing between rows */
+  margin-bottom: 1.25rem; /* space between the summary cards and the following content */
+}
+
 .summaryCard {
   padding: 1rem 1rem;
-  display: block;
+  display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
@@ -135,6 +143,25 @@
   gap: 0.75rem;
 }
 
+.secondaryButton {
+  border: 1px solid var(--secondary-button-border);
+  background: transparent;
+  color: var(--secondary-button-text);
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--secondary-button-hover);
+}
+
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .totalAmount {
   font-weight: 700;
   color: var(--color-text-strong);
@@ -165,6 +192,229 @@
 .placeholder {
   margin: 1rem 0 0;
   color: var(--placeholder-text);
+}
+
+.progressTrack {
+  width: 100%;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--surface-table-border);
+  overflow: hidden;
+  margin: 0.25rem 0 1rem;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #34d399, #059669);
+  transition: width 0.2s ease;
+}
+
+.templateList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Layout for the templates + current-month panels below the summary cards */
+.templatesRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1.25rem;
+}
+
+.templateGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px dashed transparent;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.templateGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  gap: 0.75rem;
+  cursor: grab;
+  user-select: none;
+}
+
+.templateGroupHeader:active {
+  cursor: grabbing;
+}
+
+.templateGroupMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.templateGroupName {
+  font-weight: 600;
+}
+
+.templateGroupTotal {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.templateItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.templateItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px dashed var(--surface-table-border);
+  background: var(--surface-table-head);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.templateGroup:hover {
+  border-color: var(--accent-primary);
+  background: var(--surface-table-head);
+}
+
+.templateItem:hover {
+  border-color: var(--accent-primary);
+}
+
+.dragHandle {
+  font-size: 0.9rem;
+  letter-spacing: 0.3rem;
+  color: var(--color-text-muted);
+}
+
+.templateInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.templateName {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.templateAmount {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.templateToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.templateToggle input {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.templateFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  background: var(--surface-table-head);
+  border: 1px solid var(--surface-table-border);
+}
+
+.templateFooterLabel {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.templateFooterAmount {
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.categoryGraph {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* Make a card span half the container width on larger screens */
+.halfCard {
+  /* match the left column width of .templatesRow which uses a 1rem gap
+     we subtract half the gap so the visual left edge lines up precisely */
+  width: calc(50% - 0.5rem);
+  margin-left: 0;
+}
+
+@media (max-width: 900px) {
+  .halfCard {
+    width: 100%;
+  }
+}
+
+.categoryBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.categoryBarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.categoryBarName {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.categoryBarValue {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.categoryBarTrack {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-table-border);
+  overflow: hidden;
+}
+
+.categoryBarFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  transition: width 0.25s ease;
 }
 
 .tableContainer {
@@ -278,5 +528,25 @@
 @media (max-width: 1100px) {
   .table {
     min-width: 100%;
+  }
+}
+
+@media (max-width: 1100px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+/* Stack templates + current month panels into a single column on smaller screens */
+@media (max-width: 900px) {
+  .templatesRow {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage } from '../types/app';
+import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from '../types/app';
 export type AppDataContextValue = {
   session: SessionData | null;
   setSession: (session: SessionData | null) => void;
@@ -9,11 +9,17 @@ export type AppDataContextValue = {
   setExpenseCategories: (
     categories: UserExpenseCategory[] | ((previous: UserExpenseCategory[]) => UserExpenseCategory[])
   ) => void;
+  userExpenses: UserExpense[];
+  setUserExpenses: (expenses: UserExpense[] | ((previous: UserExpense[]) => UserExpense[])) => void;
+  activeUserExpenses: UserExpense[];
+  setActiveUserExpenses: (expenses: UserExpense[] | ((previous: UserExpense[]) => UserExpense[])) => void;
   expensesCache: Expense[];
   setExpensesCache: (expenses: Expense[] | ((previous: Expense[]) => Expense[])) => void;
   incomesCache: Income[];
   setIncomesCache: (incomes: Income[] | ((previous: Income[]) => Income[])) => void;
   ensureExpenseCategories: () => Promise<UserExpenseCategory[]>;
+  ensureUserExpenses: () => Promise<UserExpense[]>;
+  ensureActiveUserExpenses: () => Promise<UserExpense[]>;
   reloadExpensesCache: (username: string) => Promise<Expense[]>;
   reloadIncomesCache: (username: string) => Promise<Income[]>;
 };

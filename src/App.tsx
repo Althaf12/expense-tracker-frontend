@@ -9,13 +9,15 @@ import Dashboard from './pages/dashboard/Dashboard'
 import ExpensesOperations from './pages/operations/ExpensesOperations'
 import IncomeOperations from './pages/operations/IncomeOperations'
 import Profile from './pages/profile/Profile'
-import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage } from './types/app'
 import {
   fetchExpenses as apiFetchExpenses,
   forgotPassword as apiForgotPassword,
   fetchIncomeLastYear as apiFetchIncomeLastYear,
   fetchUserExpenseCategoriesActive as apiFetchUserExpenseCategoriesActive,
+  fetchUserExpenses as apiFetchUserExpenses,
+  fetchUserExpensesActive as apiFetchUserExpensesActive,
 } from './api'
+import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
 import { ThemeProvider } from './context/ThemeContext'
 import styles from './App.module.css'
@@ -52,6 +54,8 @@ export default function App(): ReactElement {
   const [session, setSession] = useState<SessionData | null>(null)
   const [status, setStatusState] = useState<StatusState>(null)
   const [expenseCategories, setExpenseCategories] = useState<UserExpenseCategory[]>([])
+  const [userExpenses, setUserExpenses] = useState<UserExpense[]>([])
+  const [activeUserExpenses, setActiveUserExpenses] = useState<UserExpense[]>([])
   const [expensesCache, setExpensesCache] = useState<Expense[]>([])
   const [incomesCache, setIncomesCache] = useState<Income[]>([])
 
@@ -72,6 +76,8 @@ export default function App(): ReactElement {
     setSession(null)
     setExpensesCache([])
     setExpenseCategories([])
+    setUserExpenses([])
+    setActiveUserExpenses([])
     setIncomesCache([])
     try {
       window.localStorage.removeItem(SESSION_STORAGE_KEY)
@@ -94,6 +100,28 @@ export default function App(): ReactElement {
     const categories = await apiFetchUserExpenseCategoriesActive(username)
     setExpenseCategories(categories)
     return categories
+  }, [session?.username])
+
+  const ensureUserExpenses = useCallback(async (): Promise<UserExpense[]> => {
+    const username = session?.username
+    if (!username) {
+      setUserExpenses([])
+      return []
+    }
+    const expenses = await apiFetchUserExpenses(username)
+    setUserExpenses(expenses)
+    return expenses
+  }, [session?.username])
+
+  const ensureActiveUserExpenses = useCallback(async (): Promise<UserExpense[]> => {
+    const username = session?.username
+    if (!username) {
+      setActiveUserExpenses([])
+      return []
+    }
+    const expenses = await apiFetchUserExpensesActive(username)
+    setActiveUserExpenses(expenses)
+    return expenses
   }, [session?.username])
 
   const reloadExpensesCache = useCallback(async (username: string): Promise<Expense[]> => {
@@ -158,11 +186,17 @@ export default function App(): ReactElement {
       setStatus: updateStatus,
       expenseCategories,
       setExpenseCategories,
+      userExpenses,
+      setUserExpenses,
+      activeUserExpenses,
+      setActiveUserExpenses,
       expensesCache,
       setExpensesCache,
       incomesCache,
       setIncomesCache,
       ensureExpenseCategories,
+      ensureUserExpenses,
+      ensureActiveUserExpenses,
       reloadExpensesCache,
       reloadIncomesCache,
     }),
@@ -170,9 +204,13 @@ export default function App(): ReactElement {
       session,
       status,
       expenseCategories,
+      userExpenses,
+      activeUserExpenses,
       expensesCache,
       incomesCache,
       ensureExpenseCategories,
+      ensureUserExpenses,
+      ensureActiveUserExpenses,
       reloadExpensesCache,
       reloadIncomesCache,
       updateStatus,

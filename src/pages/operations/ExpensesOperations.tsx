@@ -480,7 +480,7 @@ export default function ExpensesOperations(): ReactElement {
         expenseAmount: numericAmount,
         expenseName: editingRowDraft.expenseName,
         expenseDate: editingRowDraft.expenseDate,
-        expenseCategoryId: editingRowDraft.expenseCategoryId,
+        userExpenseCategoryId: editingRowDraft.expenseCategoryId,
       })
       setStatus({ type: 'success', message: 'Expense updated.' })
       await refreshAfterMutation()
@@ -542,7 +542,7 @@ export default function ExpensesOperations(): ReactElement {
     try {
       await addExpense({
         username: session.username,
-        expenseCategoryId,
+        userExpenseCategoryId: expenseCategoryId,
         expenseAmount: numericAmount,
         expenseDate,
         expenseName,

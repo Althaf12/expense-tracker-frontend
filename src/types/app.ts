@@ -15,7 +15,9 @@ export type Expense = {
   expenseId?: string | number
   expenseName?: string
   description?: string
+  /** @deprecated prefer userExpenseCategoryId; kept for backward compatibility */
   expenseCategoryId?: string | number
+  userExpenseCategoryId?: string | number
   expenseCategoryName?: string
   amount?: number | string
   expenseAmount?: number | string
@@ -30,6 +32,17 @@ export type UserExpenseCategory = {
   status: 'A' | 'I'
   lastUpdateTmstp?: string
   username?: string
+}
+
+export type UserExpense = {
+  userExpensesId: string | number
+  username: string
+  userExpenseName: string
+  userExpenseCategoryName: string
+  userExpenseCategoryId?: string | number
+  amount: number
+  status: 'A' | 'I'
+  lastUpdateTmstp?: string
 }
 
 export type Income = {

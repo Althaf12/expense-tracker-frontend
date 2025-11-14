@@ -43,6 +43,22 @@ export const formatAmount = (value: unknown): string => {
   }
 }
 
+export const formatCurrency = (value: unknown, currency = 'INR'): string => {
+  const parsed = parseAmount(value)
+  if (!Number.isFinite(parsed)) {
+    return typeof value === 'string' ? value : '-'
+  }
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(parsed)
+  } catch {
+    return `${formatAmount(parsed)} ${currency}`
+  }
+}
 export const parseAmount = (value: unknown): number => {
   if (typeof value === 'number') {
     return value

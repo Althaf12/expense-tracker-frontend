@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useAppDataContext } from '../../context/AppDataContext'
-import type { SessionData, UserExpenseCategory } from '../../types/app'
+import type { SessionData, UserExpenseCategory, UserExpense } from '../../types/app'
 import {
   copyUserExpenseCategoriesFromMaster,
   createUserExpenseCategory,
   deleteUserExpenseCategory,
   fetchUserExpenseCategories,
-  fetchUserExpenseCategoriesActive,
   updateUserExpenseCategory,
+  createUserExpense,
+  updateUserExpense,
+  deleteUserExpense,
 } from '../../api'
 import styles from './Profile.module.css'
 
@@ -27,6 +29,35 @@ type CategoryDraft = {
 }
 
 const MAX_USER_CATEGORIES = 20
+const MAX_USER_EXPENSES = 100
+
+type ExpenseDraft = {
+  name: string
+  status: 'A' | 'I'
+  categoryId: string
+  amount: string
+}
+
+const toAmountString = (value: number | string | undefined): string => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value.toString() : ''
+  }
+  if (typeof value === 'string') {
+    const numeric = Number(value)
+    return Number.isFinite(numeric) ? numeric.toString() : ''
+  }
+  return ''
+}
+
+const parseAmount = (input: string): number | null => {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  const numeric = Number(trimmed)
+  if (!Number.isFinite(numeric)) {
+    return null
+  }
+  return numeric
+}
 
 export default function Profile({ session, onRequestReset }: ProfileProps): ReactElement {
   const sessionRecord = asRecord(session)
@@ -38,30 +69,105 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const {
     setStatus,
-    setExpenseCategories,
+    expenseCategories: activeCategories,
+    ensureExpenseCategories,
+    ensureUserExpenses,
+    ensureActiveUserExpenses,
   } = useAppDataContext()
 
   const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
   const [categories, setCategories] = useState<UserExpenseCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
-  const [actionInFlight, setActionInFlight] = useState(false)
-  const [editingId, setEditingId] = useState<string | number | null>(null)
-  const [editingDraft, setEditingDraft] = useState<CategoryDraft | null>(null)
-  const [adding, setAdding] = useState(false)
-  const [addDraft, setAddDraft] = useState<CategoryDraft>({ name: '', status: 'A' })
+  const [categoryActionInFlight, setCategoryActionInFlight] = useState(false)
+  const [editingCategoryId, setEditingCategoryId] = useState<string | number | null>(null)
+  const [categoryDraft, setCategoryDraft] = useState<CategoryDraft | null>(null)
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [categoryAddDraft, setCategoryAddDraft] = useState<CategoryDraft>({ name: '', status: 'A' })
+  const [expenseEditorOpen, setExpenseEditorOpen] = useState(false)
+  const [expenses, setExpenses] = useState<UserExpense[]>([])
+  const [loadingExpenses, setLoadingExpenses] = useState(false)
+  const [expenseActionInFlight, setExpenseActionInFlight] = useState(false)
+  const [editingExpenseId, setEditingExpenseId] = useState<string | number | null>(null)
+  const [expenseDraft, setExpenseDraft] = useState<ExpenseDraft | null>(null)
+  const [addingExpense, setAddingExpense] = useState(false)
+  const [expenseAddDraft, setExpenseAddDraft] = useState<ExpenseDraft>({
+    name: '',
+    status: 'A',
+    categoryId: '',
+    amount: '',
+  })
+
+  const amountFormatter = useMemo(
+    () => new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    [],
+  )
 
   const canManageCategories = Boolean(loginUsername)
+  const canManageExpenses = Boolean(loginUsername)
+
+  const formatAmountDisplay = useCallback(
+    (value: number | string | undefined): string => {
+      const numeric = typeof value === 'number' ? value : Number(value)
+      if (!Number.isFinite(numeric)) {
+        return '-'
+      }
+      return amountFormatter.format(numeric)
+    },
+    [amountFormatter],
+  )
+
+  const categoryLookup = useMemo(() => {
+    const map = new Map<string, UserExpenseCategory>()
+    categories.forEach((category) => {
+      const key = String(category.userExpenseCategoryId)
+      if (key) {
+        map.set(key, category)
+      }
+    })
+    return map
+  }, [categories])
+
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(categoryLookup.entries())
+        .map(([id, category]) => ({
+          id,
+          label: category.userExpenseCategoryName,
+          status: category.status,
+        }))
+        .sort((a, b) => {
+          if (a.status !== b.status) {
+            return a.status === 'A' ? -1 : 1
+          }
+          return a.label.localeCompare(b.label)
+        }),
+    [categoryLookup],
+  )
+
+  const hasActiveCategory = categoryOptions.some((option) => option.status === 'A')
+
+  const categoriesWithSerial = useMemo(
+    () => categories.map((category, index) => ({ ...category, serial: index + 1 })),
+    [categories],
+  )
+
+  const expensesWithSerial = useMemo(
+    () => expenses.map((expense, index) => ({ ...expense, serial: index + 1 })),
+    [expenses],
+  )
+
+  const categoryLimitReached = categories.length >= MAX_USER_CATEGORIES
+  const expenseLimitReached = expenses.length >= MAX_USER_EXPENSES
 
   const syncActiveCategories = useCallback(async () => {
     if (!loginUsername) return
     try {
-  const active = await fetchUserExpenseCategoriesActive(loginUsername)
-  setExpenseCategories(active)
+      await ensureExpenseCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
     }
-  }, [loginUsername, setExpenseCategories, setStatus])
+  }, [ensureExpenseCategories, loginUsername, setStatus])
 
   const refreshUserCategories = useCallback(async () => {
     if (!loginUsername) return
@@ -78,14 +184,60 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     }
   }, [loginUsername, setStatus, syncActiveCategories])
 
+  const syncActiveExpenses = useCallback(async () => {
+    if (!loginUsername) return
+    try {
+      await ensureActiveUserExpenses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    }
+  }, [ensureActiveUserExpenses, loginUsername, setStatus])
+
+  const refreshUserExpenses = useCallback(async () => {
+    if (!loginUsername) return
+    setLoadingExpenses(true)
+    try {
+      const allExpenses = await ensureUserExpenses()
+      setExpenses(allExpenses)
+      await syncActiveExpenses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    } finally {
+      setLoadingExpenses(false)
+    }
+  }, [ensureUserExpenses, loginUsername, setStatus, syncActiveExpenses])
+
   useEffect(() => {
     // Always refresh the user's categories when the profile loads so the
-    // profile page shows the full set (not only the active ones). Also
-    // refresh when the category editor is opened to ensure fresh data.
+    // profile page shows the full set (not only the active ones).
     if (loginUsername) {
       void refreshUserCategories()
     }
-  }, [categoryEditorOpen, refreshUserCategories])
+  }, [loginUsername, refreshUserCategories])
+
+  useEffect(() => {
+    // Refresh whenever the editor is opened so edits elsewhere stay in sync.
+    if (categoryEditorOpen && loginUsername) {
+      void refreshUserCategories()
+    }
+  }, [categoryEditorOpen, loginUsername, refreshUserCategories])
+
+  useEffect(() => {
+    if (loginUsername) {
+      void refreshUserExpenses()
+    }
+  }, [expenseEditorOpen, loginUsername, refreshUserExpenses])
+
+  useEffect(() => {
+    if (!loginUsername) {
+      setCategoryEditorOpen(false)
+      setExpenseEditorOpen(false)
+      setCategories([])
+      setExpenses([])
+    }
+  }, [loginUsername])
 
   const handleResetPassword = () => {
     if (displayUsername) {
@@ -94,40 +246,40 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const startEdit = (category: UserExpenseCategory) => {
-    setEditingId(category.userExpenseCategoryId)
-    setEditingDraft({ name: category.userExpenseCategoryName, status: category.status })
+    setEditingCategoryId(category.userExpenseCategoryId)
+    setCategoryDraft({ name: category.userExpenseCategoryName, status: category.status })
   }
 
   const cancelEdit = () => {
-    setEditingId(null)
-    setEditingDraft(null)
+    setEditingCategoryId(null)
+    setCategoryDraft(null)
   }
 
-  const beginAdd = () => {
-    setAdding(true)
-    setAddDraft({ name: '', status: 'A' })
+  const beginAddCategory = () => {
+    setAddingCategory(true)
+    setCategoryAddDraft({ name: '', status: 'A' })
   }
 
-  const cancelAdd = () => {
-    setAdding(false)
-    setAddDraft({ name: '', status: 'A' })
+  const cancelAddCategory = () => {
+    setAddingCategory(false)
+    setCategoryAddDraft({ name: '', status: 'A' })
   }
 
   const handleUpdateCategory = async (category: UserExpenseCategory) => {
-    if (!loginUsername || !editingDraft) return
-    const trimmedName = editingDraft.name.trim()
+    if (!loginUsername || !categoryDraft) return
+    const trimmedName = categoryDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Category name is required.' })
       return
     }
-    setActionInFlight(true)
+    setCategoryActionInFlight(true)
     setStatus({ type: 'loading', message: 'Updating category…' })
     try {
       await updateUserExpenseCategory({
         username: loginUsername,
         id: category.userExpenseCategoryId,
         userExpenseCategoryName: trimmedName,
-        status: editingDraft.status,
+        status: categoryDraft.status,
       })
       setStatus({ type: 'success', message: 'Category updated.' })
       cancelEdit()
@@ -136,7 +288,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
     } finally {
-      setActionInFlight(false)
+      setCategoryActionInFlight(false)
     }
   }
 
@@ -144,7 +296,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     if (!loginUsername) return
     const confirmDelete = window.confirm(`Delete the category "${category.userExpenseCategoryName}"?`)
     if (!confirmDelete) return
-    setActionInFlight(true)
+    setCategoryActionInFlight(true)
     setStatus({ type: 'loading', message: 'Deleting category…' })
     try {
       await deleteUserExpenseCategory({ username: loginUsername, id: category.userExpenseCategoryId })
@@ -154,33 +306,33 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
     } finally {
-      setActionInFlight(false)
+      setCategoryActionInFlight(false)
     }
   }
 
   const handleAddCategory = async () => {
     if (!loginUsername) return
-    const trimmedName = addDraft.name.trim()
+    const trimmedName = categoryAddDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Category name is required.' })
       return
     }
-    setActionInFlight(true)
+    setCategoryActionInFlight(true)
     setStatus({ type: 'loading', message: 'Adding category…' })
     try {
       await createUserExpenseCategory({
         username: loginUsername,
         userExpenseCategoryName: trimmedName,
-        status: addDraft.status,
+        status: categoryAddDraft.status,
       })
       setStatus({ type: 'success', message: 'Category added.' })
-      cancelAdd()
+      cancelAddCategory()
       await refreshUserCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
     } finally {
-      setActionInFlight(false)
+      setCategoryActionInFlight(false)
     }
   }
 
@@ -190,28 +342,149 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       'All current categories will be replaced with the default categories. This action cannot be undone. Continue?',
     )
     if (!confirmed) return
-    setActionInFlight(true)
+    setCategoryActionInFlight(true)
     setStatus({ type: 'loading', message: 'Resetting categories…' })
     try {
       await copyUserExpenseCategoriesFromMaster(loginUsername)
       setStatus({ type: 'success', message: 'Categories reset to defaults.' })
       cancelEdit()
-      cancelAdd()
+      cancelAddCategory()
       await refreshUserCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
     } finally {
-      setActionInFlight(false)
+      setCategoryActionInFlight(false)
     }
   }
 
-  const categoriesWithSerial = useMemo(
-    () => categories.map((category, index) => ({ ...category, serial: index + 1 })),
-    [categories],
-  )
+  const startExpenseEdit = (expense: UserExpense) => {
+    setEditingExpenseId(expense.userExpensesId)
+    setExpenseDraft({
+      name: expense.userExpenseName,
+      status: expense.status,
+      categoryId: String(expense.userExpenseCategoryId ?? ''),
+      amount: toAmountString(expense.amount),
+    })
+  }
 
-  const categoryLimitReached = categories.length >= MAX_USER_CATEGORIES
+  const cancelExpenseEdit = () => {
+    setEditingExpenseId(null)
+    setExpenseDraft(null)
+  }
+
+  const beginAddExpense = () => {
+    setAddingExpense(true)
+    setExpenseAddDraft({ name: '', status: 'A', categoryId: '', amount: '' })
+  }
+
+  const cancelAddExpense = () => {
+    setAddingExpense(false)
+    setExpenseAddDraft({ name: '', status: 'A', categoryId: '', amount: '' })
+  }
+
+  const handleUpdateExpense = async (expense: UserExpense) => {
+    if (!loginUsername || !expenseDraft) return
+    const trimmedName = expenseDraft.name.trim()
+    if (!trimmedName) {
+      setStatus({ type: 'error', message: 'Expense name is required.' })
+      return
+    }
+    if (!expenseDraft.categoryId) {
+      setStatus({ type: 'error', message: 'Select a category for the expense.' })
+      return
+    }
+    const selectedCategory = categoryLookup.get(expenseDraft.categoryId)
+    if (!selectedCategory) {
+      setStatus({ type: 'error', message: 'Selected category is not available.' })
+      return
+    }
+    const amountValue = parseAmount(expenseDraft.amount)
+    if (amountValue === null || amountValue <= 0) {
+      setStatus({ type: 'error', message: 'Enter a valid amount greater than zero.' })
+      return
+    }
+    setExpenseActionInFlight(true)
+    setStatus({ type: 'loading', message: 'Updating expense template…' })
+    try {
+      await updateUserExpense({
+        username: loginUsername,
+        id: expense.userExpensesId,
+        userExpenseName: trimmedName,
+        userExpenseCategoryId: selectedCategory.userExpenseCategoryId,
+        amount: amountValue,
+        status: expenseDraft.status,
+      })
+      setStatus({ type: 'success', message: 'Expense template updated.' })
+      cancelExpenseEdit()
+      await refreshUserExpenses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    } finally {
+      setExpenseActionInFlight(false)
+    }
+  }
+
+  const handleDeleteExpense = async (expense: UserExpense) => {
+    if (!loginUsername) return
+    const confirmed = window.confirm(`Delete the expense template "${expense.userExpenseName}"?`)
+    if (!confirmed) return
+    setExpenseActionInFlight(true)
+    setStatus({ type: 'loading', message: 'Deleting expense template…' })
+    try {
+      await deleteUserExpense({ username: loginUsername, id: expense.userExpensesId })
+      setStatus({ type: 'success', message: 'Expense template deleted.' })
+      await refreshUserExpenses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    } finally {
+      setExpenseActionInFlight(false)
+    }
+  }
+
+  const handleAddExpense = async () => {
+    if (!loginUsername) return
+    const trimmedName = expenseAddDraft.name.trim()
+    if (!trimmedName) {
+      setStatus({ type: 'error', message: 'Expense name is required.' })
+      return
+    }
+    if (!expenseAddDraft.categoryId) {
+      setStatus({ type: 'error', message: 'Select a category for the expense.' })
+      return
+    }
+    const selectedCategory = categoryLookup.get(expenseAddDraft.categoryId)
+    if (!selectedCategory || selectedCategory.status !== 'A') {
+      setStatus({ type: 'error', message: 'Select an active category before saving.' })
+      return
+    }
+    const amountValue = parseAmount(expenseAddDraft.amount)
+    if (amountValue === null || amountValue <= 0) {
+      setStatus({ type: 'error', message: 'Enter a valid amount greater than zero.' })
+      return
+    }
+    setExpenseActionInFlight(true)
+    setStatus({ type: 'loading', message: 'Adding expense template…' })
+    try {
+      await createUserExpense({
+        username: loginUsername,
+        userExpenseName: trimmedName,
+        userExpenseCategoryId: selectedCategory.userExpenseCategoryId,
+        amount: amountValue,
+        status: expenseAddDraft.status,
+      })
+      setStatus({ type: 'success', message: 'Expense template added.' })
+      cancelAddExpense()
+      await refreshUserExpenses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    } finally {
+      setExpenseActionInFlight(false)
+    }
+  }
 
   const renderStatusToggle = (status: 'A' | 'I', onChange: (next: 'A' | 'I') => void, disabled?: boolean) => (
     <label className={styles.toggle}>
@@ -228,6 +501,27 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     </label>
   )
 
+  const renderCategorySelect = (value: string, onChange: (next: string) => void, disabled?: boolean) => (
+    <select
+      className={styles.selectInput}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      disabled={disabled || categoryOptions.length === 0}
+    >
+      <option value="">Select category</option>
+      {categoryOptions.map((option) => {
+        const isCurrent = option.id === value
+        const isInactive = option.status !== 'A'
+        return (
+          <option key={option.id} value={option.id} disabled={!isCurrent && isInactive}>
+            {option.label}
+            {isInactive ? ' (inactive)' : ''}
+          </option>
+        )
+      })}
+    </select>
+  )
+
   return (
     <section className={styles.wrapper}>
       <h2 className={styles.title}>Profile</h2>
@@ -242,6 +536,24 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
         </div>
       </dl>
       <div className={styles.primaryActions}>
+        <div className={styles.managementControls}>
+          <button
+            type="button"
+            className={styles.manageButton}
+            onClick={() => setCategoryEditorOpen((previous) => !previous)}
+            disabled={!canManageCategories}
+          >
+            {categoryEditorOpen ? 'Hide categories' : 'Edit user expense categories'}
+          </button>
+          <button
+            type="button"
+            className={styles.manageButton}
+            onClick={() => setExpenseEditorOpen((previous) => !previous)}
+            disabled={!canManageExpenses}
+          >
+            {expenseEditorOpen ? 'Hide expense templates' : 'Edit user expense templates'}
+          </button>
+        </div>
         <button
           type="button"
           className={styles.resetButton}
@@ -250,168 +562,403 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
         >
           Reset password
         </button>
-        <button
-          type="button"
-          className={styles.manageButton}
-          onClick={() => setCategoryEditorOpen((previous) => !previous)}
-          disabled={!canManageCategories}
-        >
-          {categoryEditorOpen ? 'Hide categories' : 'Edit user expense categories'}
-        </button>
       </div>
 
-      {categoryEditorOpen && (
-        <section className={styles.categoryCard}>
-          <header className={styles.categoryHeader}>
-            <div>
-              <h3 className={styles.categoryTitle}>User Categories</h3>
-              <p className={styles.categorySubtitle}>
-                {categories.length} / {MAX_USER_CATEGORIES} categories
-              </p>
-            </div>
-            <button
-              type="button"
-              className={styles.resetDefaultsButton}
-              onClick={handleResetDefaults}
-              disabled={actionInFlight || !canManageCategories}
-            >
-              Reset Default
-            </button>
-          </header>
+      <div className={styles.managementGrid}>
+        {categoryEditorOpen && (
+          <section className={styles.managementCard}>
+            <header className={styles.managementHeader}>
+              <div>
+                <h3 className={styles.managementTitle}>User Categories</h3>
+                <p className={styles.managementSubtitle}>
+                  {categories.length} / {MAX_USER_CATEGORIES} categories
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.cardActionButton}
+                onClick={handleResetDefaults}
+                disabled={categoryActionInFlight || !canManageCategories}
+              >
+                Reset default
+              </button>
+            </header>
 
-          {loadingCategories ? (
-            <p className={styles.placeholder}>Loading categories…</p>
-          ) : categories.length === 0 && !adding ? (
-            <p className={styles.placeholder}>No categories yet. Add your first category below.</p>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Category</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" className={styles.actionsCol}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categoriesWithSerial.map((category) => {
-                    const isEditing = editingId === category.userExpenseCategoryId
-                    const draft = isEditing ? editingDraft : null
-                    return (
-                      <tr key={category.userExpenseCategoryId}>
-                        <td>{category.serial}</td>
-                        <td>
-                          {isEditing ? (
-                            <input
-                              className={styles.inlineInput}
-                              value={draft?.name ?? ''}
-                              onChange={(event) =>
-                                setEditingDraft((previous) =>
-                                  previous ? { ...previous, name: event.target.value } : previous,
+            {loadingCategories ? (
+              <p className={styles.placeholder}>Loading categories…</p>
+            ) : categories.length === 0 && !addingCategory ? (
+              <p className={styles.placeholder}>No categories yet. Add your first category below.</p>
+            ) : (
+              <div className={styles.tableContainer}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Category</th>
+                      <th scope="col" className={styles.statusCol}>Status</th>
+                      <th scope="col" className={styles.actionsCol}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categoriesWithSerial.map((category) => {
+                      const isEditing = editingCategoryId === category.userExpenseCategoryId
+                      const draft = isEditing ? categoryDraft : null
+                      return (
+                        <tr key={category.userExpenseCategoryId}>
+                          <td>{category.serial}</td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className={styles.inlineInput}
+                                value={draft?.name ?? ''}
+                                onChange={(event) =>
+                                  setCategoryDraft((previous) =>
+                                    previous ? { ...previous, name: event.target.value } : previous,
+                                  )
+                                }
+                                placeholder="Category name"
+                                maxLength={60}
+                                disabled={categoryActionInFlight}
+                              />
+                            ) : (
+                              category.userExpenseCategoryName
+                            )}
+                          </td>
+                          <td>
+                            {isEditing
+                              ? renderStatusToggle(
+                                  draft?.status ?? 'A',
+                                  (next) =>
+                                    setCategoryDraft((previous) =>
+                                      previous ? { ...previous, status: next } : previous,
+                                    ),
+                                  categoryActionInFlight,
                                 )
-                              }
-                              placeholder="Category name"
-                              maxLength={60}
-                              disabled={actionInFlight}
-                            />
-                          ) : (
-                            category.userExpenseCategoryName
-                          )}
+                              : renderStatusToggle(category.status, () => undefined, true)}
+                          </td>
+                          <td className={styles.actionsCell}>
+                            {isEditing ? (
+                              <div className={styles.inlineActions}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateCategory(category)}
+                                  disabled={categoryActionInFlight}
+                                >
+                                  Save
+                                </button>
+                                <button type="button" onClick={cancelEdit} disabled={categoryActionInFlight}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className={styles.inlineActions}>
+                                <button
+                                  type="button"
+                                  onClick={() => startEdit(category)}
+                                  disabled={categoryActionInFlight}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCategory(category)}
+                                  disabled={categoryActionInFlight}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+
+                    {addingCategory && (
+                      <tr>
+                        <td>{categories.length + 1}</td>
+                        <td>
+                          <input
+                            className={styles.inlineInput}
+                            value={categoryAddDraft.name}
+                            onChange={(event) =>
+                              setCategoryAddDraft((previous) => ({ ...previous, name: event.target.value }))
+                            }
+                            placeholder="Category name"
+                            maxLength={60}
+                            disabled={categoryActionInFlight}
+                            autoFocus
+                          />
                         </td>
                         <td>
-                          {isEditing
-                            ? renderStatusToggle(draft?.status ?? 'A', (next) =>
-                                setEditingDraft((previous) =>
-                                  previous ? { ...previous, status: next } : previous,
-                                ), actionInFlight)
-                            : renderStatusToggle(category.status, () => undefined, true)}
+                          {renderStatusToggle(
+                            categoryAddDraft.status,
+                            (next) => setCategoryAddDraft((prev) => ({ ...prev, status: next })),
+                            categoryActionInFlight,
+                          )}
                         </td>
                         <td className={styles.actionsCell}>
-                          {isEditing ? (
-                            <div className={styles.inlineActions}>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateCategory(category)}
-                                disabled={actionInFlight}
-                              >
-                                Save
-                              </button>
-                              <button type="button" onClick={cancelEdit} disabled={actionInFlight}>
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className={styles.inlineActions}>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(category)}
-                                disabled={actionInFlight}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteCategory(category)}
-                                disabled={actionInFlight}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
+                          <div className={styles.inlineActions}>
+                            <button type="button" onClick={handleAddCategory} disabled={categoryActionInFlight}>
+                              Save
+                            </button>
+                            <button type="button" onClick={cancelAddCategory} disabled={categoryActionInFlight}>
+                              Cancel
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    )
-                  })}
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-                  {adding && (
+            {!categoryLimitReached && !addingCategory && (
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={beginAddCategory}
+                disabled={categoryActionInFlight}
+              >
+                Add category
+              </button>
+            )}
+
+            {categoryLimitReached && !addingCategory && (
+              <p className={styles.limitNote}>Maximum of {MAX_USER_CATEGORIES} categories reached.</p>
+            )}
+          </section>
+        )}
+
+        {expenseEditorOpen && (
+          <section className={styles.managementCard}>
+            <header className={styles.managementHeader}>
+              <div>
+                <h3 className={styles.managementTitle}>Expense Templates</h3>
+                <p className={styles.managementSubtitle}>
+                  {expenses.length} / {MAX_USER_EXPENSES} templates
+                </p>
+              </div>
+              <span className={styles.headerHint}>Active categories: {activeCategories.length}</span>
+            </header>
+
+            {!hasActiveCategory && expenses.length === 0 && (
+              <p className={styles.helperNote}>
+                Activate at least one category before adding expense templates.
+              </p>
+            )}
+
+            {loadingExpenses ? (
+              <p className={styles.placeholder}>Loading expense templates…</p>
+            ) : expenses.length === 0 && !addingExpense ? (
+              <p className={styles.placeholder}>No expense templates yet. Add your first template below.</p>
+            ) : (
+              <div className={styles.tableContainer}>
+                <table className={styles.table}>
+                  <thead>
                     <tr>
-                      <td>{categories.length + 1}</td>
-                      <td>
-                        <input
-                          className={styles.inlineInput}
-                          value={addDraft.name}
-                          onChange={(event) => setAddDraft((previous) => ({ ...previous, name: event.target.value }))}
-                          placeholder="Category name"
-                          maxLength={60}
-                          disabled={actionInFlight}
-                          autoFocus
-                        />
-                      </td>
-                      <td>{renderStatusToggle(addDraft.status, (next) => setAddDraft((prev) => ({ ...prev, status: next })), actionInFlight)}</td>
-                      <td className={styles.actionsCell}>
-                        <div className={styles.inlineActions}>
-                          <button type="button" onClick={handleAddCategory} disabled={actionInFlight}>
-                            Save
-                          </button>
-                          <button type="button" onClick={cancelAdd} disabled={actionInFlight}>
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
+                      <th scope="col">#</th>
+                      <th scope="col">Expense</th>
+                      <th scope="col">Category</th>
+                      <th scope="col" className={styles.amountCol}>Amount</th>
+                      <th scope="col" className={styles.statusCol}>Status</th>
+                      <th scope="col" className={styles.actionsCol}>Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {expensesWithSerial.map((expense) => {
+                      const isEditing = editingExpenseId === expense.userExpensesId
+                      const draft = isEditing ? expenseDraft : null
+                      return (
+                        <tr key={expense.userExpensesId}>
+                          <td>{expense.serial}</td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className={styles.inlineInput}
+                                value={draft?.name ?? ''}
+                                onChange={(event) =>
+                                  setExpenseDraft((previous) =>
+                                    previous ? { ...previous, name: event.target.value } : previous,
+                                  )
+                                }
+                                placeholder="Expense name"
+                                maxLength={80}
+                                disabled={expenseActionInFlight}
+                              />
+                            ) : (
+                              expense.userExpenseName
+                            )}
+                          </td>
+                          <td>
+                            {isEditing
+                              ? renderCategorySelect(
+                                  draft?.categoryId ?? '',
+                                  (next) =>
+                                    setExpenseDraft((previous) =>
+                                      previous ? { ...previous, categoryId: next } : previous,
+                                    ),
+                                  expenseActionInFlight,
+                                )
+                              : expense.userExpenseCategoryName || '-'}
+                          </td>
+                          <td className={styles.numericCell}>
+                            {isEditing ? (
+                              <input
+                                className={styles.numberInput}
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="0.01"
+                                value={draft?.amount ?? ''}
+                                onChange={(event) =>
+                                  setExpenseDraft((previous) =>
+                                    previous ? { ...previous, amount: event.target.value } : previous,
+                                  )
+                                }
+                                placeholder="0.00"
+                                disabled={expenseActionInFlight}
+                              />
+                            ) : (
+                              formatAmountDisplay(expense.amount)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing
+                              ? renderStatusToggle(
+                                  draft?.status ?? 'A',
+                                  (next) =>
+                                    setExpenseDraft((previous) =>
+                                      previous ? { ...previous, status: next } : previous,
+                                    ),
+                                  expenseActionInFlight,
+                                )
+                              : renderStatusToggle(expense.status, () => undefined, true)}
+                          </td>
+                          <td className={styles.actionsCell}>
+                            {isEditing ? (
+                              <div className={styles.inlineActions}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateExpense(expense)}
+                                  disabled={expenseActionInFlight}
+                                >
+                                  Save
+                                </button>
+                                <button type="button" onClick={cancelExpenseEdit} disabled={expenseActionInFlight}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className={styles.inlineActions}>
+                                <button
+                                  type="button"
+                                  onClick={() => startExpenseEdit(expense)}
+                                  disabled={expenseActionInFlight}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteExpense(expense)}
+                                  disabled={expenseActionInFlight}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
 
-          {!categoryLimitReached && !adding && (
-            <button
-              type="button"
-              className={styles.addButton}
-              onClick={beginAdd}
-              disabled={actionInFlight}
-            >
-              Add category
-            </button>
-          )}
+                    {addingExpense && (
+                      <tr>
+                        <td>{expenses.length + 1}</td>
+                        <td>
+                          <input
+                            className={styles.inlineInput}
+                            value={expenseAddDraft.name}
+                            onChange={(event) =>
+                              setExpenseAddDraft((previous) => ({ ...previous, name: event.target.value }))
+                            }
+                            placeholder="Expense name"
+                            maxLength={80}
+                            disabled={expenseActionInFlight}
+                            autoFocus
+                          />
+                        </td>
+                        <td>
+                          {renderCategorySelect(
+                            expenseAddDraft.categoryId,
+                            (next) => setExpenseAddDraft((previous) => ({ ...previous, categoryId: next })),
+                            expenseActionInFlight,
+                          )}
+                        </td>
+                        <td className={styles.numericCell}>
+                          <input
+                            className={styles.numberInput}
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={expenseAddDraft.amount}
+                            onChange={(event) =>
+                              setExpenseAddDraft((previous) => ({ ...previous, amount: event.target.value }))
+                            }
+                            placeholder="0.00"
+                            disabled={expenseActionInFlight}
+                          />
+                        </td>
+                        <td>
+                          {renderStatusToggle(
+                            expenseAddDraft.status,
+                            (next) => setExpenseAddDraft((prev) => ({ ...prev, status: next })),
+                            expenseActionInFlight,
+                          )}
+                        </td>
+                        <td className={styles.actionsCell}>
+                          <div className={styles.inlineActions}>
+                            <button
+                              type="button"
+                              onClick={handleAddExpense}
+                              disabled={expenseActionInFlight || !hasActiveCategory}
+                            >
+                              Save
+                            </button>
+                            <button type="button" onClick={cancelAddExpense} disabled={expenseActionInFlight}>
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-          {categoryLimitReached && !adding && (
-            <p className={styles.limitNote}>Maximum of {MAX_USER_CATEGORIES} categories reached.</p>
-          )}
-        </section>
-      )}
+            {!expenseLimitReached && !addingExpense && (
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={beginAddExpense}
+                disabled={expenseActionInFlight || !hasActiveCategory}
+              >
+                Add expense template
+              </button>
+            )}
+
+            {expenseLimitReached && !addingExpense && (
+              <p className={styles.limitNote}>Maximum of {MAX_USER_EXPENSES} expense templates reached.</p>
+            )}
+
+            {!hasActiveCategory && expenses.length > 0 && (
+              <p className={styles.helperNote}>Activate a category to add new expense templates.</p>
+            )}
+          </section>
+        )}
+      </div>
     </section>
   )
 }

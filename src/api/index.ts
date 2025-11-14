@@ -1,4 +1,4 @@
-import type { Expense, ExpenseCategory, Income, UserExpenseCategory } from '../types/app'
+import type { Expense, Income, UserExpenseCategory } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -16,15 +16,19 @@ async function request(path: string, options: ApiRequestOptions = {}): Promise<u
   try {
     const isBodyPresent = body !== undefined && body !== null
     const requestMethod = method ?? (isBodyPresent ? 'POST' : 'GET')
+    // If a body is present we will include a JSON Content-Type header and
+    // attach the serialized body to the request. Note: including a body on
+    // GET requests is non-standard but some servers accept it; caller asked
+    // to support that behavior.
     const fetchOptions: RequestInit = {
       method: requestMethod,
       headers: {
-        ...(requestMethod === 'GET' ? {} : { 'Content-Type': 'application/json' }),
+        ...(isBodyPresent ? { 'Content-Type': 'application/json' } : {}),
         ...headers,
       },
     }
 
-    if (isBodyPresent && requestMethod !== 'GET') {
+    if (isBodyPresent) {
       fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body)
     }
 
@@ -83,9 +87,9 @@ export async function updatePassword(payload: { username?: string; email?: strin
   return await request('/user/password', { method: 'PUT', body: payload })
 }
 
-export async function fetchExpenseCategories(): Promise<ExpenseCategory[]> {
+export async function fetchExpenseCategories(): Promise<UserExpenseCategory[]> {
   const result = await request('/expense-category/all', { method: 'GET' })
-  return Array.isArray(result) ? (result as ExpenseCategory[]) : []
+  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
 }
 
 const ensureUsername = (username: string): string => {
@@ -106,6 +110,59 @@ export async function fetchUserExpenseCategoriesActive(username: string): Promis
   const safeUser = ensureUsername(username)
   const result = await request(`/user-expense-category/${safeUser}/active`, { method: 'GET' })
   return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
+}
+
+export async function fetchUserExpenses(username: string): Promise<unknown[]> {
+  const safeUser = ensureUsername(username)
+  const result = await request(`/user-expenses/${safeUser}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as unknown[]) : []
+}
+
+export async function fetchUserExpensesActive(username: string): Promise<unknown[]> {
+  const safeUser = ensureUsername(username)
+  const result = await request(`/user-expenses/${safeUser}/active`, { method: 'GET' })
+  return Array.isArray(result) ? (result as unknown[]) : []
+}
+
+export async function createUserExpense(payload: {
+  username: string
+  userExpenseName: string
+  userExpenseCategoryId: string | number
+  amount: number
+  status?: 'A' | 'I'
+}): Promise<void> {
+  const safeUser = ensureUsername(payload.username)
+  const body = {
+    userExpenseName: payload.userExpenseName,
+    userExpenseCategoryId: payload.userExpenseCategoryId,
+    amount: payload.amount,
+    status: payload.status ?? 'A',
+  }
+  await request(`/user-expenses/${safeUser}`, { method: 'POST', body })
+}
+
+export async function updateUserExpense(payload: {
+  username: string
+  id: string | number
+  userExpenseName?: string
+  userExpenseCategoryId?: string | number
+  amount?: number
+  status?: 'A' | 'I'
+}): Promise<void> {
+  const safeUser = ensureUsername(payload.username)
+  const safeId = encodeURIComponent(String(payload.id))
+  const body: Record<string, unknown> = {}
+  if (payload.userExpenseName !== undefined) body.userExpenseName = payload.userExpenseName
+  if (payload.userExpenseCategoryId !== undefined) body.userExpenseCategoryId = payload.userExpenseCategoryId
+  if (payload.amount !== undefined) body.amount = payload.amount
+  if (payload.status !== undefined) body.status = payload.status
+  await request(`/user-expenses/${safeUser}/${safeId}`, { method: 'PUT', body })
+}
+
+export async function deleteUserExpense(payload: { username: string; id: string | number }): Promise<void> {
+  const safeUser = ensureUsername(payload.username)
+  const safeId = encodeURIComponent(String(payload.id))
+  await request(`/user-expenses/${safeUser}/${safeId}`, { method: 'DELETE' })
 }
 
 export async function createUserExpenseCategory(payload: {
@@ -152,6 +209,42 @@ export async function copyUserExpenseCategoriesFromMaster(username: string): Pro
   await request(`/user-expense-category/${safeUser}/copy-master`, { method: 'POST' })
 }
 
+export async function resolveUserExpenseCategoryId(payload: {
+  username: string
+  userExpenseCategoryName: string
+}): Promise<string | number | null> {
+  const safeUser = ensureUsername(payload.username)
+  const name = String(payload.userExpenseCategoryName ?? '').trim()
+  if (!name) {
+    throw new Error('userExpenseCategoryName is required')
+  }
+  // Use POST body for lookup (server expects JSON body)
+  const result = await request(`/user-expense-category/${safeUser}/id`, {
+    method: 'POST',
+    body: { userExpenseCategoryName: name },
+  })
+
+  if (result === null || result === undefined) {
+    return null
+  }
+
+  if (typeof result === 'string' || typeof result === 'number') {
+    return result
+  }
+
+  if (typeof result === 'object') {
+    const candidate = result as { userExpenseCategoryId?: string | number; id?: string | number }
+    if (candidate.userExpenseCategoryId !== undefined && candidate.userExpenseCategoryId !== null) {
+      return candidate.userExpenseCategoryId
+    }
+    if (candidate.id !== undefined && candidate.id !== null) {
+      return candidate.id
+    }
+  }
+
+  return null
+}
+
 export async function fetchExpensesByRange(payload: { username: string; start: string; end: string }): Promise<Expense[]> {
   const result = await request('/expense/range', { body: payload })
   return Array.isArray(result) ? (result as Expense[]) : []
@@ -169,7 +262,7 @@ export async function fetchExpensesByYear(payload: { username: string; year: num
 
 export async function addExpense(payload: {
   username: string
-  expenseCategoryId: number | string
+  userExpenseCategoryId: number | string
   expenseAmount: number
   expenseDate: string
   expenseName?: string
@@ -187,7 +280,7 @@ export async function updateExpense(payload: {
   expenseAmount?: number
   expenseName?: string
   expenseDate?: string
-  expenseCategoryId?: string | number
+  userExpenseCategoryId?: string | number
 }): Promise<unknown> {
   return await request('/expense/update', { method: 'PUT', body: payload })
 }
