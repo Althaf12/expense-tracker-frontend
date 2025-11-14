@@ -117,19 +117,21 @@ const calculateTrend = (current: number, previous: number, preferHigher: boolean
 }
 
 const buildCategorySummary = (expenses: Expense[], categories: UserExpenseCategory[]) => {
-  const categoryMap = new Map<string | number, string>()
+  // Normalize category ids to strings so lookups work regardless of numeric/string types
+  const categoryMap = new Map<string, string>()
   categories.forEach((category) => {
-    categoryMap.set(category.userExpenseCategoryId, category.userExpenseCategoryName)
+    const id = String(category.userExpenseCategoryId)
+    categoryMap.set(id, category.userExpenseCategoryName)
   })
 
   const totals = new Map<string, { name: string; total: number }>()
 
   expenses.forEach((expense) => {
     const explicitName = (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
-    const key =
+    const rawKey =
       (expense as Expense & { userExpenseCategoryId?: string | number }).userExpenseCategoryId ??
-      expense.expenseCategoryId ??
-      'uncategorised'
+      expense.expenseCategoryId
+    const key = rawKey !== undefined && rawKey !== null ? String(rawKey) : 'uncategorised'
     const name = explicitName ?? categoryMap.get(key) ?? 'Uncategorised'
     const amount = amountFromExpense(expense)
     if (!totals.has(name)) {
@@ -279,10 +281,66 @@ export default function Dashboard(): ReactElement {
     })
   }, [monthlyExpenses, expenseTableFilters])
 
-  const categorySummary = useMemo(
-    () => buildCategorySummary(monthlyExpenses, expenseCategories),
-    [monthlyExpenses, expenseCategories],
-  )
+  const categoryNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    expenseCategories.forEach((category) => {
+      map.set(String(category.userExpenseCategoryId), category.userExpenseCategoryName)
+    })
+    return map
+  }, [expenseCategories])
+
+  const categoryNameLookup = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    expenseCategories.forEach((category) => {
+      const key = category.userExpenseCategoryName.trim().toLowerCase()
+      if (key.length > 0) {
+        map.set(key, {
+          id: String(category.userExpenseCategoryId),
+          name: category.userExpenseCategoryName,
+        })
+      }
+    })
+    return map
+  }, [expenseCategories])
+
+  
+  const categorySummary = useMemo(() => {
+    const totals = new Map<string, { name: string; total: number }>()
+
+    monthlyExpenses.forEach((expense) => {
+      const explicitName =
+        (expense as Expense & { userExpenseCategoryName?: string }).userExpenseCategoryName ??
+        (expense as Expense & { expenseCategoryName?: string }).expenseCategoryName
+      const rawId = (expense as Expense & { userExpenseCategoryId?: string | number }).userExpenseCategoryId ??
+        expense.expenseCategoryId
+
+      let name: string
+      if (rawId !== undefined && rawId !== null) {
+        const mapped = categoryNameMap.get(String(rawId))
+        name = explicitName ?? mapped ?? 'Uncategorised'
+      } else {
+        const candidate = (explicitName ?? '').toString().trim()
+        if (candidate.length > 0) {
+          const lookup = categoryNameLookup.get(candidate.toLowerCase())
+          if (lookup) {
+            name = categoryNameMap.get(lookup.id) ?? lookup.name
+          } else {
+            name = candidate
+          }
+        } else {
+          name = 'Uncategorised'
+        }
+      }
+
+      const amount = amountFromExpense(expense)
+      if (!totals.has(name)) totals.set(name, { name, total: 0 })
+      const entry = totals.get(name)
+      if (entry) entry.total += amount
+    })
+
+    return Array.from(totals.values()).sort((a, b) => b.total - a.total)
+  }, [monthlyExpenses, categoryNameMap, categoryNameLookup])
+
 
   const filteredCategorySummary = useMemo(() => {
     const nameQuery = categoryTableFilters.name.trim().toLowerCase()
@@ -332,28 +390,7 @@ export default function Dashboard(): ReactElement {
   const clearCategoryFilters = () => {
     setCategoryTableFilters({ name: '', total: '' })
   }
-
-  const categoryNameMap = useMemo(() => {
-    const map = new Map<string, string>()
-    expenseCategories.forEach((category) => {
-      map.set(String(category.userExpenseCategoryId), category.userExpenseCategoryName)
-    })
-    return map
-  }, [expenseCategories])
-
-  const categoryNameLookup = useMemo(() => {
-    const map = new Map<string, { id: string; name: string }>()
-    expenseCategories.forEach((category) => {
-      const key = category.userExpenseCategoryName.trim().toLowerCase()
-      if (key.length > 0) {
-        map.set(key, {
-          id: String(category.userExpenseCategoryId),
-          name: category.userExpenseCategoryName,
-        })
-      }
-    })
-    return map
-  }, [expenseCategories])
+  
 
   const resolveCategoryForExpense = useCallback(
     (expense: UserExpense): { id: string; name: string } => {
@@ -394,6 +431,8 @@ export default function Dashboard(): ReactElement {
     },
     [categoryNameLookup, categoryNameMap],
   )
+
+    
 
   // Build category id list from the visible templates only so we show
   // blocks for categories that actually have templates (saves space).
@@ -454,12 +493,15 @@ export default function Dashboard(): ReactElement {
 
   useEffect(() => {
     if (!categoryOrderStorageKey) return
+    if (templateCategoryOrder.length === 0 && activeCategoryIds.length === 0) {
+      return
+    }
     try {
       window.localStorage.setItem(categoryOrderStorageKey, JSON.stringify(templateCategoryOrder))
     } catch {
       /* ignore storage errors */
     }
-  }, [categoryOrderStorageKey, templateCategoryOrder])
+  }, [activeCategoryIds.length, categoryOrderStorageKey, templateCategoryOrder])
 
   const groupedUserExpenses = useMemo(() => {
     const groups = new Map<string, TemplateGroup>()
@@ -1158,12 +1200,28 @@ export default function Dashboard(): ReactElement {
                     <td colSpan={2}>No categories match the current filters.</td>
                   </tr>
                 ) : (
-                  filteredCategorySummary.map((entry) => (
-                    <tr key={entry.name}>
-                      <td>{entry.name}</td>
-                      <td className={styles.numeric}>{formatAmount(entry.total)}</td>
-                    </tr>
-                  ))
+                  (() => {
+                    const max = Math.max(...filteredCategorySummary.map((e) => e.total), 0) || 1
+                    return filteredCategorySummary.map((entry) => {
+                      const pct = Math.round((entry.total / max) * 100)
+                      return (
+                        <tr key={entry.name}>
+                          <td>{entry.name}</td>
+                          <td className={styles.numeric}>
+                            <div className={styles.categoryBar} aria-hidden>
+                              <div className={styles.categoryBarHeader}>
+                                <div className={styles.categoryBarName}>{entry.name}</div>
+                                <div className={styles.categoryBarValue}>{formatAmount(entry.total)}</div>
+                              </div>
+                              <div className={styles.categoryBarTrack}>
+                                <div className={styles.categoryBarFill} style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })()
                 )}
               </tbody>
             </table>
