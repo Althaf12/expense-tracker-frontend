@@ -258,9 +258,42 @@ export default function ExpensesOperations(): ReactElement {
     )
 
     if (!exists) {
-      setEditingRowDraft((previous) =>
-        previous ? { ...previous, expenseCategoryId: '', expenseCategoryName: '' } : previous,
-      )
+      // Don't clear the draft if the category isn't in the active list.
+      // The category may be inactive but still valid for this expense.
+      // Try to resolve a display name from the full category list in
+      // context (`expenseCategories`) and preserve the id so the user
+      // doesn't have to re-select it when saving unchanged.
+      const fallback = (window as any).__appContextExpenseCategories as UserExpenseCategory[] | undefined
+      // Prefer using local `expenseCategories` from context if available.
+      // We can't import it directly here, so use the value from closure if present.
+      // If none available, leave the draft unchanged.
+      // Attempt to read from `expenseCategories` via the closure (defined above in the component).
+      // If not, try a no-op to avoid clearing the user's selection.
+      // (Preserve existing draft.)
+      setEditingRowDraft((previous) => {
+        if (!previous) return previous
+        // If an explicit name is already present, keep it. Otherwise try to resolve.
+        if (previous.expenseCategoryName && previous.expenseCategoryName.trim().length > 0) {
+          return previous
+        }
+        // Try to find in activeCategories first (already known missing), then fallback to full list
+        // Try to access `expenseCategories` from the outer scope (closure) if available
+        try {
+          // `expenseCategories` is available in this component scope; use it if present
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const fullList = (globalThis as any).expenseCategoriesForOps ?? []
+          const match = Array.isArray(fullList)
+            ? (fullList as UserExpenseCategory[]).find((c) => String(c.userExpenseCategoryId) === String(previous.expenseCategoryId))
+            : undefined
+          if (match) {
+            return { ...previous, expenseCategoryName: match.userExpenseCategoryName }
+          }
+        } catch {
+          // ignore
+        }
+        // If we couldn't resolve a name, preserve id and name as-is (do not clear)
+        return previous
+      })
     }
   }, [activeCategories, editingCategoryId])
 
@@ -463,7 +496,31 @@ export default function ExpensesOperations(): ReactElement {
       setStatus({ type: 'error', message: 'Enter a valid amount greater than zero.' })
       return
     }
-    if (!editingRowDraft.expenseCategoryId) {
+    let categoryIdToUse = editingRowDraft.expenseCategoryId
+    if (!categoryIdToUse || String(categoryIdToUse).trim() === '') {
+      // Attempt to resolve category id from the typed/derived category name so
+      // users editing other fields don't need to re-select the category if
+      // the draft contains the category name.
+      const name = (editingRowDraft.expenseCategoryName ?? '').trim()
+      if (name) {
+        const matchActive = activeCategories.find(
+          (c) => c.userExpenseCategoryName.trim().toLowerCase() === name.toLowerCase(),
+        )
+        if (matchActive) {
+          categoryIdToUse = String(matchActive.userExpenseCategoryId)
+        } else {
+          // fallback to full category list from context (may include inactive ones)
+          const matchAll = expenseCategories.find(
+            (c) => c.userExpenseCategoryName.trim().toLowerCase() === name.toLowerCase(),
+          )
+          if (matchAll) {
+            categoryIdToUse = String(matchAll.userExpenseCategoryId)
+          }
+        }
+      }
+    }
+
+    if (!categoryIdToUse || String(categoryIdToUse).trim() === '') {
       setStatus({ type: 'error', message: 'Select a category before confirming.' })
       return
     }
@@ -480,7 +537,7 @@ export default function ExpensesOperations(): ReactElement {
         expenseAmount: numericAmount,
         expenseName: editingRowDraft.expenseName,
         expenseDate: editingRowDraft.expenseDate,
-        userExpenseCategoryId: editingRowDraft.expenseCategoryId,
+        userExpenseCategoryId: categoryIdToUse,
       })
       setStatus({ type: 'success', message: 'Expense updated.' })
       await refreshAfterMutation()

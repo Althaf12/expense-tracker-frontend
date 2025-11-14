@@ -174,6 +174,11 @@ export default function Dashboard(): ReactElement {
   const [templateSaving, setTemplateSaving] = useState<Record<string, boolean>>({})
   const dragCategoryIdRef = useRef<string | null>(null)
 
+  const visibleTemplates = useMemo(
+    () => activeUserExpenses.filter((expense) => (expense.status ?? 'A') === 'A'),
+    [activeUserExpenses],
+  )
+
   const { month, year, label } = useMemo(() => getCurrentMonthContext(), [])
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
   const twoMonthsAgoContext = useMemo(
@@ -336,18 +341,74 @@ export default function Dashboard(): ReactElement {
     return map
   }, [expenseCategories])
 
-  const activeCategoryIds = useMemo(() => {
-    const unique = new Set<string>()
-    activeUserExpenses.forEach((expense) => {
+  const categoryNameLookup = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    expenseCategories.forEach((category) => {
+      const key = category.userExpenseCategoryName.trim().toLowerCase()
+      if (key.length > 0) {
+        map.set(key, {
+          id: String(category.userExpenseCategoryId),
+          name: category.userExpenseCategoryName,
+        })
+      }
+    })
+    return map
+  }, [expenseCategories])
+
+  const resolveCategoryForExpense = useCallback(
+    (expense: UserExpense): { id: string; name: string } => {
       const rawCategoryId =
         expense.userExpenseCategoryId ??
         (expense as UserExpense & { expenseCategoryId?: string | number }).expenseCategoryId
-      const categoryId =
-        rawCategoryId !== undefined && rawCategoryId !== null ? String(rawCategoryId) : 'uncategorised'
-      unique.add(categoryId)
+
+      if (rawCategoryId !== undefined && rawCategoryId !== null) {
+        const id = String(rawCategoryId)
+        const explicitName = expense.userExpenseCategoryName?.trim()
+        const alternativeName = (expense as UserExpense & { expenseCategoryName?: string }).expenseCategoryName?.trim()
+        const resolvedName = explicitName && explicitName.length > 0
+          ? explicitName
+          : alternativeName && alternativeName.length > 0
+            ? alternativeName
+            : categoryNameMap.get(id)
+        return {
+          id,
+          name: resolvedName && resolvedName.length > 0 ? resolvedName : 'Uncategorised',
+        }
+      }
+
+      const candidateName =
+        (expense.userExpenseCategoryName ??
+          (expense as UserExpense & { expenseCategoryName?: string }).expenseCategoryName ??
+          '').trim()
+
+      if (candidateName.length > 0) {
+        const lookupEntry = categoryNameLookup.get(candidateName.toLowerCase())
+        if (lookupEntry) {
+          const mappedName = categoryNameMap.get(lookupEntry.id) ?? lookupEntry.name
+          return { id: lookupEntry.id, name: mappedName }
+        }
+        return { id: `name:${candidateName.toLowerCase()}`, name: candidateName }
+      }
+
+      return { id: 'uncategorised', name: 'Uncategorised' }
+    },
+    [categoryNameLookup, categoryNameMap],
+  )
+
+  // Build category id list from the visible templates only so we show
+  // blocks for categories that actually have templates (saves space).
+  const activeCategoryIds = useMemo(() => {
+    const seen = new Set<string>()
+    const ordered: string[] = []
+    visibleTemplates.forEach((expense) => {
+      const { id } = resolveCategoryForExpense(expense)
+      if (!seen.has(id)) {
+        seen.add(id)
+        ordered.push(id)
+      }
     })
-    return Array.from(unique)
-  }, [activeUserExpenses])
+    return ordered
+  }, [resolveCategoryForExpense, visibleTemplates])
 
   const categoryOrderStorageKey = useMemo(
     () => (session ? `dashboard:template-category-order:${session.username}` : null),
@@ -402,75 +463,61 @@ export default function Dashboard(): ReactElement {
 
   const groupedUserExpenses = useMemo(() => {
     const groups = new Map<string, TemplateGroup>()
-    activeUserExpenses.forEach((expense) => {
-      const rawCategoryId =
-        expense.userExpenseCategoryId ??
-        (expense as UserExpense & { expenseCategoryId?: string | number }).expenseCategoryId
-      const categoryId =
-        rawCategoryId !== undefined && rawCategoryId !== null ? String(rawCategoryId) : 'uncategorised'
 
-      const explicitName = expense.userExpenseCategoryName?.trim()
-      const alternativeName = (expense as UserExpense & { expenseCategoryName?: string }).expenseCategoryName?.trim()
-      const categoryName =
-        explicitName && explicitName.length > 0
-          ? explicitName
-          : alternativeName && alternativeName.length > 0
-            ? alternativeName
-            : categoryNameMap.get(categoryId) ?? 'Uncategorised'
-
-      if (!groups.has(categoryId)) {
-        groups.set(categoryId, { categoryId, categoryName, expenses: [] })
+    // Initialize groups only for categories present in active templates
+    visibleTemplates.forEach((expense) => {
+      const { id, name } = resolveCategoryForExpense(expense)
+      if (!groups.has(id)) {
+        groups.set(id, { categoryId: id, categoryName: name, expenses: [] })
       }
-      const group = groups.get(categoryId)
+      const group = groups.get(id)
       if (group) {
-        group.categoryName = categoryName
+        group.categoryName = name
         group.expenses.push(expense)
       }
     })
 
-    const sorted = Array.from(groups.values()).sort((a, b) => {
+    const allGroups = Array.from(groups.values())
+    allGroups.sort((a, b) => {
       const indexA = templateCategoryOrder.indexOf(a.categoryId)
       const indexB = templateCategoryOrder.indexOf(b.categoryId)
       if (indexA !== -1 || indexB !== -1) {
         if (indexA === -1) return 1
         if (indexB === -1) return -1
-        if (indexA !== indexB) return indexA - indexB
+        return indexA - indexB
       }
-      return a.categoryName.localeCompare(b.categoryName)
+      // fall back to original appearance order from activeCategoryIds
+      return activeCategoryIds.indexOf(a.categoryId) - activeCategoryIds.indexOf(b.categoryId)
     })
 
-    sorted.forEach((group) => {
-      group.expenses.sort((a, b) => a.userExpenseName.localeCompare(b.userExpenseName))
-    })
-
-    return sorted
-  }, [activeUserExpenses, categoryNameMap, templateCategoryOrder])
+    return allGroups
+  }, [visibleTemplates, expenseCategories, templateCategoryOrder])
 
   const expenseTemplatesTotal = useMemo(
     () =>
-      activeUserExpenses.reduce((sum, expense) => sum + amountFromUserExpense(expense), 0),
-    [activeUserExpenses],
+      visibleTemplates.reduce((sum, expense) => sum + amountFromUserExpense(expense), 0),
+    [visibleTemplates],
   )
 
   const completedMonthlyTemplates = useMemo(
-    () => activeUserExpenses.filter((expense) => (expense.paid ?? 'N') === 'Y').length,
-    [activeUserExpenses],
+    () => visibleTemplates.filter((expense) => (expense.paid ?? 'N') === 'Y').length,
+    [visibleTemplates],
   )
 
   const monthlyTemplateProgress = useMemo(() => {
-    if (activeUserExpenses.length === 0) return 0
-    return (completedMonthlyTemplates / activeUserExpenses.length) * 100
-  }, [activeUserExpenses.length, completedMonthlyTemplates])
+    if (visibleTemplates.length === 0) return 0
+    return (completedMonthlyTemplates / visibleTemplates.length) * 100
+  }, [visibleTemplates.length, completedMonthlyTemplates])
 
   const unpaidTemplatesTotal = useMemo(
     () =>
-      activeUserExpenses.reduce((sum, expense) => {
+      visibleTemplates.reduce((sum, expense) => {
         if ((expense.paid ?? 'N') === 'Y') {
           return sum
         }
         return sum + amountFromUserExpense(expense)
       }, 0),
-    [activeUserExpenses],
+    [visibleTemplates],
   )
 
   const monthlyTotal = useMemo(
@@ -588,13 +635,13 @@ export default function Dashboard(): ReactElement {
     dragCategoryIdRef.current = categoryId
   }, [])
 
-  const handleCategoryDragOver = useCallback((event: DragEvent<HTMLLIElement>) => {
+  const handleCategoryDragOver = useCallback((event: DragEvent<HTMLElement>) => {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }, [])
 
   const handleCategoryDrop = useCallback(
-    (event: DragEvent<HTMLLIElement>, targetId: string) => {
+    (event: DragEvent<HTMLElement>, targetId: string) => {
       event.preventDefault()
       const sourceId = dragCategoryIdRef.current
       dragCategoryIdRef.current = null
@@ -719,13 +766,13 @@ export default function Dashboard(): ReactElement {
       return
     }
 
-    if (activeUserExpenses.length === 0) {
+    if (visibleTemplates.length === 0) {
       setStatus({ type: 'info', message: 'No active expense templates need resetting.' })
       return
     }
 
     setTemplateSaving(
-      activeUserExpenses.reduce<Record<string, boolean>>((acc, item) => {
+      visibleTemplates.reduce<Record<string, boolean>>((acc, item) => {
         acc[String(item.userExpensesId)] = true
         return acc
       }, {}),
@@ -733,7 +780,7 @@ export default function Dashboard(): ReactElement {
 
     try {
       await Promise.all(
-        activeUserExpenses.map((expense) =>
+        visibleTemplates.map((expense) =>
           updateUserExpense({
             username: session.username,
             id: expense.userExpensesId,
@@ -750,7 +797,7 @@ export default function Dashboard(): ReactElement {
     } finally {
       setTemplateSaving({})
     }
-  }, [activeUserExpenses, ensureActiveUserExpenses, ensureUserExpenses, session, setStatus])
+  }, [ensureActiveUserExpenses, ensureUserExpenses, session, setStatus, visibleTemplates])
 
   return (
     <section className={styles.dashboard}>
@@ -839,20 +886,20 @@ export default function Dashboard(): ReactElement {
             </div>
             <div className={styles.headerActions}>
               <span className={styles.cardBadge}>
-                {completedMonthlyTemplates}/{activeUserExpenses.length} completed
+                {completedMonthlyTemplates}/{visibleTemplates.length} completed
               </span>
               <button
                 type="button"
                 className={styles.secondaryButton}
                 onClick={handleResetMonthlyStatus}
-                disabled={activeUserExpenses.length === 0}
+                disabled={visibleTemplates.length === 0}
               >
                 Reset month
               </button>
             </div>
           </header>
 
-          {activeUserExpenses.length === 0 ? (
+          {visibleTemplates.length === 0 ? (
             <Typography variant="body2" component="p" className={styles.placeholder}>
               {userExpenses.length === 0
                 ? 'No expense templates yet. Add them in your profile to plan monthly spending.'
@@ -869,56 +916,72 @@ export default function Dashboard(): ReactElement {
               >
                 <div className={styles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
               </div>
-              <ul className={styles.templateList} aria-label="Expense templates grouped by category">
-                {groupedUserExpenses.map((group) => {
-                  const groupTotal = group.expenses.reduce((sum, expense) => sum + amountFromUserExpense(expense), 0)
-                  return (
-                    <li
-                      key={group.categoryId}
-                      className={styles.templateGroup}
-                      draggable
-                      onDragStart={() => handleCategoryDragStart(group.categoryId)}
-                      onDragOver={handleCategoryDragOver}
-                      onDrop={(event) => handleCategoryDrop(event, group.categoryId)}
-                      onDragEnd={handleCategoryDragEnd}
-                    >
-                      <div className={styles.templateGroupHeader}>
-                        <span className={styles.dragHandle} aria-hidden="true">⋮⋮</span>
-                        <div className={styles.templateGroupMeta}>
-                          <span className={styles.templateGroupName}>{group.categoryName}</span>
-                          <span className={styles.templateGroupTotal}>{formatAmount(groupTotal)}</span>
-                        </div>
-                      </div>
-                      <ul className={styles.templateItems}>
-                        {group.expenses.map((expense) => {
-                          const expenseId = String(expense.userExpensesId)
-                          const checked = (expense.paid ?? 'N') === 'Y'
-                          const saving = templateSaving[expenseId] === true
-                          const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Unpaid'
-                          return (
-                            <li key={expenseId} className={styles.templateItem}>
-                              <div className={styles.templateInfo}>
-                                <span className={styles.templateName}>{expense.userExpenseName}</span>
-                                <span className={styles.templateAmount}>{formatAmount(amountFromUserExpense(expense))}</span>
-                              </div>
-                              <label className={styles.templateToggle}>
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  disabled={checked || saving}
-                                  onChange={() => handleTemplateMarkPaid(expense)}
-                                  aria-label={`Mark ${expense.userExpenseName} as paid for this month`}
-                                />
-                                <span>{statusLabel}</span>
-                              </label>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </li>
-                  )
-                })}
-              </ul>
+              <div className={styles.templateTableContainer} role="group" aria-label="Expense templates grouped by category">
+                <table className={styles.templateTable}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Category</th>
+                      <th scope="col">Planned Expenses</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupedUserExpenses.map((group) => {
+                      const groupTotal = group.expenses.reduce((sum, expense) => sum + amountFromUserExpense(expense), 0)
+                      return (
+                        <tr
+                          key={group.categoryId}
+                          className={styles.templateCategoryRow}
+                          draggable
+                          onDragStart={() => handleCategoryDragStart(group.categoryId)}
+                          onDragOver={handleCategoryDragOver}
+                          onDrop={(event) => handleCategoryDrop(event, group.categoryId)}
+                          onDragEnd={handleCategoryDragEnd}
+                        >
+                          <td className={styles.templateCategoryCell}>
+                            <span className={styles.dragHandle} aria-hidden="true">⋮⋮</span>
+                            <div className={styles.templateCategoryMeta}>
+                              <span className={styles.templateCategoryName}>{group.categoryName}</span>
+                              <span className={styles.templateCategoryTotal}>{formatAmount(groupTotal)}</span>
+                            </div>
+                          </td>
+                          <td className={styles.templateExpenseListCell}>
+                            {group.expenses.length === 0 ? (
+                              <span className={styles.templateEmpty}>No templates in this category.</span>
+                            ) : (
+                              <ul className={styles.templateExpenseList}>
+                                {group.expenses.map((expense) => {
+                                  const expenseId = String(expense.userExpensesId)
+                                  const checked = (expense.paid ?? 'N') === 'Y'
+                                  const saving = templateSaving[expenseId] === true
+                                  const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Mark paid'
+                                  return (
+                                    <li key={expenseId} className={styles.templateExpenseItem}>
+                                      <div className={styles.templateExpenseInfo}>
+                                        <span className={styles.templateExpenseName}>{expense.userExpenseName}</span>
+                                        <span className={styles.templateExpenseAmount}>{formatAmount(amountFromUserExpense(expense))}</span>
+                                      </div>
+                                      <label className={styles.templateCheckboxLabel}>
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          disabled={checked || saving}
+                                          onChange={() => handleTemplateMarkPaid(expense)}
+                                          aria-label={`Mark ${expense.userExpenseName} as paid for this month`}
+                                        />
+                                        <span>{statusLabel}</span>
+                                      </label>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
               <div className={styles.templateFooter}>
                 <span className={styles.templateFooterLabel}>Total planned</span>
                 <span className={styles.templateFooterAmount}>{formatAmount(expenseTemplatesTotal)}</span>

@@ -360,10 +360,24 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const startExpenseEdit = (expense: UserExpense) => {
     setEditingExpenseId(expense.userExpensesId)
+    // Preserve the currently assigned category when entering edit mode.
+    // If the expense record doesn't include a category id, try to resolve one
+    // by matching the category name against the loaded categories list.
+    const explicitCategoryId = expense.userExpenseCategoryId
+    let resolvedCategoryId: string = ''
+    if (explicitCategoryId !== undefined && explicitCategoryId !== null) {
+      resolvedCategoryId = String(explicitCategoryId)
+    } else if (expense.userExpenseCategoryName) {
+      const match = categories.find(
+        (c) => c.userExpenseCategoryName.trim().toLowerCase() === expense.userExpenseCategoryName!.trim().toLowerCase(),
+      )
+      if (match) resolvedCategoryId = String(match.userExpenseCategoryId)
+    }
+
     setExpenseDraft({
       name: expense.userExpenseName,
       status: expense.status,
-      categoryId: String(expense.userExpenseCategoryId ?? ''),
+      categoryId: resolvedCategoryId,
       amount: toAmountString(expense.amount),
     })
   }
@@ -474,6 +488,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
         userExpenseCategoryId: selectedCategory.userExpenseCategoryId,
         amount: amountValue,
         status: expenseAddDraft.status,
+        paid: 'N',
       })
       setStatus({ type: 'success', message: 'Expense template added.' })
       cancelAddExpense()
