@@ -2,7 +2,7 @@ import type { Expense, Income, UserExpense, UserExpenseCategory } from '../types
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
-const API_BASE: string = ((import.meta as any)?.env?.VITE_API_BASE as string) || 'http://localhost:8080/api'
+const API_BASE: string = ((import.meta as any)?.env?.VITE_API_BASE as string) || 'http://localhost:8081/api'
 
 type ApiRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'

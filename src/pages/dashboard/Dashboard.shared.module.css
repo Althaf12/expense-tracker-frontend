@@ -1,0 +1,299 @@
+.dashboard {
+  width: min(100%, 1200px);
+  margin: 0 auto;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 1rem;
+  row-gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  background: var(--surface-card);
+  height: -webkit-fill-available;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(2,6,23,0.55);
+  padding: 1.5rem;
+  border: 1px solid rgba(255,255,255,0.03);
+  backdrop-filter: blur(6px);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.cardSubtitle {
+  margin: 0.15rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.cardBadge {
+  background: var(--badge-background);
+  color: var(--badge-text);
+  border-radius: 1.25rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  align-self: center;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.secondaryButton {
+  border: 1px solid var(--secondary-button-border);
+  background: transparent;
+  color: var(--secondary-button-text);
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--secondary-button-hover);
+}
+
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.totalAmount {
+  font-weight: 700;
+  color: var(--color-text-strong);
+  background: var(--badge-soft-background);
+  padding: 0.35rem 0.65rem;
+  border-radius: 1rem;
+  font-size: 0.95rem;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  color: #071029;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.18);
+  transition: transform 0.12s ease;
+}
+
+.addButton:hover {
+  transform: translateY(-2px);
+}
+
+.placeholder {
+  margin: 1rem 0 0;
+  color: var(--placeholder-text);
+}
+
+.templatesRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1.25rem;
+}
+
+.templatesRow > .card {
+  height: auto;
+  align-self: start;
+}
+
+.templatesColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tableContainer {
+  overflow: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--surface-table-border);
+  box-shadow: inset 0 0 0 1px var(--surface-table-inner-border);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1rem;
+}
+
+.table thead {
+  background: var(--surface-table-head);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  color: var(--table-text-primary);
+  border-bottom: 1px solid var(--surface-table-inner-border);
+}
+
+.tableFilterRow th {
+  background: var(--surface-table-filter-row);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tableFilterInput {
+  width: 100%;
+  height: 2.1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--input-border);
+  background: var(--input-background);
+  color: var(--color-text-primary);
+  padding: 0 0.6rem;
+}
+
+.filterControls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.clearButton {
+  border: 1px solid var(--secondary-button-border);
+  background: transparent;
+  color: var(--secondary-button-text);
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.clearButton:hover {
+  background: var(--secondary-button-hover);
+}
+
+.table tbody tr:hover {
+  background: var(--surface-table-hover);
+}
+
+.emptyRow td {
+  text-align: center;
+  padding: 1.25rem;
+  color: var(--table-empty-text);
+  font-style: italic;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table tfoot tr {
+  background: var(--surface-table-footer);
+}
+
+.table tfoot td {
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--surface-table-border);
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+
+.table tfoot td.numeric {
+  background: transparent;
+  color: var(--total-pill-text);
+  padding: 0.45rem 0.8rem;
+}
+
+.totalPill {
+  background: var(--total-pill-background);
+  color: var(--total-pill-text);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  display: inline-block;
+  min-width: 6ch;
+}
+
+@media (max-width: 1100px) {
+  .table {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .templatesRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+.trendIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.trendIndicator::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 0.35rem solid transparent;
+  border-right: 0.35rem solid transparent;
+}
+
+.trendIndicatorUp::before {
+  border-bottom: 0.5rem solid currentColor;
+}
+
+.trendIndicatorDown::before {
+  border-top: 0.5rem solid currentColor;
+}
+
+.trendIndicatorFlat::before {
+  display: none;
+}
+
+.trendPositive {
+  color: #16a34a;
+}
+
+.trendNegative {
+  color: #dc2626;
+}
+
+.trendNeutral {
+  color: var(--color-text-muted);
+}

@@ -1,6 +1,7 @@
 import styles from './Footer.module.css'
+import type { ReactElement } from 'react'
 
-export default function Footer(): JSX.Element {
+export default function Footer(): ReactElement {
   return (
     <footer className={styles.footer}>
       <div className={styles.inner}>
