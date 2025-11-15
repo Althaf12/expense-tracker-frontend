@@ -1,0 +1,32 @@
+name: Frontend Deploy on RP5 (Self-hosted)
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Update frontend code
+        run: |
+          sudo -u expensetracker git -C /opt/expense-tracker-frontend pull origin main
+
+      - name: Install dependencies
+        run: |
+          cd /opt/expense-tracker-frontend
+          sudo -u expensetracker npm install
+
+      - name: Build frontend
+        run: |
+          cd /opt/expense-tracker-frontend
+          sudo -u expensetracker npm run build
+
+      - name: Reload nginx
+        run: |
+          sudo nginx -t
+          sudo systemctl restart nginx
+
+      - name: Done
+        run: echo "Frontend deployed successfully."
