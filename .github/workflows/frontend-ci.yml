@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Update frontend code
         run: |
-          sudo -u expensetracker git -C /opt/expense-tracker-frontend remote set-url origin git@github.com:Althaf12/expense-tracker-frontend.git
+          sudo -u expensetracker git -C /opt/expense-tracker-frontend pull origin main
 
       - name: Install dependencies
         run: |
