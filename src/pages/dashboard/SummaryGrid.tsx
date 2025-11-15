@@ -46,7 +46,7 @@ export default function SummaryGrid({
             {label}
           </Typography>
         </div>
-        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '2.4rem' } }}>
+        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
           {formatCurrency(totalBalance)}
         </Typography>
         <div className={localStyles.metricFooter}>
@@ -63,7 +63,7 @@ export default function SummaryGrid({
             {label}
           </Typography>
         </div>
-        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '2.4rem' } }}>
+        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
           {formatCurrency(totalAfterDueBalance)}
         </Typography>
         <div className={localStyles.metricFooter}>
@@ -79,7 +79,7 @@ export default function SummaryGrid({
             {incomeMonthLabel}
           </Typography>
         </div>
-        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '2.4rem' } }}>
+        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
           {formatCurrency(previousMonthIncomeTotal)}
         </Typography>
         <div className={localStyles.metricFooter}>
@@ -96,7 +96,7 @@ export default function SummaryGrid({
             {label}
           </Typography>
         </div>
-        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '2.4rem' } }}>
+        <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
           {formatCurrency(currentMonthExpenseTotal)}
         </Typography>
         <div className={localStyles.metricFooter}>
