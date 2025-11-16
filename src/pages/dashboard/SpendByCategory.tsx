@@ -95,7 +95,6 @@ export default function SpendByCategory({
                         <td className={styles.numeric}>
                           <div className={localStyles.categoryBar} aria-hidden>
                             <div className={localStyles.categoryBarHeader}>
-                              <div className={localStyles.categoryBarName}>{entry.name}</div>
                               <div className={localStyles.categoryBarValue}>{formatAmount(entry.total)}</div>
                             </div>
                             <div className={localStyles.categoryBarTrack}>
