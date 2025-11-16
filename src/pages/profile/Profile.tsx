@@ -558,7 +558,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
             onClick={() => setCategoryEditorOpen((previous) => !previous)}
             disabled={!canManageCategories}
           >
-            {categoryEditorOpen ? 'Hide categories' : 'Edit user expense categories'}
+            {categoryEditorOpen ? 'Hide categories' : 'Edit your expense categories'}
           </button>
           <button
             type="button"
@@ -566,7 +566,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
             onClick={() => setExpenseEditorOpen((previous) => !previous)}
             disabled={!canManageExpenses}
           >
-            {expenseEditorOpen ? 'Hide expense templates' : 'Edit user expense templates'}
+            {expenseEditorOpen ? 'Hide planned expenses' : 'Edit your planned expenses'}
           </button>
         </div>
         <button
@@ -584,7 +584,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
           <section className={styles.managementCard}>
             <header className={styles.managementHeader}>
               <div>
-                <h3 className={styles.managementTitle}>User Categories</h3>
+                <h3 className={styles.managementTitle}>Your Categories</h3>
                 <p className={styles.managementSubtitle}>
                   {categories.length} / {MAX_USER_CATEGORIES} categories
                 </p>
@@ -749,7 +749,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
           <section className={styles.managementCard}>
             <header className={styles.managementHeader}>
               <div>
-                <h3 className={styles.managementTitle}>Expense Templates</h3>
+                <h3 className={styles.managementTitle}>Planned Expenses</h3>
                 <p className={styles.managementSubtitle}>
                   {expenses.length} / {MAX_USER_EXPENSES} templates
                 </p>

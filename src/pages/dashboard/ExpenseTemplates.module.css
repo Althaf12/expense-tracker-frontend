@@ -14,143 +14,7 @@
   transition: width 0.2s ease;
 }
 
-.templateList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.templateGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: 0.85rem;
-  border: 1px dashed transparent;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.templateGroupHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  color: var(--color-text-strong);
-  gap: 0.75rem;
-  cursor: grab;
-  user-select: none;
-}
-
-.templateGroupHeader:active {
-  cursor: grabbing;
-}
-
-.templateGroupMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.templateGroupName {
-  font-weight: 600;
-}
-
-.templateGroupTotal {
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-}
-
-.templateItems {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.templateItem {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.75rem;
-  border: 1px dashed var(--surface-table-border);
-  background: var(--surface-table-head);
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.templateGroup:hover {
-  border-color: var(--accent-primary);
-  background: var(--surface-table-head);
-}
-
-.templateItem:hover {
-  border-color: var(--accent-primary);
-}
-
-.dragHandle {
-  font-size: 0.9rem;
-  letter-spacing: 0.3rem;
-  color: var(--color-text-muted);
-}
-
-.templateInfo {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.templateName {
-  font-weight: 600;
-  color: var(--color-text-strong);
-}
-
-.templateAmount {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.templateToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  user-select: none;
-}
-
-.templateToggle input {
-  width: 1.05rem;
-  height: 1.05rem;
-}
-
-.templateFooter {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1.5rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.85rem;
-  background: var(--surface-table-head);
-  border: 1px solid var(--surface-table-border);
-}
-
-.templateFooterLabel {
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.templateFooterAmount {
-  font-weight: 700;
-  color: var(--color-text-strong);
-}
-
+/* Container */
 .templateTableContainer {
   margin-top: 1rem;
   border: 1px solid var(--surface-table-border);
@@ -159,43 +23,70 @@
   background: var(--surface-card);
 }
 
-.templateTable {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.templateTable th,
-.templateTable td {
-  padding: 0.75rem 0.9rem;
-  border-bottom: 1px solid var(--surface-table-border);
-  vertical-align: top;
-}
-
-.templateTable th {
+/* Header: two columns */
+.gridHeader {
+  --category-col-width: 260px;
+  display: grid !important;
+  grid-template-columns: var(--category-col-width) 1fr !important;
+  align-items: center;
   background: var(--surface-table-head);
-  text-align: left;
-  font-size: 0.9rem;
+  /* match outer card horizontal padding so headers align with other cards */
+  padding: 0.75rem 1.5rem;
   color: var(--color-text-muted);
   font-weight: 600;
+  column-gap: 0.5rem;
 }
 
-.templateCategoryRow:hover td {
-  background: var(--surface-table-hover);
+.gridHeaderCell {
+  /* let the parent header provide horizontal padding so content lines up with the card */
+  padding: 0;
+  white-space: nowrap;
+  justify-self: start !important;
 }
 
+.gridBody {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Each row is a two-column grid so both cells share height */
+.templateRow {
+  /* force grid despite external overrides */
+  display: grid !important;
+  grid-template-columns: var(--category-col-width) 1fr !important;
+  gap: 0;
+  align-items: stretch;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--surface-table-border);
+}
+
+.templateRow:last-child {
+  border-bottom: none;
+}
+
+/* Left column: category */
 .templateCategoryCell {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  height: 100%;
-  padding: 0 1.1rem;
-  border-right: 1px solid var(--surface-table-border);
+  /* align category cell horizontal padding with card padding */
+  padding: 0 1.5rem;
+  /* ensure this cell stays within its grid column */
+  min-width: 0;
+  grid-column: 1 / 2 !important;
+}
+
+.dragHandle {
+  font-size: 0.9rem;
+  letter-spacing: 0.3rem;
+  color: var(--color-text-muted);
 }
 
 .templateCategoryMeta {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  justify-content: center; /* vertical center */
 }
 
 .templateCategoryName {
@@ -208,19 +99,28 @@
   color: var(--color-text-muted);
 }
 
-
+/* Right column: expense list */
 .templateExpenseListCell {
-  vertical-align: top;
-  padding: 0;
+  /* align expense list cell horizontal padding with card padding */
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: stretch;
+  justify-self: stretch;
+  /* allow the right column to shrink and not force wrapping */
+  min-width: 0;
+  grid-column: 2 / 3 !important;
+  overflow: visible;
 }
 
 .templateExpenseList {
   list-style: none;
   margin: 0;
-  padding: 0 1.1rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  flex: 1 1 auto;
+  width: 100%;
 }
 
 .templateExpenseItem {
@@ -232,6 +132,11 @@
   border: 1px solid var(--surface-table-border);
   background: var(--surface-table-head);
   transition: border-color 0.2s ease, background 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+.templateExpenseItem > * {
+  min-width: 0;
 }
 
 .templateExpenseItem:hover {
@@ -270,4 +175,26 @@
 .templateEmpty {
   color: var(--color-text-muted);
   font-style: italic;
+}
+
+.templateFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  /* footer should align with card edges */
+  padding: 0.85rem 1.5rem;
+  border-radius: 0.85rem;
+  background: var(--surface-table-head);
+  border: 1px solid var(--surface-table-border);
+}
+
+.templateFooterLabel {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.templateFooterAmount {
+  font-weight: 700;
+  color: var(--color-text-strong);
 }
