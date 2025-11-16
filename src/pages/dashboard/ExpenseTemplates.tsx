@@ -48,7 +48,7 @@ export default function ExpenseTemplates({
       <header className={styles.cardHeader}>
         <div>
           <Typography variant="h5" component="h2" className={styles.cardTitle}>
-            Expense Templates
+            Planned Expenses
           </Typography>
           <Typography variant="body2" component="p" className={styles.cardSubtitle}>
             Drag categories to prioritise and track their monthly status.
@@ -73,7 +73,7 @@ export default function ExpenseTemplates({
           <div className={localStyles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(monthlyTemplateProgress)}>
             <div className={localStyles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
           </div>
-          <div className={localStyles.templateTableContainer} role="group" aria-label="Expense templates grouped by category">
+          <div className={localStyles.templateTableContainer} role="group" aria-label="Planned expenses grouped by category">
             <table className={localStyles.templateTable}>
               <thead>
                 <tr>
