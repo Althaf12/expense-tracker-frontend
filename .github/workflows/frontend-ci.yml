@@ -9,9 +9,6 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Debug user
-        run: whoami
-        
       - name: Update frontend code
         run: |
           sudo -u expensetracker git -C /opt/expense-tracker-frontend pull origin main
