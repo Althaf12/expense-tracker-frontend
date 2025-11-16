@@ -30,18 +30,17 @@
   grid-template-columns: var(--category-col-width) 1fr !important;
   align-items: center;
   background: var(--surface-table-head);
-  padding: 0.75rem 0.9rem;
+  /* match outer card horizontal padding so headers align with other cards */
+  padding: 0.75rem 1.5rem;
   color: var(--color-text-muted);
   font-weight: 600;
   column-gap: 0.5rem;
 }
 
 .gridHeaderCell {
-  /* align header cell padding with row content (match 1.1rem used in rows) */
-  padding-left: 1.1rem;
-  padding-right: 1.1rem;
+  /* let the parent header provide horizontal padding so content lines up with the card */
+  padding: 0;
   white-space: nowrap;
-  /* force header cells to align their content to the start (left) */
   justify-self: start !important;
 }
 
@@ -70,7 +69,8 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0 1.1rem;
+  /* align category cell horizontal padding with card padding */
+  padding: 0 1.5rem;
   /* ensure this cell stays within its grid column */
   min-width: 0;
   grid-column: 1 / 2 !important;
@@ -101,7 +101,8 @@
 
 /* Right column: expense list */
 .templateExpenseListCell {
-  padding: 0 1.1rem;
+  /* align expense list cell horizontal padding with card padding */
+  padding: 0 1.5rem;
   display: flex;
   align-items: stretch;
   justify-self: stretch;
@@ -181,7 +182,8 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 1.5rem;
-  padding: 0.85rem 1rem;
+  /* footer should align with card edges */
+  padding: 0.85rem 1.5rem;
   border-radius: 0.85rem;
   background: var(--surface-table-head);
   border: 1px solid var(--surface-table-border);
