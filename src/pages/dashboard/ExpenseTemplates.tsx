@@ -74,70 +74,68 @@ export default function ExpenseTemplates({
             <div className={localStyles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
           </div>
           <div className={localStyles.templateTableContainer} role="group" aria-label="Planned expenses grouped by category">
-            <table className={localStyles.templateTable}>
-              <thead>
-                <tr>
-                  <th scope="col">Category</th>
-                  <th scope="col">Planned Expenses</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupedUserExpenses.map((group) => {
-                  const groupTotal = group.expenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0)
-                  return (
-                    <tr
-                      key={group.categoryId}
-                      className={localStyles.templateCategoryRow}
-                      draggable
-                      onDragStart={() => handleCategoryDragStart(group.categoryId)}
-                      onDragOver={handleCategoryDragOver}
-                      onDrop={(event) => handleCategoryDrop(event, group.categoryId)}
-                      onDragEnd={handleCategoryDragEnd}
-                    >
-                      <td className={localStyles.templateCategoryCell}>
-                        <span className={localStyles.dragHandle} aria-hidden="true">⋮⋮</span>
-                        <div className={localStyles.templateCategoryMeta}>
-                          <span className={localStyles.templateCategoryName}>{group.categoryName}</span>
-                          <span className={localStyles.templateCategoryTotal}>{formatAmount(groupTotal)}</span>
-                        </div>
-                      </td>
-                      <td className={localStyles.templateExpenseListCell}>
-                        {group.expenses.length === 0 ? (
-                          <span className={localStyles.templateEmpty}>No templates in this category.</span>
-                        ) : (
-                          <ul className={localStyles.templateExpenseList}>
-                            {group.expenses.map((expense) => {
-                              const expenseId = String(expense.userExpensesId)
-                              const checked = (expense.paid ?? 'N') === 'Y'
-                              const saving = templateSaving[expenseId] === true
-                              const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Mark paid'
-                              return (
-                                <li key={expenseId} className={localStyles.templateExpenseItem}>
-                                  <div className={localStyles.templateExpenseInfo}>
-                                    <span className={localStyles.templateExpenseName}>{expense.userExpenseName}</span>
-                                    <span className={localStyles.templateExpenseAmount}>{formatAmount(Number(expense.amount ?? 0))}</span>
-                                  </div>
-                                  <label className={localStyles.templateCheckboxLabel}>
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      disabled={checked || saving}
-                                      onChange={() => handleTemplateMarkPaid(expense)}
-                                      aria-label={`Mark ${expense.userExpenseName} as paid for this month`}
-                                    />
-                                    <span>{statusLabel}</span>
-                                  </label>
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className={localStyles.gridHeader}>
+              <div className={localStyles.gridHeaderCell}>Category</div>
+              <div className={localStyles.gridHeaderCell}>Planned Expenses</div>
+            </div>
+
+            <div className={localStyles.gridBody}>
+              {groupedUserExpenses.map((group) => {
+                const groupTotal = group.expenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0)
+                return (
+                  <div
+                    key={group.categoryId}
+                    className={localStyles.templateRow}
+                    draggable
+                    onDragStart={() => handleCategoryDragStart(group.categoryId)}
+                    onDragOver={handleCategoryDragOver}
+                    onDrop={(event) => handleCategoryDrop(event, group.categoryId)}
+                    onDragEnd={handleCategoryDragEnd}
+                  >
+                    <div className={localStyles.templateCategoryCell}>
+                      <span className={localStyles.dragHandle} aria-hidden="true">⋮⋮</span>
+                      <div className={localStyles.templateCategoryMeta}>
+                        <span className={localStyles.templateCategoryName}>{group.categoryName}</span>
+                        <span className={localStyles.templateCategoryTotal}>{formatAmount(groupTotal)}</span>
+                      </div>
+                    </div>
+
+                    <div className={localStyles.templateExpenseListCell}>
+                      {group.expenses.length === 0 ? (
+                        <span className={localStyles.templateEmpty}>No templates in this category.</span>
+                      ) : (
+                        <ul className={localStyles.templateExpenseList}>
+                          {group.expenses.map((expense) => {
+                            const expenseId = String(expense.userExpensesId)
+                            const checked = (expense.paid ?? 'N') === 'Y'
+                            const saving = templateSaving[expenseId] === true
+                            const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Mark paid'
+                            return (
+                              <li key={expenseId} className={localStyles.templateExpenseItem}>
+                                <div className={localStyles.templateExpenseInfo}>
+                                  <span className={localStyles.templateExpenseName}>{expense.userExpenseName}</span>
+                                  <span className={localStyles.templateExpenseAmount}>{formatAmount(Number(expense.amount ?? 0))}</span>
+                                </div>
+                                <label className={localStyles.templateCheckboxLabel}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={checked || saving}
+                                    onChange={() => handleTemplateMarkPaid(expense)}
+                                    aria-label={`Mark ${expense.userExpenseName} as paid for this month`}
+                                  />
+                                  <span>{statusLabel}</span>
+                                </label>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
           <div className={localStyles.templateFooter}>
             <span className={localStyles.templateFooterLabel}>Total planned</span>
