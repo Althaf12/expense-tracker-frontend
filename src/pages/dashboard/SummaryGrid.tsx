@@ -50,8 +50,7 @@ export default function SummaryGrid({
           {formatCurrency(totalBalance)}
         </Typography>
         <div className={localStyles.metricFooter}>
-          {renderTrend(balanceTrend)}
-          <span className={localStyles.metricHint}>{getTrendHint(balanceTrend)}</span>
+          <span className={localStyles.metricHint}>Current Bank Balance</span>
         </div>
       </section>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
