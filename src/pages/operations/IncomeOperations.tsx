@@ -566,7 +566,7 @@ export default function IncomeOperations(): ReactElement {
                               formatAmount(income.amount)
                             )}
                           </td>
-                          <td>
+                          <td className={styles.date}>
                             {isEditing ? (
                               <input
                                 className={styles.inlineInput}

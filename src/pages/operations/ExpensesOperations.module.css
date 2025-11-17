@@ -201,6 +201,12 @@
 .date {
   text-align: center;
   justify-content: center;
+  /* Keep date on a single line on small screens; table is horizontally scrollable */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Give the date column a minimum width so it has room on small screens */
+  min-width: 8rem;
 }
 
 .actions {

@@ -7,8 +7,10 @@
 
 .summaryHeader {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .metricLabel {
@@ -22,6 +24,7 @@
   margin: 0;
   font-size: 0.85rem;
   color: var(--color-text-muted);
+  text-align: right;
 }
 
 .metricValue {

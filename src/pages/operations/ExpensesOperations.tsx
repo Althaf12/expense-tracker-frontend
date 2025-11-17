@@ -802,7 +802,7 @@ export default function ExpensesOperations(): ReactElement {
 
                       return (
                         <tr key={key}>
-                          <td>
+                          <td className={styles.date}>
                             {isEditing ? (
                               <input
                                 className={styles.inlineInput}
