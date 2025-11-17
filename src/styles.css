@@ -249,3 +249,17 @@ p {
   background: var(--selection-background);
   color: var(--selection-text);
 }
+
+/* Remove native number input spinner controls globally */
+/* Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
