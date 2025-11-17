@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { useAppDataContext } from '../../context/AppDataContext'
 import type { SessionData, UserExpenseCategory, UserExpense } from '../../types/app'
 import {
@@ -516,25 +516,85 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     </label>
   )
 
+  function CategoryDropdown({
+    value,
+    onChange,
+    disabled,
+  }: {
+    value: string
+    onChange: (next: string) => void
+    disabled?: boolean
+  }) {
+    const wrapperRef = useRef<HTMLDivElement | null>(null)
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState('')
+
+    useEffect(() => {
+      // reflect externally controlled value into the visible query
+      const match = categoryOptions.find((o) => o.id === value)
+      setQuery(match ? match.label : '')
+    }, [value])
+
+    useEffect(() => {
+      if (!open) return
+      const handleClickAway = (event: MouseEvent) => {
+        if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+          setOpen(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickAway)
+      return () => document.removeEventListener('mousedown', handleClickAway)
+    }, [open])
+
+    const suggestions = useMemo(() => {
+      const q = (query || '').trim().toLowerCase()
+      if (!q) return categoryOptions
+      return categoryOptions.filter((c) => c.label.toLowerCase().includes(q))
+    }, [query, categoryOptions])
+
+    return (
+      <div className={styles.dropdownField} ref={wrapperRef}>
+        <input
+          className={styles.selectInput}
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Select category"
+          autoComplete="off"
+          disabled={disabled || categoryOptions.length === 0}
+        />
+        {open && (
+          <ul className={styles.dropdownList} role="listbox">
+            {suggestions.length === 0 ? (
+              <li className={styles.dropdownEmpty}>No categories found</li>
+            ) : (
+              suggestions.map((option) => (
+                <li
+                  key={option.id}
+                  className={styles.dropdownItem}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    onChange(option.id)
+                    setOpen(false)
+                  }}
+                >
+                  {option.label}
+                  {option.status !== 'A' ? ' (inactive)' : ''}
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
+    )
+  }
+
   const renderCategorySelect = (value: string, onChange: (next: string) => void, disabled?: boolean) => (
-    <select
-      className={styles.selectInput}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      disabled={disabled || categoryOptions.length === 0}
-    >
-      <option value="">Select category</option>
-      {categoryOptions.map((option) => {
-        const isCurrent = option.id === value
-        const isInactive = option.status !== 'A'
-        return (
-          <option key={option.id} value={option.id} disabled={!isCurrent && isInactive}>
-            {option.label}
-            {isInactive ? ' (inactive)' : ''}
-          </option>
-        )
-      })}
-    </select>
+    <CategoryDropdown value={value} onChange={onChange} disabled={disabled} />
   )
 
   return (

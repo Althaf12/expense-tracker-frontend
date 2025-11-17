@@ -234,6 +234,42 @@
   padding: 0.5rem 0.75rem;
 }
 
+/* Dropdown list styling (borrowed from operations page) */
+.dropdownField {
+  position: relative;
+}
+
+.dropdownList {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--dropdown-background);
+  border: 1px solid var(--dropdown-border);
+  border-radius: 0.75rem;
+  padding: 0.35rem 0;
+  z-index: 10;
+  box-shadow: var(--dropdown-shadow);
+}
+
+.dropdownItem {
+  padding: 0.55rem 0.9rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.dropdownItem:hover {
+  background: var(--dropdown-item-hover);
+}
+
+.dropdownEmpty {
+  padding: 0.65rem 0.9rem;
+  color: var(--placeholder-text);
+}
+
 .numberInput {
   width: 100%;
   border-radius: 0.6rem;
