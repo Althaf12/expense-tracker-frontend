@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactElement } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import type { SessionData } from '../../types/app'
 import Header from './Header'
 import Sidebar from './Sidebar'
@@ -28,6 +28,8 @@ export default function Layout({ session, onLogout }: LayoutProps): ReactElement
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsedState)
   const [isMobile, setIsMobile] = useState<boolean>(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false)
+  const location = useLocation()
+  const _skipFirstLocationClose = useRef(true)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -66,6 +68,18 @@ export default function Layout({ session, onLogout }: LayoutProps): ReactElement
       document.documentElement.classList.toggle('sidebar-mobile-open', isMobile && mobileSidebarOpen)
     }
   }, [collapsed, isMobile, mobileSidebarOpen])
+
+  // Close mobile sidebar on navigation (after the route changes).
+  // Skip the first run to avoid closing immediately on initial mount.
+  useEffect(() => {
+    if (_skipFirstLocationClose.current) {
+      _skipFirstLocationClose.current = false
+      return
+    }
+    if (isMobile && mobileSidebarOpen) {
+      setMobileSidebarOpen(false)
+    }
+  }, [location.pathname])
 
   const toggleSidebar = () => {
     if (isMobile) {
