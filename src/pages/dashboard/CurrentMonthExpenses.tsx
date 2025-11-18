@@ -30,6 +30,16 @@ export default function CurrentMonthExpenses({
   formatAmount,
   monthlyTotal,
 }: Props): ReactElement {
+  const formatToDDMMYYYY = (value: unknown): string => {
+    if (value === undefined || value === null) return ''
+    // Attempt to create a Date. If value is already a Date or a parsable string/number, this will work.
+    const d = new Date(String(value))
+    if (!Number.isFinite(d.getTime())) return String(value)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yyyy = d.getFullYear()
+    return `${dd}-${mm}-${yyyy}`
+  }
   return (
     <section className={styles.card} aria-busy={loading}>
       <header className={styles.cardHeader}>
@@ -120,7 +130,7 @@ export default function CurrentMonthExpenses({
                     <tr key={key}>
                       <td>{expense.expenseName ?? expense.description ?? '-'}</td>
                       <td className={styles.numeric}>{formatAmount(Number(expense.amount ?? expense.expenseAmount))}</td>
-                      <td>{expense.expenseDate ? String(expense.expenseDate) : ''}</td>
+                      <td>{expense.expenseDate ? formatToDDMMYYYY(expense.expenseDate) : ''}</td>
                     </tr>
                   )
                 })
