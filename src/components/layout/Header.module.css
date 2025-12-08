@@ -20,6 +20,14 @@
 .brand {
   display: flex;
   align-items: center;
+  font-size: 1.25rem;
+}
+
+.tm {
+  font-size:0.55rem;
+  margin-left:2px;
+  vertical-align:super;
+  opacity:0.85;
 }
 
 .brandLink {
