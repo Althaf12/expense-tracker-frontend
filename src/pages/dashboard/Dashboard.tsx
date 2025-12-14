@@ -261,6 +261,7 @@ export default function Dashboard(): ReactElement {
         formatCurrency={formatCurrency}
         getTrendHint={getTrendHint}
         renderTrend={renderTrend}
+        loading={loading}
       />
 
       <div className={styles.templatesRow}>
@@ -280,6 +281,7 @@ export default function Dashboard(): ReactElement {
             expenseTemplatesTotal={expenseTemplatesTotal}
             formatAmount={formatAmount}
             userExpenses={userExpenses}
+            loading={loading}
           />
           <SpendByCategory
             label={label}
@@ -290,6 +292,7 @@ export default function Dashboard(): ReactElement {
             clearCategoryFilters={clearCategoryFilters}
             categoryFiltersApplied={categoryFiltersApplied}
             formatAmount={formatAmount}
+            loading={loading}
           />
         </div>
 

@@ -6,6 +6,7 @@ import type { Income } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate, parseAmount } from '../../utils/format'
 import styles from './IncomeOperations.module.css'
+import Skeleton from '../../components/Skeleton'
 
 type IncomeViewMode = 'current-year' | 'month' | 'range'
 
@@ -446,9 +447,24 @@ export default function IncomeOperations(): ReactElement {
 
           <div className={styles.tableContainer}>
             {results.length === 0 ? (
-              <Typography variant="body2" component="p" className={styles.placeholder}>
-                {loading ? 'Loading data…' : 'No income entries to display.'}
-              </Typography>
+              loading ? (
+                <div style={{padding:16}}>
+                  {[0,1,2,3].map((i) => (
+                    <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 120px 120px 120px 80px 80px',gap:12,alignItems:'center',marginBottom:12}}>
+                      <div><Skeleton /></div>
+                      <div><Skeleton /></div>
+                      <div><Skeleton /></div>
+                      <div><Skeleton /></div>
+                      <div><Skeleton /></div>
+                      <div><Skeleton /></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Typography variant="body2" component="p" className={styles.placeholder}>
+                  No income entries to display.
+                </Typography>
+              )
             ) : (
               <table className={styles.table}>
                 <thead>

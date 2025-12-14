@@ -2,10 +2,12 @@ import { Typography } from '@mui/material'
 import type { ReactElement } from 'react'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './SpendByCategory.module.css'
+import Skeleton from '../../components/Skeleton'
 
 type CategoryEntry = { name: string; total: number }
 
 type Props = {
+  loading?: boolean
   label: string
   categorySummary: CategoryEntry[]
   filteredCategorySummary: CategoryEntry[]
@@ -25,7 +27,33 @@ export default function SpendByCategory({
   clearCategoryFilters,
   categoryFiltersApplied,
   formatAmount,
+  loading = false,
 }: Props): ReactElement {
+  if (loading) {
+    return (
+      <section className={styles.card}>
+        <header className={styles.cardHeader}>
+          <div>
+            <Typography variant="h5" component="h2" className={styles.cardTitle}>
+              Spend by Category
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <span className={styles.cardBadge}>—</span>
+        </header>
+        <div style={{ padding: '1rem' }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ flex: 1 }}><Skeleton /></div>
+              <div style={{ width: 120 }}><Skeleton /></div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
   return (
     <section className={styles.card}>
       <header className={styles.cardHeader}>

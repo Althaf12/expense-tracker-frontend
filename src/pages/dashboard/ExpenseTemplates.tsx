@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import type { UserExpense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './ExpenseTemplates.module.css'
+import Skeleton from '../../components/Skeleton'
 
 type TemplateGroup = {
   categoryId: string
@@ -11,6 +12,7 @@ type TemplateGroup = {
 }
 
 type Props = {
+  loading?: boolean
   groupedUserExpenses: TemplateGroup[]
   completedMonthlyTemplates: number
   visibleTemplates: UserExpense[]
@@ -42,7 +44,35 @@ export default function ExpenseTemplates({
   expenseTemplatesTotal,
   formatAmount,
   userExpenses,
+  loading = false,
 }: Props): ReactElement {
+  if (loading) {
+    return (
+      <section className={styles.card} aria-live="polite">
+        <header className={styles.cardHeader}>
+          <div>
+            <Typography variant="h5" component="h2" className={styles.cardTitle}>
+              Planned Expenses
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+              Drag categories to prioritise and track their monthly status.
+            </Typography>
+          </div>
+          <div className={styles.headerActions}>
+            <span className={styles.cardBadge}>—</span>
+          </div>
+        </header>
+        <div style={{ padding: '1rem' }}>
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 120 }}><Skeleton /></div>
+              <div style={{ flex: 1 }}><Skeleton /></div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
   return (
     <section className={styles.card} aria-live="polite">
       <header className={styles.cardHeader}>

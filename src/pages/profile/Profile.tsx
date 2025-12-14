@@ -12,6 +12,7 @@ import {
   deleteUserExpense,
 } from '../../api'
 import styles from './Profile.module.css'
+import Skeleton from '../../components/Skeleton'
 
 type ProfileProps = {
   session: SessionData | null
@@ -660,7 +661,15 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
             </header>
 
             {loadingCategories ? (
-              <p className={styles.placeholder}>Loading categories…</p>
+              <div style={{padding:12}}>
+                {[0,1,2].map((i) => (
+                  <div key={i} style={{display:'flex',gap:12,alignItems:'center',marginBottom:10}}>
+                    <div style={{width:40}}><Skeleton /></div>
+                    <div style={{flex:1}}><Skeleton /></div>
+                    <div style={{width:120}}><Skeleton /></div>
+                  </div>
+                ))}
+              </div>
             ) : categories.length === 0 && !addingCategory ? (
               <p className={styles.placeholder}>No categories yet. Add your first category below.</p>
             ) : (
@@ -824,7 +833,16 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
             )}
 
             {loadingExpenses ? (
-              <p className={styles.placeholder}>Loading expense templates…</p>
+              <div style={{padding:12}}>
+                {[0,1,2].map((i) => (
+                  <div key={i} style={{display:'flex',gap:12,alignItems:'center',marginBottom:10}}>
+                    <div style={{width:40}}><Skeleton /></div>
+                    <div style={{flex:1}}><Skeleton /></div>
+                    <div style={{width:120}}><Skeleton /></div>
+                    <div style={{width:80}}><Skeleton /></div>
+                  </div>
+                ))}
+              </div>
             ) : expenses.length === 0 && !addingExpense ? (
               <p className={styles.placeholder}>No expense templates yet. Add your first template below.</p>
             ) : (

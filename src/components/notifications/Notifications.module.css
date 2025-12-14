@@ -1,0 +1,57 @@
+.container {
+  position: fixed;
+  /* place notifications below the sticky header so profile menu remains accessible */
+  top: 6rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  /* header z-index is 100; keep notifications below that so header/menu overlays them */
+  z-index: 80;
+  max-width: 320px;
+}
+.card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.75rem 0.75rem;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  color: #0f172a;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  animation: slideIn 240ms ease-out;
+  transition: transform 240ms ease-in, opacity 240ms ease-in;
+}
+.message {
+  flex: 1 1 auto;
+  margin-right: 0.5rem;
+}
+.close {
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.close:hover { opacity: 1 }
+
+.info { background-color: #7d8ee2; border: 1px solid #bde0ff }
+.success { background-color: #71e16b; border: 1px solid #c6f2c6 }
+.error { background-color: #cb6161; border: 1px solid #ffcfcf }
+
+@keyframes slideIn {
+  from { transform: translateY(-6px); opacity: 0 }
+  to { transform: translateY(0); opacity: 1 }
+}
+
+/* slide out animation applied when notification is closing */
+.closing {
+  animation: slideOut 240ms ease-in forwards;
+}
+
+@keyframes slideOut {
+  from { transform: translateY(0); opacity: 1 }
+  to { transform: translateY(6px); opacity: 0 }
+}
