@@ -141,41 +141,7 @@ export default function useDashboardData() {
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
   const twoMonthsAgoContext = useMemo(() => getPreviousMonth(previousContext.month, previousContext.year), [previousContext.month, previousContext.year])
 
-  const balanceStorageKey = useMemo(
-    () => (session ? `dashboard:monthly-balance:${session.username}:${year}-${String(month).padStart(2, '0')}` : null),
-    [month, session, year],
-  )
-
-  const readCachedBalance = useCallback((): { balance: number; month: number; year: number } | null => {
-    if (!balanceStorageKey || typeof window === 'undefined') return null
-    try {
-      const raw = window.localStorage.getItem(balanceStorageKey)
-      if (!raw) return null
-      const parsed = JSON.parse(raw)
-      const balance = typeof parsed.balance === 'number' ? parsed.balance : null
-      const storedMonth = typeof parsed.month === 'number' ? parsed.month : null
-      const storedYear = typeof parsed.year === 'number' ? parsed.year : null
-      if (balance === null || storedMonth === null || storedYear === null) return null
-      return { balance, month: storedMonth, year: storedYear }
-    } catch {
-      return null
-    }
-  }, [balanceStorageKey])
-
-  const persistBalance = useCallback(
-    (balance: number) => {
-      if (!balanceStorageKey || typeof window === 'undefined') return
-      try {
-        window.localStorage.setItem(
-          balanceStorageKey,
-          JSON.stringify({ balance, month, year, storedAt: new Date().toISOString() }),
-        )
-      } catch {
-        /* ignore storage errors */
-      }
-    },
-    [balanceStorageKey, month, year],
-  )
+  // monthly balance base is loaded via API helper which implements caching/dedupe
 
   useEffect(() => {
     if (!session) {
@@ -194,8 +160,6 @@ export default function useDashboardData() {
 
     void (async () => {
       try {
-        const cachedBalance = readCachedBalance()
-
         const [
           currentExpenses,
           previousExpenses,
@@ -209,7 +173,7 @@ export default function useDashboardData() {
           fetchIncomeByMonth({ username, month, year }),
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
-          cachedBalance ? Promise.resolve(cachedBalance) : fetchPreviousMonthlyBalance(username),
+          fetchPreviousMonthlyBalance(username),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -220,22 +184,9 @@ export default function useDashboardData() {
         setPreviousMonthIncome(previousIncomeData)
         setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
 
-        const openingFromApi = previousMonthBalance && typeof previousMonthBalance === 'object'
-          ? (previousMonthBalance as { openingBalance?: number; closingBalance?: number; balance?: number; month?: number; year?: number })
-          : null
-
-        const resolvedBalance = openingFromApi
-          ? (typeof openingFromApi.closingBalance === 'number'
-            ? openingFromApi.closingBalance
-            : typeof openingFromApi.balance === 'number'
-            ? openingFromApi.balance
-            : typeof openingFromApi.openingBalance === 'number'
-            ? openingFromApi.openingBalance
-            : 0)
-          : 0
-
-        setMonthlyBalanceBase(resolvedBalance)
-        persistBalance(resolvedBalance)
+        const mb = previousMonthBalance as (import('../../types/app').MonthlyBalance | null)
+        const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
+        setMonthlyBalanceBase(resolved)
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -255,8 +206,6 @@ export default function useDashboardData() {
     previousContext.year,
     twoMonthsAgoContext.month,
     twoMonthsAgoContext.year,
-    readCachedBalance,
-    persistBalance,
     setStatus,
   ])
 
@@ -267,12 +216,22 @@ export default function useDashboardData() {
       try {
         const detail = (ev as CustomEvent)?.detail
         if (!detail) return
-        const { username: updatedUsername } = detail as { username?: string }
+        const { username: updatedUsername, balance } = detail as { username?: string; balance?: number }
         if (!session || updatedUsername !== session.username) return
-        const cached = readCachedBalance()
-        if (cached && typeof cached.balance === 'number') {
-          setMonthlyBalanceBase(cached.balance)
+        if (typeof balance === 'number') {
+          setMonthlyBalanceBase(balance)
+          return
         }
+        // fallback: re-fetch via API helper (which is cached/dedupe)
+        void (async () => {
+          try {
+            const mb = await fetchPreviousMonthlyBalance(session.username)
+            const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
+            setMonthlyBalanceBase(resolved)
+          } catch {
+            /* ignore */
+          }
+        })()
       } catch {
         /* ignore errors */
       }
@@ -280,7 +239,7 @@ export default function useDashboardData() {
 
     window.addEventListener('monthlyBalanceUpdated', handler as EventListener)
     return () => window.removeEventListener('monthlyBalanceUpdated', handler as EventListener)
-  }, [readCachedBalance, session, setMonthlyBalanceBase])
+  }, [session])
 
   const filteredMonthlyExpenses = useMemo(() => {
     const nameQuery = expenseTableFilters.name.trim().toLowerCase()

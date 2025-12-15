@@ -204,8 +204,10 @@ export default function App(): ReactElement {
           try {
             const mb = await apiFetchPreviousMonthlyBalance(username)
             const now = new Date()
-            const month = now.getMonth() + 1
-            const year = now.getFullYear()
+            // scheduler runs at the start of a new month — store balance for the previous month
+            const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            const month = prev.getMonth() + 1
+            const year = prev.getFullYear()
             let balance: number | null = null
             if (mb && typeof mb === 'object') {
               const payload = mb as Record<string, unknown>

@@ -100,6 +100,10 @@ const ensureUsername = (username: string): string => {
   return encodeURIComponent(value)
 }
 
+// In-memory caches to avoid duplicate network calls for the same user/month
+const _prevMonthlyBalancePromises = new Map<string, Promise<MonthlyBalance | null>>()
+const _prevMonthlyBalanceCache = new Map<string, MonthlyBalance | null>()
+
 export async function fetchUserExpenseCategories(username: string): Promise<UserExpenseCategory[]> {
   const safeUser = ensureUsername(username)
   const result = await request(`/user-expense-category/${safeUser}`, { method: 'GET' })
@@ -348,16 +352,79 @@ export async function fetchIncomeLastYear(username: string, currentYear: number)
 
 export async function fetchPreviousMonthlyBalance(username: string): Promise<MonthlyBalance | null> {
   const safeUser = ensureUsername(username)
-  const result = await request(`/monthly-balance/previous?username=${safeUser}`, { method: 'GET' })
-  if (result && typeof result === 'object') {
-    const payload = result as { openingBalance?: unknown; closingBalance?: unknown; month?: unknown; year?: unknown }
-    const openingBalance = typeof payload.openingBalance === 'number' ? payload.openingBalance : undefined
-    const closingBalance = typeof payload.closingBalance === 'number' ? payload.closingBalance : undefined
-    const month = typeof payload.month === 'number' ? payload.month : undefined
-    const year = typeof payload.year === 'number' ? payload.year : undefined
-    return { openingBalance, closingBalance, month, year }
+
+  // determine the previous month/year key (API returns previous month info)
+  const now = new Date()
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const monthKey = String(prev.getMonth() + 1).padStart(2, '0')
+  const yearKey = prev.getFullYear()
+  const storageKey = `dashboard:monthly-balance:${safeUser}:${yearKey}-${monthKey}`
+
+  // return in-memory cached value if present
+  if (_prevMonthlyBalanceCache.has(storageKey)) {
+    return _prevMonthlyBalanceCache.get(storageKey) ?? null
   }
-  return null
+
+  // check localStorage cache
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed.balance === 'number') {
+          const mb: MonthlyBalance = { closingBalance: parsed.balance, month: yearKey ? Number(monthKey) : undefined, year: yearKey }
+          _prevMonthlyBalanceCache.set(storageKey, mb)
+          return mb
+        }
+        if (parsed && typeof parsed.closingBalance === 'number') {
+          const mb: MonthlyBalance = { closingBalance: parsed.closingBalance, month: yearKey ? Number(monthKey) : undefined, year: yearKey }
+          _prevMonthlyBalanceCache.set(storageKey, mb)
+          return mb
+        }
+      }
+    } catch {
+      /* ignore parse/storage errors */
+    }
+  }
+
+  // dedupe inflight requests
+  if (_prevMonthlyBalancePromises.has(storageKey)) {
+    return _prevMonthlyBalancePromises.get(storageKey)!
+  }
+
+  const inflight = (async (): Promise<MonthlyBalance | null> => {
+    try {
+      const result = await request(`/monthly-balance/previous?username=${safeUser}`, { method: 'GET' })
+      if (result && typeof result === 'object') {
+        const payload = result as { openingBalance?: unknown; closingBalance?: unknown; month?: unknown; year?: unknown }
+        const openingBalance = typeof payload.openingBalance === 'number' ? payload.openingBalance : undefined
+        const closingBalance = typeof payload.closingBalance === 'number' ? payload.closingBalance : undefined
+        const month = typeof payload.month === 'number' ? payload.month : yearKey
+        const year = typeof payload.year === 'number' ? payload.year : yearKey
+        const mb: MonthlyBalance = { openingBalance, closingBalance, month, year }
+
+        // persist a simple numeric balance to localStorage for quick reuse
+        const storeValue = closingBalance ?? openingBalance ?? null
+        if (storeValue !== null && typeof window !== 'undefined') {
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify({ balance: storeValue, month, year, storedAt: new Date().toISOString() }))
+          } catch {
+            /* ignore storage errors */
+          }
+        }
+
+        _prevMonthlyBalanceCache.set(storageKey, mb)
+        return mb
+      }
+      _prevMonthlyBalanceCache.set(storageKey, null)
+      return null
+    } finally {
+      _prevMonthlyBalancePromises.delete(storageKey)
+    }
+  })()
+
+  _prevMonthlyBalancePromises.set(storageKey, inflight)
+  return inflight
 }
 
 export async function checkHealth(): Promise<string> {
