@@ -464,8 +464,8 @@ export default function useDashboardData() {
   const twoMonthsAgoIncomeTotal = useMemo(() => twoMonthsAgoIncome.reduce((sum, income) => sum + amountFromIncome(income), 0), [twoMonthsAgoIncome])
 
   const totalBalance = useMemo(
-    () => (monthlyBalanceBase ?? 0) + currentMonthIncomeTotal - currentMonthExpenseTotal,
-    [currentMonthExpenseTotal, currentMonthIncomeTotal, monthlyBalanceBase],
+    () => (monthlyBalanceBase ?? 0) + previousMonthIncomeTotal - currentMonthExpenseTotal,
+    [monthlyBalanceBase, previousMonthIncomeTotal, currentMonthExpenseTotal],
   )
 
   const previousBalance = useMemo(() => previousMonthIncomeTotal - previousMonthExpenseTotal, [previousMonthIncomeTotal, previousMonthExpenseTotal])
