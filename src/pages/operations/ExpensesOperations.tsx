@@ -16,7 +16,7 @@ import { formatAmount, formatDate, parseAmount } from '../../utils/format'
 import styles from './ExpensesOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 
-type ViewMode = 'month' | 'range' | 'all'
+type ViewMode = 'month' | 'range'
 
 type ExpenseFormState = {
   expenseCategoryId: string
@@ -364,6 +364,19 @@ export default function ExpensesOperations(): ReactElement {
         if (!start || !end) {
           throw new Error('Please provide both start and end dates for range search.')
         }
+        // enforce maximum range of 1 year (365 days)
+        const from = new Date(start)
+        const to = new Date(end)
+        if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+          throw new Error('Invalid date provided for range.')
+        }
+        if (to < from) {
+          throw new Error('End date must be the same or after start date.')
+        }
+        const diffDays = Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
+        if (diffDays > 365) {
+          throw new Error('Range cannot exceed 1 year.')
+        }
         data = await fetchExpensesByRange({ username, start, end })
         setLastQuery({ mode, payload: { start, end } })
       } else {
@@ -671,16 +684,7 @@ export default function ExpensesOperations(): ReactElement {
                 />
                 <span>Range</span>
               </label>
-              <label className={styles.modeOption}>
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="all"
-                  checked={viewMode === 'all'}
-                  onChange={() => handleModeChange('all')}
-                />
-                <span>All</span>
-              </label>
+              {/* 'All' option removed — UI supports only Month and Range */}
             </div>
 
             {viewMode === 'month' && (
