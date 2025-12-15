@@ -3,6 +3,7 @@ import {
   addExpense,
   fetchExpensesByMonth,
   fetchIncomeByMonth,
+  fetchPreviousMonthlyBalance,
   resolveUserExpenseCategoryId,
   updateUserExpense,
 } from '../../api'
@@ -126,6 +127,7 @@ export default function useDashboardData() {
   const [currentMonthIncome, setCurrentMonthIncome] = useState<Income[]>([])
   const [previousMonthIncome, setPreviousMonthIncome] = useState<Income[]>([])
   const [twoMonthsAgoIncome, setTwoMonthsAgoIncome] = useState<Income[]>([])
+  const [monthlyBalanceBase, setMonthlyBalanceBase] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
   const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
   const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
@@ -139,6 +141,42 @@ export default function useDashboardData() {
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
   const twoMonthsAgoContext = useMemo(() => getPreviousMonth(previousContext.month, previousContext.year), [previousContext.month, previousContext.year])
 
+  const balanceStorageKey = useMemo(
+    () => (session ? `dashboard:monthly-balance:${session.username}:${year}-${String(month).padStart(2, '0')}` : null),
+    [month, session, year],
+  )
+
+  const readCachedBalance = useCallback((): { balance: number; month: number; year: number } | null => {
+    if (!balanceStorageKey || typeof window === 'undefined') return null
+    try {
+      const raw = window.localStorage.getItem(balanceStorageKey)
+      if (!raw) return null
+      const parsed = JSON.parse(raw)
+      const balance = typeof parsed.balance === 'number' ? parsed.balance : null
+      const storedMonth = typeof parsed.month === 'number' ? parsed.month : null
+      const storedYear = typeof parsed.year === 'number' ? parsed.year : null
+      if (balance === null || storedMonth === null || storedYear === null) return null
+      return { balance, month: storedMonth, year: storedYear }
+    } catch {
+      return null
+    }
+  }, [balanceStorageKey])
+
+  const persistBalance = useCallback(
+    (balance: number) => {
+      if (!balanceStorageKey || typeof window === 'undefined') return
+      try {
+        window.localStorage.setItem(
+          balanceStorageKey,
+          JSON.stringify({ balance, month, year, storedAt: new Date().toISOString() }),
+        )
+      } catch {
+        /* ignore storage errors */
+      }
+    },
+    [balanceStorageKey, month, year],
+  )
+
   useEffect(() => {
     if (!session) {
       setMonthlyExpenses([])
@@ -146,6 +184,7 @@ export default function useDashboardData() {
       setCurrentMonthIncome([])
       setPreviousMonthIncome([])
       setTwoMonthsAgoIncome([])
+      setMonthlyBalanceBase(0)
       return
     }
 
@@ -155,18 +194,22 @@ export default function useDashboardData() {
 
     void (async () => {
       try {
+        const cachedBalance = readCachedBalance()
+
         const [
           currentExpenses,
           previousExpenses,
           currentIncomeData,
           previousIncomeData,
           twoMonthsAgoIncomeData,
+          previousMonthBalance,
         ] = await Promise.all([
           fetchExpensesByMonth({ username, month, year }),
           fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month, year }),
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
+          cachedBalance ? Promise.resolve(cachedBalance) : fetchPreviousMonthlyBalance(username),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -176,6 +219,23 @@ export default function useDashboardData() {
         setCurrentMonthIncome(currentIncomeData)
         setPreviousMonthIncome(previousIncomeData)
         setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
+
+        const openingFromApi = previousMonthBalance && typeof previousMonthBalance === 'object'
+          ? (previousMonthBalance as { openingBalance?: number; closingBalance?: number; balance?: number; month?: number; year?: number })
+          : null
+
+        const resolvedBalance = openingFromApi
+          ? (typeof openingFromApi.closingBalance === 'number'
+            ? openingFromApi.closingBalance
+            : typeof openingFromApi.balance === 'number'
+            ? openingFromApi.balance
+            : typeof openingFromApi.openingBalance === 'number'
+            ? openingFromApi.openingBalance
+            : 0)
+          : 0
+
+        setMonthlyBalanceBase(resolvedBalance)
+        persistBalance(resolvedBalance)
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -195,8 +255,32 @@ export default function useDashboardData() {
     previousContext.year,
     twoMonthsAgoContext.month,
     twoMonthsAgoContext.year,
+    readCachedBalance,
+    persistBalance,
     setStatus,
   ])
+
+  // Listen for monthly balance updates dispatched by the global scheduler
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handler = (ev: Event) => {
+      try {
+        const detail = (ev as CustomEvent)?.detail
+        if (!detail) return
+        const { username: updatedUsername } = detail as { username?: string }
+        if (!session || updatedUsername !== session.username) return
+        const cached = readCachedBalance()
+        if (cached && typeof cached.balance === 'number') {
+          setMonthlyBalanceBase(cached.balance)
+        }
+      } catch {
+        /* ignore errors */
+      }
+    }
+
+    window.addEventListener('monthlyBalanceUpdated', handler as EventListener)
+    return () => window.removeEventListener('monthlyBalanceUpdated', handler as EventListener)
+  }, [readCachedBalance, session, setMonthlyBalanceBase])
 
   const filteredMonthlyExpenses = useMemo(() => {
     const nameQuery = expenseTableFilters.name.trim().toLowerCase()
@@ -379,7 +463,10 @@ export default function useDashboardData() {
 
   const twoMonthsAgoIncomeTotal = useMemo(() => twoMonthsAgoIncome.reduce((sum, income) => sum + amountFromIncome(income), 0), [twoMonthsAgoIncome])
 
-  const totalBalance = useMemo(() => previousMonthIncomeTotal - currentMonthExpenseTotal, [previousMonthIncomeTotal, currentMonthExpenseTotal])
+  const totalBalance = useMemo(
+    () => (monthlyBalanceBase ?? 0) + currentMonthIncomeTotal - currentMonthExpenseTotal,
+    [currentMonthExpenseTotal, currentMonthIncomeTotal, monthlyBalanceBase],
+  )
 
   const previousBalance = useMemo(() => previousMonthIncomeTotal - previousMonthExpenseTotal, [previousMonthIncomeTotal, previousMonthExpenseTotal])
 

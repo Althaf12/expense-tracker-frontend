@@ -54,3 +54,10 @@ export type Income = {
   month?: number | string
   year?: number
 }
+
+export type MonthlyBalance = {
+  openingBalance?: number
+  closingBalance?: number
+  month?: number
+  year?: number
+}

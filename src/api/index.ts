@@ -1,4 +1,4 @@
-import type { Expense, Income, UserExpense, UserExpenseCategory } from '../types/app'
+import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -346,6 +346,20 @@ export async function fetchIncomeLastYear(username: string, currentYear: number)
   return Array.isArray(result) ? (result as Income[]) : []
 }
 
+export async function fetchPreviousMonthlyBalance(username: string): Promise<MonthlyBalance | null> {
+  const safeUser = ensureUsername(username)
+  const result = await request(`/monthly-balance/previous?username=${safeUser}`, { method: 'GET' })
+  if (result && typeof result === 'object') {
+    const payload = result as { openingBalance?: unknown; closingBalance?: unknown; month?: unknown; year?: unknown }
+    const openingBalance = typeof payload.openingBalance === 'number' ? payload.openingBalance : undefined
+    const closingBalance = typeof payload.closingBalance === 'number' ? payload.closingBalance : undefined
+    const month = typeof payload.month === 'number' ? payload.month : undefined
+    const year = typeof payload.year === 'number' ? payload.year : undefined
+    return { openingBalance, closingBalance, month, year }
+  }
+  return null
+}
+
 export async function checkHealth(): Promise<string> {
   const result = await request('/health', { method: 'GET' })
   return typeof result === 'string' ? result : 'OK'
@@ -382,6 +396,7 @@ export default {
   fetchIncomeByRange,
   fetchIncomeByMonth,
   fetchIncomeLastYear,
+  fetchPreviousMonthlyBalance,
   checkHealth,
   getApiBase,
 }
