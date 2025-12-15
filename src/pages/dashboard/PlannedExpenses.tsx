@@ -2,7 +2,7 @@ import { Typography } from '@mui/material'
 import type { ReactElement } from 'react'
 import type { UserExpense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
-import localStyles from './ExpenseTemplates.module.css'
+import localStyles from './PlannedExpenses.module.css'
 import Skeleton from '../../components/Skeleton'
 
 type TemplateGroup = {
@@ -29,7 +29,7 @@ type Props = {
   userExpenses: UserExpense[]
 }
 
-export default function ExpenseTemplates({
+export default function PlannedExpenses({
   groupedUserExpenses,
   completedMonthlyTemplates,
   visibleTemplates,
@@ -103,7 +103,7 @@ export default function ExpenseTemplates({
           <div className={localStyles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(monthlyTemplateProgress)}>
             <div className={localStyles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
           </div>
-          <div className={localStyles.templateTableContainer} role="group" aria-label="Planned expenses grouped by category">
+          <div className={localStyles.plannedTableContainer} role="group" aria-label="Planned expenses grouped by category">
             <div className={localStyles.gridHeader}>
               <div className={localStyles.gridHeaderCell}>Category</div>
               <div className={localStyles.gridHeaderCell}>Planned Expenses</div>
@@ -115,38 +115,38 @@ export default function ExpenseTemplates({
                 return (
                   <div
                     key={group.categoryId}
-                    className={localStyles.templateRow}
+                    className={localStyles.plannedRow}
                     draggable
                     onDragStart={() => handleCategoryDragStart(group.categoryId)}
                     onDragOver={handleCategoryDragOver}
                     onDrop={(event) => handleCategoryDrop(event, group.categoryId)}
                     onDragEnd={handleCategoryDragEnd}
                   >
-                    <div className={localStyles.templateCategoryCell}>
+                    <div className={localStyles.plannedCategoryCell}>
                       <span className={localStyles.dragHandle} aria-hidden="true">⋮⋮</span>
-                      <div className={localStyles.templateCategoryMeta}>
-                        <span className={localStyles.templateCategoryName}>{group.categoryName}</span>
-                        <span className={localStyles.templateCategoryTotal}>{formatAmount(groupTotal)}</span>
+                      <div className={localStyles.plannedCategoryMeta}>
+                        <span className={localStyles.plannedCategoryName}>{group.categoryName}</span>
+                        <span className={localStyles.plannedCategoryTotal}>{formatAmount(groupTotal)}</span>
                       </div>
                     </div>
 
-                    <div className={localStyles.templateExpenseListCell}>
+                    <div className={localStyles.plannedExpenseListCell}>
                       {group.expenses.length === 0 ? (
-                        <span className={localStyles.templateEmpty}>No templates in this category.</span>
+                        <span className={localStyles.plannedEmpty}>No templates in this category.</span>
                       ) : (
-                        <ul className={localStyles.templateExpenseList}>
+                        <ul className={localStyles.plannedExpenseList}>
                           {group.expenses.map((expense) => {
                             const expenseId = String(expense.userExpensesId)
                             const checked = (expense.paid ?? 'N') === 'Y'
                             const saving = templateSaving[expenseId] === true
                             const statusLabel = saving ? 'Saving…' : checked ? 'Paid' : 'Mark paid'
                             return (
-                              <li key={expenseId} className={localStyles.templateExpenseItem}>
-                                <div className={localStyles.templateExpenseInfo}>
-                                  <span className={localStyles.templateExpenseName}>{expense.userExpenseName}</span>
-                                  <span className={localStyles.templateExpenseAmount}>{formatAmount(Number(expense.amount ?? 0))}</span>
+                              <li key={expenseId} className={localStyles.plannedExpenseItem}>
+                                <div className={localStyles.plannedExpenseInfo}>
+                                  <span className={localStyles.plannedExpenseName}>{expense.userExpenseName}</span>
+                                  <span className={localStyles.plannedExpenseAmount}>{formatAmount(Number(expense.amount ?? 0))}</span>
                                 </div>
-                                <label className={localStyles.templateCheckboxLabel}>
+                                <label className={localStyles.plannedCheckboxLabel}>
                                   <input
                                     type="checkbox"
                                     checked={checked}
@@ -167,9 +167,9 @@ export default function ExpenseTemplates({
               })}
             </div>
           </div>
-          <div className={localStyles.templateFooter}>
-            <span className={localStyles.templateFooterLabel}>Total planned</span>
-            <span className={localStyles.templateFooterAmount}>{formatAmount(expenseTemplatesTotal)}</span>
+          <div className={localStyles.plannedFooter}>
+            <span className={localStyles.plannedFooterLabel}>Total planned</span>
+            <span className={localStyles.plannedFooterAmount}>{formatAmount(expenseTemplatesTotal)}</span>
           </div>
         </>
       )}

@@ -263,3 +263,76 @@ input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
 }
+
+/* Responsive fixes: prevent dashboard cards and tables from overflowing on small screens */
+/* These rules are intentionally broad so module-scoped classes still inherit safe behavior. */
+.dashboard-grid,
+.cards-row,
+.cards,
+.dashboard-cards {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+.dashboard-grid > *,
+.cards-row > * {
+  min-width: 0; /* allow flex/grid children to shrink below their content */
+}
+
+[class*="card"],
+.panel,
+.box {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Make any inner wide content scroll horizontally instead of overflowing the viewport */
+.table-wrapper,
+.scrollable,
+.table-card .table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+
+  .cards-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* Tables should fit into their card and allow internal scrolling */
+  table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Common dashboard sections that were overflowing */
+  .planned-expenses,
+  .spend-by-category,
+  .current-month-expenses {
+    padding: 0.75rem;
+    margin: 0;
+    border-radius: 10px;
+  }
+}

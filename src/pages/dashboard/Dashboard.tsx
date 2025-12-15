@@ -14,7 +14,7 @@ import { formatAmount, formatDate } from '../../utils/format'
 import styles from './Dashboard.shared.module.css'
 import useDashboardData from './useDashboardData'
 import SummaryGrid from './SummaryGrid'
-import ExpenseTemplates from './ExpenseTemplates'
+import PlannedExpenses from './PlannedExpenses'
 import SpendByCategory from './SpendByCategory'
 import CurrentMonthExpenses from './CurrentMonthExpenses'
 
@@ -266,7 +266,7 @@ export default function Dashboard(): ReactElement {
 
       <div className={styles.templatesRow}>
         <div className={styles.templatesColumn}>
-          <ExpenseTemplates
+          <PlannedExpenses
             groupedUserExpenses={groupedUserExpenses}
             completedMonthlyTemplates={completedMonthlyTemplates}
             visibleTemplates={visibleTemplates}

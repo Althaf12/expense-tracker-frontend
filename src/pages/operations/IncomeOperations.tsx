@@ -131,6 +131,19 @@ export default function IncomeOperations(): ReactElement {
         if (!start || !end) {
           throw new Error('Provide both start and end dates to fetch by range.')
         }
+        // enforce maximum range of 1 year (365 days)
+        const from = new Date(start)
+        const to = new Date(end)
+        if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+          throw new Error('Invalid date provided for range.')
+        }
+        if (to < from) {
+          throw new Error('End date must be the same or after start date.')
+        }
+        const diffDays = Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
+        if (diffDays > 365) {
+          throw new Error('Range cannot exceed 1 year.')
+        }
         data = await fetchIncomeByRange({ username, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4) })
         setLastQuery({ mode, payload: { start, end } })
       }

@@ -14,8 +14,9 @@
   transition: width 0.2s ease;
 }
 
-/* Container */
-.templateTableContainer {
+/* Container - define column width here so all children inherit it */
+.plannedTableContainer {
+  --category-col-width: 220px;
   margin-top: 1rem;
   border: 1px solid var(--surface-table-border);
   border-radius: 0.85rem;
@@ -25,23 +26,18 @@
 
 /* Header: two columns */
 .gridHeader {
-  --category-col-width: 260px;
-  display: grid !important;
-  grid-template-columns: var(--category-col-width) 1fr !important;
+  display: grid;
+  grid-template-columns: var(--category-col-width) 1fr;
   align-items: center;
   background: var(--surface-table-head);
-  /* match outer card horizontal padding so headers align with other cards */
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 0;
   color: var(--color-text-muted);
   font-weight: 600;
-  column-gap: 0.5rem;
 }
 
 .gridHeaderCell {
-  /* let the parent header provide horizontal padding so content lines up with the card */
-  padding: 0;
+  padding: 0 1.5rem;
   white-space: nowrap;
-  justify-self: start !important;
 }
 
 .gridBody {
@@ -49,70 +45,71 @@
   flex-direction: column;
 }
 
-/* Each row is a two-column grid so both cells share height */
-.templateRow {
-  /* force grid despite external overrides */
-  display: grid !important;
-  grid-template-columns: var(--category-col-width) 1fr !important;
-  gap: 0;
+/* Each row is a two-column grid matching the header */
+.plannedRow {
+  display: grid;
+  grid-template-columns: var(--category-col-width) 1fr;
   align-items: stretch;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--surface-table-border);
+  cursor: grab;
 }
 
-.templateRow:last-child {
+.plannedRow:active {
+  cursor: grabbing;
+}
+
+.plannedRow:last-child {
   border-bottom: none;
 }
 
 /* Left column: category */
-.templateCategoryCell {
+.plannedCategoryCell {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* align category cell horizontal padding with card padding */
   padding: 0 1.5rem;
-  /* ensure this cell stays within its grid column */
   min-width: 0;
-  grid-column: 1 / 2 !important;
 }
 
 .dragHandle {
   font-size: 0.9rem;
   letter-spacing: 0.3rem;
   color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
-.templateCategoryMeta {
+.plannedCategoryMeta {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  justify-content: center; /* vertical center */
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.templateCategoryName {
+.plannedCategoryName {
   font-weight: 600;
   color: var(--color-text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.templateCategoryTotal {
+.plannedCategoryTotal {
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
 /* Right column: expense list */
-.templateExpenseListCell {
-  /* align expense list cell horizontal padding with card padding */
+.plannedExpenseListCell {
   padding: 0 1.5rem;
   display: flex;
   align-items: stretch;
-  justify-self: stretch;
-  /* allow the right column to shrink and not force wrapping */
   min-width: 0;
-  grid-column: 2 / 3 !important;
-  overflow: visible;
 }
 
-.templateExpenseList {
+.plannedExpenseList {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -123,7 +120,7 @@
   width: 100%;
 }
 
-.templateExpenseItem {
+.plannedExpenseItem {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -135,31 +132,31 @@
   width: 100%;
   box-sizing: border-box;
 }
-.templateExpenseItem > * {
+.plannedExpenseItem > * {
   min-width: 0;
 }
 
-.templateExpenseItem:hover {
+.plannedExpenseItem:hover {
   border-color: var(--accent-primary);
 }
 
-.templateExpenseInfo {
+.plannedExpenseInfo {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
 }
 
-.templateExpenseName {
+.plannedExpenseName {
   font-weight: 600;
   color: var(--color-text-strong);
 }
 
-.templateExpenseAmount {
+.plannedExpenseAmount {
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
-.templateCheckboxLabel {
+.plannedCheckboxLabel {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -167,17 +164,17 @@
   color: var(--color-text-muted);
 }
 
-.templateCheckboxLabel input {
+.plannedCheckboxLabel input {
   width: 1.05rem;
   height: 1.05rem;
 }
 
-.templateEmpty {
+.plannedEmpty {
   color: var(--color-text-muted);
   font-style: italic;
 }
 
-.templateFooter {
+.plannedFooter {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -189,12 +186,12 @@
   border: 1px solid var(--surface-table-border);
 }
 
-.templateFooterLabel {
+.plannedFooterLabel {
   font-weight: 600;
   color: var(--color-text-muted);
 }
 
-.templateFooterAmount {
+.plannedFooterAmount {
   font-weight: 700;
   color: var(--color-text-strong);
 }

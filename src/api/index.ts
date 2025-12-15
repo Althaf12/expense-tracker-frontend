@@ -1,4 +1,4 @@
-import type { Expense, Income, UserExpense, UserExpenseCategory } from '../types/app'
+import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -99,6 +99,10 @@ const ensureUsername = (username: string): string => {
   }
   return encodeURIComponent(value)
 }
+
+// In-memory caches to avoid duplicate network calls for the same user/month
+const _prevMonthlyBalancePromises = new Map<string, Promise<MonthlyBalance | null>>()
+const _prevMonthlyBalanceCache = new Map<string, MonthlyBalance | null>()
 
 export async function fetchUserExpenseCategories(username: string): Promise<UserExpenseCategory[]> {
   const safeUser = ensureUsername(username)
@@ -346,6 +350,83 @@ export async function fetchIncomeLastYear(username: string, currentYear: number)
   return Array.isArray(result) ? (result as Income[]) : []
 }
 
+export async function fetchPreviousMonthlyBalance(username: string): Promise<MonthlyBalance | null> {
+  const safeUser = ensureUsername(username)
+
+  // determine the previous month/year key (API returns previous month info)
+  const now = new Date()
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const monthKey = String(prev.getMonth() + 1).padStart(2, '0')
+  const yearKey = prev.getFullYear()
+  const storageKey = `dashboard:monthly-balance:${safeUser}:${yearKey}-${monthKey}`
+
+  // return in-memory cached value if present
+  if (_prevMonthlyBalanceCache.has(storageKey)) {
+    return _prevMonthlyBalanceCache.get(storageKey) ?? null
+  }
+
+  // check localStorage cache
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed.balance === 'number') {
+          const mb: MonthlyBalance = { closingBalance: parsed.balance, month: yearKey ? Number(monthKey) : undefined, year: yearKey }
+          _prevMonthlyBalanceCache.set(storageKey, mb)
+          return mb
+        }
+        if (parsed && typeof parsed.closingBalance === 'number') {
+          const mb: MonthlyBalance = { closingBalance: parsed.closingBalance, month: yearKey ? Number(monthKey) : undefined, year: yearKey }
+          _prevMonthlyBalanceCache.set(storageKey, mb)
+          return mb
+        }
+      }
+    } catch {
+      /* ignore parse/storage errors */
+    }
+  }
+
+  // dedupe inflight requests
+  if (_prevMonthlyBalancePromises.has(storageKey)) {
+    return _prevMonthlyBalancePromises.get(storageKey)!
+  }
+
+  const inflight = (async (): Promise<MonthlyBalance | null> => {
+    try {
+      const result = await request(`/monthly-balance/previous?username=${safeUser}`, { method: 'GET' })
+      if (result && typeof result === 'object') {
+        const payload = result as { openingBalance?: unknown; closingBalance?: unknown; month?: unknown; year?: unknown }
+        const openingBalance = typeof payload.openingBalance === 'number' ? payload.openingBalance : undefined
+        const closingBalance = typeof payload.closingBalance === 'number' ? payload.closingBalance : undefined
+        const month = typeof payload.month === 'number' ? payload.month : yearKey
+        const year = typeof payload.year === 'number' ? payload.year : yearKey
+        const mb: MonthlyBalance = { openingBalance, closingBalance, month, year }
+
+        // persist a simple numeric balance to localStorage for quick reuse
+        const storeValue = closingBalance ?? openingBalance ?? null
+        if (storeValue !== null && typeof window !== 'undefined') {
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify({ balance: storeValue, month, year, storedAt: new Date().toISOString() }))
+          } catch {
+            /* ignore storage errors */
+          }
+        }
+
+        _prevMonthlyBalanceCache.set(storageKey, mb)
+        return mb
+      }
+      _prevMonthlyBalanceCache.set(storageKey, null)
+      return null
+    } finally {
+      _prevMonthlyBalancePromises.delete(storageKey)
+    }
+  })()
+
+  _prevMonthlyBalancePromises.set(storageKey, inflight)
+  return inflight
+}
+
 export async function checkHealth(): Promise<string> {
   const result = await request('/health', { method: 'GET' })
   return typeof result === 'string' ? result : 'OK'
@@ -353,6 +434,32 @@ export async function checkHealth(): Promise<string> {
 
 export function getApiBase(): string {
   return API_BASE
+}
+
+export async function fetchUserPreferences(username: string): Promise<UserPreferences | null> {
+  const safeUser = ensureUsername(username)
+  try {
+    const result = await request(`/user/preferences/${safeUser}`, { method: 'GET' })
+    if (result && typeof result === 'object') {
+      return result as UserPreferences
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function updateUserPreferences(payload: {
+  username: string
+  fontSize?: FontSize
+  currencyCode?: CurrencyCode
+  theme?: ThemeCode
+}): Promise<void> {
+  const body: Record<string, unknown> = { username: payload.username }
+  if (payload.fontSize !== undefined) body.fontSize = payload.fontSize
+  if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode
+  if (payload.theme !== undefined) body.theme = payload.theme
+  await request('/user/preferences', { method: 'POST', body })
 }
 
 export default {
@@ -382,6 +489,9 @@ export default {
   fetchIncomeByRange,
   fetchIncomeByMonth,
   fetchIncomeLastYear,
+  fetchPreviousMonthlyBalance,
   checkHealth,
   getApiBase,
+  fetchUserPreferences,
+  updateUserPreferences,
 }

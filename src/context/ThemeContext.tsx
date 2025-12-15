@@ -11,10 +11,12 @@ import {
 import { CssBaseline } from '@mui/material'
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
 import { createAppTheme } from '../theme'
+import { updateUserPreferences } from '../api'
 
 export type Theme = 'light' | 'dark'
 
 const THEME_STORAGE_KEY = 'preferred-theme'
+const PREFERENCES_STORAGE_KEY = 'user-preferences'
 
 type ThemeContextValue = {
   theme: Theme
@@ -30,6 +32,18 @@ const getPreferredTheme = (): Theme => {
   if (typeof window === 'undefined') {
     return 'dark'
   }
+  // First check preferences storage (new format)
+  try {
+    const prefsRaw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY)
+    if (prefsRaw) {
+      const prefs = JSON.parse(prefsRaw)
+      if (prefs.theme === 'L') return 'light'
+      if (prefs.theme === 'D') return 'dark'
+    }
+  } catch {
+    /* ignore */
+  }
+  // Fallback to old storage
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
     if (isTheme(stored)) {
@@ -50,7 +64,11 @@ const getPreferredTheme = (): Theme => {
   return 'dark'
 }
 
-export function ThemeProvider({ children }: PropsWithChildren): ReactElement {
+type ThemeProviderProps = PropsWithChildren<{
+  username?: string | null
+}>
+
+export function ThemeProvider({ children, username }: ThemeProviderProps): ReactElement {
   const [theme, setThemeState] = useState<Theme>(() => {
     const preferred = getPreferredTheme()
     if (typeof document !== 'undefined') {
@@ -72,12 +90,24 @@ export function ThemeProvider({ children }: PropsWithChildren): ReactElement {
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next)
+    const themeCode = next === 'light' ? 'L' : 'D'
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, next)
+      // Also update the preferences storage for consistency
+      const prefsRaw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY)
+      const prefs = prefsRaw ? JSON.parse(prefsRaw) : {}
+      prefs.theme = themeCode
+      window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
     } catch {
       /* ignore storage write issues */
     }
-  }, [])
+    // Call API to persist theme preference if user is logged in
+    if (username) {
+      updateUserPreferences({ username, theme: themeCode }).catch(() => {
+        /* ignore API errors - local state is already updated */
+      })
+    }
+  }, [username])
 
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'dark' ? 'light' : 'dark')

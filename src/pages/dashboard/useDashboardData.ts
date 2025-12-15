@@ -3,10 +3,12 @@ import {
   addExpense,
   fetchExpensesByMonth,
   fetchIncomeByMonth,
+  fetchPreviousMonthlyBalance,
   resolveUserExpenseCategoryId,
   updateUserExpense,
 } from '../../api'
 import { useAppDataContext } from '../../context/AppDataContext'
+import { usePreferences } from '../../context/PreferencesContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
 import { formatAmount, formatDate } from '../../utils/format'
 
@@ -121,11 +123,14 @@ export default function useDashboardData() {
     activeUserExpenses,
   } = useAppDataContext()
 
+  const { currencyCode } = usePreferences()
+
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
   const [currentMonthIncome, setCurrentMonthIncome] = useState<Income[]>([])
   const [previousMonthIncome, setPreviousMonthIncome] = useState<Income[]>([])
   const [twoMonthsAgoIncome, setTwoMonthsAgoIncome] = useState<Income[]>([])
+  const [monthlyBalanceBase, setMonthlyBalanceBase] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
   const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
   const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
@@ -139,6 +144,8 @@ export default function useDashboardData() {
   const previousContext = useMemo(() => getPreviousMonth(month, year), [month, year])
   const twoMonthsAgoContext = useMemo(() => getPreviousMonth(previousContext.month, previousContext.year), [previousContext.month, previousContext.year])
 
+  // monthly balance base is loaded via API helper which implements caching/dedupe
+
   useEffect(() => {
     if (!session) {
       setMonthlyExpenses([])
@@ -146,6 +153,7 @@ export default function useDashboardData() {
       setCurrentMonthIncome([])
       setPreviousMonthIncome([])
       setTwoMonthsAgoIncome([])
+      setMonthlyBalanceBase(0)
       return
     }
 
@@ -161,12 +169,14 @@ export default function useDashboardData() {
           currentIncomeData,
           previousIncomeData,
           twoMonthsAgoIncomeData,
+          previousMonthBalance,
         ] = await Promise.all([
           fetchExpensesByMonth({ username, month, year }),
           fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month, year }),
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
+          fetchPreviousMonthlyBalance(username),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -176,6 +186,10 @@ export default function useDashboardData() {
         setCurrentMonthIncome(currentIncomeData)
         setPreviousMonthIncome(previousIncomeData)
         setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
+
+        const mb = previousMonthBalance as (import('../../types/app').MonthlyBalance | null)
+        const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
+        setMonthlyBalanceBase(resolved)
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -197,6 +211,38 @@ export default function useDashboardData() {
     twoMonthsAgoContext.year,
     setStatus,
   ])
+
+  // Listen for monthly balance updates dispatched by the global scheduler
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handler = (ev: Event) => {
+      try {
+        const detail = (ev as CustomEvent)?.detail
+        if (!detail) return
+        const { username: updatedUsername, balance } = detail as { username?: string; balance?: number }
+        if (!session || updatedUsername !== session.username) return
+        if (typeof balance === 'number') {
+          setMonthlyBalanceBase(balance)
+          return
+        }
+        // fallback: re-fetch via API helper (which is cached/dedupe)
+        void (async () => {
+          try {
+            const mb = await fetchPreviousMonthlyBalance(session.username)
+            const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
+            setMonthlyBalanceBase(resolved)
+          } catch {
+            /* ignore */
+          }
+        })()
+      } catch {
+        /* ignore errors */
+      }
+    }
+
+    window.addEventListener('monthlyBalanceUpdated', handler as EventListener)
+    return () => window.removeEventListener('monthlyBalanceUpdated', handler as EventListener)
+  }, [session])
 
   const filteredMonthlyExpenses = useMemo(() => {
     const nameQuery = expenseTableFilters.name.trim().toLowerCase()
@@ -379,7 +425,10 @@ export default function useDashboardData() {
 
   const twoMonthsAgoIncomeTotal = useMemo(() => twoMonthsAgoIncome.reduce((sum, income) => sum + amountFromIncome(income), 0), [twoMonthsAgoIncome])
 
-  const totalBalance = useMemo(() => previousMonthIncomeTotal - currentMonthExpenseTotal, [previousMonthIncomeTotal, currentMonthExpenseTotal])
+  const totalBalance = useMemo(
+    () => (monthlyBalanceBase ?? 0) + previousMonthIncomeTotal - currentMonthExpenseTotal,
+    [monthlyBalanceBase, previousMonthIncomeTotal, currentMonthExpenseTotal],
+  )
 
   const previousBalance = useMemo(() => previousMonthIncomeTotal - previousMonthExpenseTotal, [previousMonthIncomeTotal, previousMonthExpenseTotal])
 
@@ -391,7 +440,7 @@ export default function useDashboardData() {
 
   const totalAfterDueBalance = useMemo(() => totalBalance - unpaidTemplatesTotal, [totalBalance, unpaidTemplatesTotal])
 
-  const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }), [])
+  const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }), [currencyCode])
 
   const formatCurrency = (value: number) => currencyFormatter.format(value)
 

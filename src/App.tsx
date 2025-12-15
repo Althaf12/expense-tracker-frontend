@@ -16,10 +16,12 @@ import {
   fetchUserExpenseCategoriesActive as apiFetchUserExpenseCategoriesActive,
   fetchUserExpenses as apiFetchUserExpenses,
   fetchUserExpensesActive as apiFetchUserExpensesActive,
+  fetchPreviousMonthlyBalance as apiFetchPreviousMonthlyBalance,
 } from './api'
 import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
 import styles from './App.module.css'
@@ -180,6 +182,84 @@ export default function App(): ReactElement {
     }
   }, [])
 
+  // Scheduler: fetch previous monthly closing balance at 00:05 on the 1st of each month
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let mounted = true
+    let timerId: number | undefined
+
+    const runFetchAndScheduleNext = async () => {
+      try {
+        const username = session?.username ?? (() => {
+          try {
+            const raw = window.localStorage.getItem(SESSION_STORAGE_KEY)
+            if (!raw) return null
+            const parsed = JSON.parse(raw)
+            return parsed?.username || null
+          } catch {
+            return null
+          }
+        })()
+
+        if (username) {
+          try {
+            const mb = await apiFetchPreviousMonthlyBalance(username)
+            const now = new Date()
+            // scheduler runs at the start of a new month — store balance for the previous month
+            const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            const month = prev.getMonth() + 1
+            const year = prev.getFullYear()
+            let balance: number | null = null
+            if (mb && typeof mb === 'object') {
+              const payload = mb as Record<string, unknown>
+              if (typeof payload.closingBalance === 'number') {
+                balance = payload.closingBalance
+              } else if (typeof payload.balance === 'number') {
+                balance = payload.balance
+              } else if (typeof payload.openingBalance === 'number') {
+                balance = payload.openingBalance
+              }
+            }
+
+            if (balance !== null) {
+              const key = `dashboard:monthly-balance:${username}:${year}-${String(month).padStart(2, '0')}`
+              try {
+                window.localStorage.setItem(key, JSON.stringify({ balance, month, year, storedAt: new Date().toISOString() }))
+              } catch {
+                /* ignore storage errors */
+              }
+              try {
+                window.dispatchEvent(new CustomEvent('monthlyBalanceUpdated', { detail: { username, month, year, balance } }))
+              } catch {
+                /* ignore event dispatch failures */
+              }
+            }
+          } catch (err) {
+            /* swallow API errors; schedule next run */
+          }
+        }
+      } finally {
+        if (!mounted) return
+        // schedule next 1st @ 00:05
+        const now = new Date()
+        let next = new Date(now.getFullYear(), now.getMonth(), 1, 0, 5, 0, 0)
+        if (now >= next) {
+          next = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 5, 0, 0)
+        }
+        const delay = Math.max(0, next.getTime() - Date.now())
+        timerId = window.setTimeout(runFetchAndScheduleNext, delay)
+      }
+    }
+
+    // kick off the scheduler (will schedule itself after run)
+    runFetchAndScheduleNext()
+
+    return () => {
+      mounted = false
+      if (timerId) clearTimeout(timerId)
+    }
+  }, [session?.username])
+
   const contextValue = useMemo(
     () => ({
       session,
@@ -220,41 +300,43 @@ export default function App(): ReactElement {
   )
 
   return (
-    <ThemeProvider>
+    <ThemeProvider username={session?.username}>
       <AppDataProvider value={contextValue}>
-        <NotificationsProvider>
-        <div className={styles.appShell}>
-        <Notifications />
+        <PreferencesProvider username={session?.username}>
+          <NotificationsProvider>
+          <div className={styles.appShell}>
+          <Notifications />
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              session ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Login onLogin={handleLogin} setStatus={updateStatus} />
-              )
-            }
-          />
-          <Route path="/register" element={<Register setStatus={updateStatus} />} />
-          <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
-          <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
-
-          <Route element={<Layout session={session} onLogout={handleLogout} />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/operations/expenses" element={<ExpensesOperations />} />
-            <Route path="/operations/income" element={<IncomeOperations />} />
+          <Routes>
             <Route
-              path="/profile"
-              element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
+              path="/"
+              element={
+                session ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Login onLogin={handleLogin} setStatus={updateStatus} />
+                )
+              }
             />
-          </Route>
+            <Route path="/register" element={<Register setStatus={updateStatus} />} />
+            <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
+            <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        </div>
-        </NotificationsProvider>
+            <Route element={<Layout session={session} onLogout={handleLogout} />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/operations/expenses" element={<ExpensesOperations />} />
+              <Route path="/operations/income" element={<IncomeOperations />} />
+              <Route
+                path="/profile"
+                element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
+              />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          </div>
+          </NotificationsProvider>
+        </PreferencesProvider>
       </AppDataProvider>
     </ThemeProvider>
   )
