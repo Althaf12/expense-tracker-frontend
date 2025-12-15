@@ -15,7 +15,7 @@
 }
 
 /* Container */
-.templateTableContainer {
+.plannedTableContainer {
   margin-top: 1rem;
   border: 1px solid var(--surface-table-border);
   border-radius: 0.85rem;
@@ -50,7 +50,7 @@
 }
 
 /* Each row is a two-column grid so both cells share height */
-.templateRow {
+.plannedRow {
   /* force grid despite external overrides */
   display: grid !important;
   grid-template-columns: var(--category-col-width) 1fr !important;
@@ -60,12 +60,12 @@
   border-bottom: 1px solid var(--surface-table-border);
 }
 
-.templateRow:last-child {
+.plannedRow:last-child {
   border-bottom: none;
 }
 
 /* Left column: category */
-.templateCategoryCell {
+.plannedCategoryCell {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -82,25 +82,25 @@
   color: var(--color-text-muted);
 }
 
-.templateCategoryMeta {
+.plannedCategoryMeta {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   justify-content: center; /* vertical center */
 }
 
-.templateCategoryName {
+.plannedCategoryName {
   font-weight: 600;
   color: var(--color-text-strong);
 }
 
-.templateCategoryTotal {
+.plannedCategoryTotal {
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
 /* Right column: expense list */
-.templateExpenseListCell {
+.plannedExpenseListCell {
   /* align expense list cell horizontal padding with card padding */
   padding: 0 1.5rem;
   display: flex;
@@ -112,7 +112,7 @@
   overflow: visible;
 }
 
-.templateExpenseList {
+.plannedExpenseList {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -123,7 +123,7 @@
   width: 100%;
 }
 
-.templateExpenseItem {
+.plannedExpenseItem {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -135,31 +135,31 @@
   width: 100%;
   box-sizing: border-box;
 }
-.templateExpenseItem > * {
+.plannedExpenseItem > * {
   min-width: 0;
 }
 
-.templateExpenseItem:hover {
+.plannedExpenseItem:hover {
   border-color: var(--accent-primary);
 }
 
-.templateExpenseInfo {
+.plannedExpenseInfo {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
 }
 
-.templateExpenseName {
+.plannedExpenseName {
   font-weight: 600;
   color: var(--color-text-strong);
 }
 
-.templateExpenseAmount {
+.plannedExpenseAmount {
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
-.templateCheckboxLabel {
+.plannedCheckboxLabel {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -167,17 +167,17 @@
   color: var(--color-text-muted);
 }
 
-.templateCheckboxLabel input {
+.plannedCheckboxLabel input {
   width: 1.05rem;
   height: 1.05rem;
 }
 
-.templateEmpty {
+.plannedEmpty {
   color: var(--color-text-muted);
   font-style: italic;
 }
 
-.templateFooter {
+.plannedFooter {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -189,12 +189,12 @@
   border: 1px solid var(--surface-table-border);
 }
 
-.templateFooterLabel {
+.plannedFooterLabel {
   font-weight: 600;
   color: var(--color-text-muted);
 }
 
-.templateFooterAmount {
+.plannedFooterAmount {
   font-weight: 700;
   color: var(--color-text-strong);
 }
