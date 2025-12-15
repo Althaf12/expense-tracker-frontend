@@ -65,6 +65,9 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
           </button>
         ) : null}
         <div className={styles.brand}>
+          <Link to="/dashboard" className={styles.logoLink}>
+            <img src="/logo.png" alt="Eternivity logo" className={styles.logo} />
+          </Link>
           <Link to="/dashboard" className={styles.brandLink}>
             Expense Tracker Powered by Eternivity<span className={styles.tm}>TM</span>
           </Link>

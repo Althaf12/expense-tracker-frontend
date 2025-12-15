@@ -2,3 +2,15 @@
   margin: 1rem 0 0;
   color: var(--placeholder-text);
 }
+
+.skeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.skeletonRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}

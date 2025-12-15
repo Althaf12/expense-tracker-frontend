@@ -20,6 +20,8 @@ import {
 import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { NotificationsProvider } from './context/NotificationsContext'
+import Notifications from './components/notifications/Notifications'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
@@ -220,20 +222,9 @@ export default function App(): ReactElement {
   return (
     <ThemeProvider>
       <AppDataProvider value={contextValue}>
+        <NotificationsProvider>
         <div className={styles.appShell}>
-        {status && (
-          <div
-            className={`${styles.statusBanner} ${
-              status.type === 'error'
-                ? styles.error
-                : status.type === 'success'
-                ? styles.success
-                : styles.loading
-            }`}
-          >
-            {status.message}
-          </div>
-        )}
+        <Notifications />
 
         <Routes>
           <Route
@@ -263,6 +254,7 @@ export default function App(): ReactElement {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </div>
+        </NotificationsProvider>
       </AppDataProvider>
     </ThemeProvider>
   )

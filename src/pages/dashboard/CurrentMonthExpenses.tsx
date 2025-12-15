@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import type { Expense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './CurrentMonthExpenses.module.css'
+import Skeleton from '../../components/Skeleton'
 
 type Props = {
   label: string
@@ -59,9 +60,21 @@ export default function CurrentMonthExpenses({
         </div>
       </header>
       {loading && monthlyExpenses.length === 0 ? (
-        <Typography variant="body2" component="p" className={localStyles.placeholder}>
-          Loading data…
-        </Typography>
+        <div className={localStyles.skeletonWrap}>
+          <div className={localStyles.skeletonRow}>
+            <Skeleton size="large" />
+          </div>
+          <div className={localStyles.skeletonRow}>
+            <div style={{ width: '60%' }}><Skeleton /></div>
+            <div style={{ width: '20%' }}><Skeleton /></div>
+            <div style={{ width: '18%' }}><Skeleton /></div>
+          </div>
+          <div className={localStyles.skeletonRow}>
+            <div style={{ width: '70%' }}><Skeleton /></div>
+            <div style={{ width: '18%' }}><Skeleton /></div>
+            <div style={{ width: '18%' }}><Skeleton /></div>
+          </div>
+        </div>
       ) : monthlyExpenses.length === 0 ? (
         <Typography variant="body2" component="p" className={localStyles.placeholder}>
           No expenses recorded this month.

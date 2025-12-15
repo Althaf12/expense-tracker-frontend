@@ -37,6 +37,13 @@
   letter-spacing: 0.01em;
 }
 
+.logo {
+  height:20px;
+  width:auto;
+  margin-right:0.75rem;
+  margin-top: 6px;
+}
+
 .menuButton {
   display: none;
   width: 2.6rem;

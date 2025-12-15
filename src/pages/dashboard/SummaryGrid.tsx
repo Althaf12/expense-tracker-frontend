@@ -3,8 +3,10 @@ import type { ReactElement } from 'react'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './SummaryGrid.module.css'
 import type { TrendSummary } from './types'
+import Skeleton from '../../components/Skeleton'
 
 type Props = {
+  loading?: boolean
   label: string
   totalBalance: number
   totalAfterDueBalance: number
@@ -34,7 +36,82 @@ export default function SummaryGrid({
   formatCurrency,
   getTrendHint,
   renderTrend,
+  loading = false,
 }: Props): ReactElement {
+  // show simple skeletons when loading
+  if (loading) {
+    return (
+      <div className={styles.summaryGrid}>
+        <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+          <div className={localStyles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
+              Total Balance
+            </Typography>
+            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <div>
+            <Skeleton size="large" />
+          </div>
+          <div className={localStyles.metricFooter}>
+            <span className={localStyles.metricHint}>Current Bank Balance</span>
+          </div>
+        </section>
+
+        <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+          <div className={localStyles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
+              Total After Due Balance
+            </Typography>
+            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <div>
+            <Skeleton size="large" />
+          </div>
+          <div className={localStyles.metricFooter}>
+            <span className={localStyles.metricHint}>Unpaid templates: —</span>
+          </div>
+        </section>
+
+        <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+          <div className={localStyles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
+              Total Income
+            </Typography>
+            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
+              {incomeMonthLabel}
+            </Typography>
+          </div>
+          <div>
+            <Skeleton size="large" />
+          </div>
+          <div className={localStyles.metricFooter}>
+            <span className={localStyles.metricHint}>—</span>
+          </div>
+        </section>
+
+        <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+          <div className={localStyles.summaryHeader}>
+            <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
+              Total Expenses
+            </Typography>
+            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
+              {label}
+            </Typography>
+          </div>
+          <div>
+            <Skeleton size="large" />
+          </div>
+          <div className={localStyles.metricFooter}>
+            <span className={localStyles.metricHint}>—</span>
+          </div>
+        </section>
+      </div>
+    )
+  }
   return (
     <div className={styles.summaryGrid}>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
