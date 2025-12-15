@@ -9,6 +9,18 @@
   /* header z-index is 100; keep notifications below that so header/menu overlays them */
   z-index: 80;
   max-width: 320px;
+  /* Color tokens with sensible light-mode defaults */
+  --notif-bg-info: #e9f5ff;
+  --notif-border-info: #7cc1ff;
+  --notif-text-info: #05233f;
+
+  --notif-bg-success: #ecf9f0;
+  --notif-border-success: #33c467;
+  --notif-text-success: #08320f;
+
+  --notif-bg-error: #fff0f0;
+  --notif-border-error: #ff6b6b;
+  --notif-text-error: #3b0b0b;
 }
 .card {
   display: flex;
@@ -17,7 +29,7 @@
   padding: 0.75rem 0.75rem;
   border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-  color: #0f172a;
+  color: inherit;
   font-size: 0.95rem;
   line-height: 1.2;
   animation: slideIn 240ms ease-out;
@@ -33,13 +45,27 @@
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: 0.9;
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.18);
 }
 .close:hover { opacity: 1 }
 
-.info { background-color: #7d8ee2; border: 1px solid #bde0ff }
-.success { background-color: #71e16b; border: 1px solid #c6f2c6 }
-.error { background-color: #cb6161; border: 1px solid #ffcfcf }
+.info {
+  background-color: var(--notif-bg-info);
+  border: 1px solid var(--notif-border-info);
+  color: var(--notif-text-info);
+}
+.success {
+  background-color: var(--notif-bg-success);
+  border: 1px solid var(--notif-border-success);
+  color: var(--notif-text-success);
+}
+.error {
+  background-color: var(--notif-bg-error);
+  border: 1px solid var(--notif-border-error);
+  color: var(--notif-text-error);
+}
 
 @keyframes slideIn {
   from { transform: translateY(-6px); opacity: 0 }
@@ -54,4 +80,21 @@
 @keyframes slideOut {
   from { transform: translateY(0); opacity: 1 }
   to { transform: translateY(6px); opacity: 0 }
+}
+
+/* Dark mode adjustments: maintain contrast and softer backgrounds */
+@media (prefers-color-scheme: dark) {
+  .container {
+    --notif-bg-info: #0f2233;
+    --notif-border-info: #6fb6ff;
+    --notif-text-info: #dbeeff;
+
+    --notif-bg-success: #08321d;
+    --notif-border-success: #39d07a;
+    --notif-text-success: #c7f7dc;
+
+    --notif-bg-error: #331313;
+    --notif-border-error: #ff8a8a;
+    --notif-text-error: #ffdede;
+  }
 }
