@@ -8,6 +8,7 @@ import {
   updateUserExpense,
 } from '../../api'
 import { useAppDataContext } from '../../context/AppDataContext'
+import { usePreferences } from '../../context/PreferencesContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
 import { formatAmount, formatDate } from '../../utils/format'
 
@@ -121,6 +122,8 @@ export default function useDashboardData() {
     userExpenses,
     activeUserExpenses,
   } = useAppDataContext()
+
+  const { currencyCode } = usePreferences()
 
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
@@ -437,7 +440,7 @@ export default function useDashboardData() {
 
   const totalAfterDueBalance = useMemo(() => totalBalance - unpaidTemplatesTotal, [totalBalance, unpaidTemplatesTotal])
 
-  const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }), [])
+  const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }), [currencyCode])
 
   const formatCurrency = (value: number) => currencyFormatter.format(value)
 

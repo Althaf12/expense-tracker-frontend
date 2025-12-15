@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory } from '../types/app'
+import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -436,6 +436,32 @@ export function getApiBase(): string {
   return API_BASE
 }
 
+export async function fetchUserPreferences(username: string): Promise<UserPreferences | null> {
+  const safeUser = ensureUsername(username)
+  try {
+    const result = await request(`/user/preferences/${safeUser}`, { method: 'GET' })
+    if (result && typeof result === 'object') {
+      return result as UserPreferences
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function updateUserPreferences(payload: {
+  username: string
+  fontSize?: FontSize
+  currencyCode?: CurrencyCode
+  theme?: ThemeCode
+}): Promise<void> {
+  const body: Record<string, unknown> = { username: payload.username }
+  if (payload.fontSize !== undefined) body.fontSize = payload.fontSize
+  if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode
+  if (payload.theme !== undefined) body.theme = payload.theme
+  await request('/user/preferences', { method: 'POST', body })
+}
+
 export default {
   userDetails,
   registerUser,
@@ -466,4 +492,6 @@ export default {
   fetchPreviousMonthlyBalance,
   checkHealth,
   getApiBase,
+  fetchUserPreferences,
+  updateUserPreferences,
 }

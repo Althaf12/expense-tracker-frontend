@@ -21,6 +21,7 @@ import {
 import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
 import styles from './App.module.css'
@@ -299,41 +300,43 @@ export default function App(): ReactElement {
   )
 
   return (
-    <ThemeProvider>
+    <ThemeProvider username={session?.username}>
       <AppDataProvider value={contextValue}>
-        <NotificationsProvider>
-        <div className={styles.appShell}>
-        <Notifications />
+        <PreferencesProvider username={session?.username}>
+          <NotificationsProvider>
+          <div className={styles.appShell}>
+          <Notifications />
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              session ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Login onLogin={handleLogin} setStatus={updateStatus} />
-              )
-            }
-          />
-          <Route path="/register" element={<Register setStatus={updateStatus} />} />
-          <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
-          <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
-
-          <Route element={<Layout session={session} onLogout={handleLogout} />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/operations/expenses" element={<ExpensesOperations />} />
-            <Route path="/operations/income" element={<IncomeOperations />} />
+          <Routes>
             <Route
-              path="/profile"
-              element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
+              path="/"
+              element={
+                session ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Login onLogin={handleLogin} setStatus={updateStatus} />
+                )
+              }
             />
-          </Route>
+            <Route path="/register" element={<Register setStatus={updateStatus} />} />
+            <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
+            <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        </div>
-        </NotificationsProvider>
+            <Route element={<Layout session={session} onLogout={handleLogout} />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/operations/expenses" element={<ExpensesOperations />} />
+              <Route path="/operations/income" element={<IncomeOperations />} />
+              <Route
+                path="/profile"
+                element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
+              />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          </div>
+          </NotificationsProvider>
+        </PreferencesProvider>
       </AppDataProvider>
     </ThemeProvider>
   )

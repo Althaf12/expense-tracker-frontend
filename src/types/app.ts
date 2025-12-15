@@ -55,6 +55,51 @@ export type Income = {
   year?: number
 }
 
+export type FontSize = 'S' | 'M' | 'L'
+export type ThemeCode = 'L' | 'D'
+export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'SGD' | 'AED' | 'JPY' | 'CNY'
+
+export type UserPreferences = {
+  userPreferencesId?: number
+  username: string
+  fontSize: FontSize
+  currencyCode: CurrencyCode
+  theme: ThemeCode
+  lastUpdateTmstp?: string
+}
+
+export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
+  INR: '₹',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  AUD: 'A$',
+  CAD: 'C$',
+  SGD: 'S$',
+  AED: 'د.إ',
+  JPY: '¥',
+  CNY: '¥',
+}
+
+export const CURRENCY_OPTIONS: { code: CurrencyCode; symbol: string; name: string }[] = [
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+]
+
+export const FONT_SIZE_OPTIONS: { code: FontSize; label: string }[] = [
+  { code: 'S', label: 'Small' },
+  { code: 'M', label: 'Medium' },
+  { code: 'L', label: 'Large' },
+]
+
 export type MonthlyBalance = {
   openingBalance?: number
   closingBalance?: number

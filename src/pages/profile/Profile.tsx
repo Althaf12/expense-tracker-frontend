@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { useAppDataContext } from '../../context/AppDataContext'
-import type { SessionData, UserExpenseCategory, UserExpense } from '../../types/app'
+import { usePreferences } from '../../context/PreferencesContext'
+import { useTheme } from '../../context/ThemeContext'
+import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyCode } from '../../types/app'
+import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS } from '../../types/app'
 import {
   copyUserExpenseCategoriesFromMaster,
   createUserExpenseCategory,
@@ -39,6 +42,8 @@ type ExpenseDraft = {
   amount: string
 }
 
+type PreferenceTab = 'categories' | 'expenses' | 'display' | 'currency'
+
 const toAmountString = (value: number | string | undefined): string => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value.toString() : ''
@@ -76,7 +81,19 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     ensureActiveUserExpenses,
   } = useAppDataContext()
 
-  const [categoryEditorOpen, setCategoryEditorOpen] = useState(false)
+  const {
+    fontSize,
+    currencyCode,
+    currencySymbol,
+    setFontSize,
+    setCurrencyCode,
+  } = usePreferences()
+
+  const { theme, setTheme } = useTheme()
+
+  // Preference tab state
+  const [activeTab, setActiveTab] = useState<PreferenceTab | null>(null)
+
   const [categories, setCategories] = useState<UserExpenseCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [categoryActionInFlight, setCategoryActionInFlight] = useState(false)
@@ -84,7 +101,6 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   const [categoryDraft, setCategoryDraft] = useState<CategoryDraft | null>(null)
   const [addingCategory, setAddingCategory] = useState(false)
   const [categoryAddDraft, setCategoryAddDraft] = useState<CategoryDraft>({ name: '', status: 'A' })
-  const [expenseEditorOpen, setExpenseEditorOpen] = useState(false)
   const [expenses, setExpenses] = useState<UserExpense[]>([])
   const [loadingExpenses, setLoadingExpenses] = useState(false)
   const [expenseActionInFlight, setExpenseActionInFlight] = useState(false)
@@ -112,9 +128,9 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       if (!Number.isFinite(numeric)) {
         return '-'
       }
-      return amountFormatter.format(numeric)
+      return `${currencySymbol}${amountFormatter.format(numeric)}`
     },
-    [amountFormatter],
+    [amountFormatter, currencySymbol],
   )
 
   const categoryLookup = useMemo(() => {
@@ -219,22 +235,21 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }, [loginUsername, refreshUserCategories])
 
   useEffect(() => {
-    // Refresh whenever the editor is opened so edits elsewhere stay in sync.
-    if (categoryEditorOpen && loginUsername) {
+    // Refresh whenever the categories tab is opened so edits elsewhere stay in sync.
+    if (activeTab === 'categories' && loginUsername) {
       void refreshUserCategories()
     }
-  }, [categoryEditorOpen, loginUsername, refreshUserCategories])
+  }, [activeTab, loginUsername, refreshUserCategories])
 
   useEffect(() => {
-    if (loginUsername) {
+    if (activeTab === 'expenses' && loginUsername) {
       void refreshUserExpenses()
     }
-  }, [expenseEditorOpen, loginUsername, refreshUserExpenses])
+  }, [activeTab, loginUsername, refreshUserExpenses])
 
   useEffect(() => {
     if (!loginUsername) {
-      setCategoryEditorOpen(false)
-      setExpenseEditorOpen(false)
+      setActiveTab(null)
       setCategories([])
       setExpenses([])
     }
@@ -357,6 +372,23 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     } finally {
       setCategoryActionInFlight(false)
     }
+  }
+
+  const handleFontSizeChange = async (size: FontSize) => {
+    await setFontSize(size)
+    const label = FONT_SIZE_OPTIONS.find(o => o.code === size)?.label || size
+    setStatus({ type: 'success', message: `Font size changed to ${label}` })
+  }
+
+  const handleCurrencyChange = async (code: CurrencyCode) => {
+    await setCurrencyCode(code)
+    const option = CURRENCY_OPTIONS.find(o => o.code === code)
+    setStatus({ type: 'success', message: `Currency changed to ${option?.name || code} (${option?.symbol})` })
+  }
+
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme)
+    setStatus({ type: 'success', message: `Theme changed to ${newTheme === 'light' ? 'Light' : 'Dark'}` })
   }
 
   const startExpenseEdit = (expense: UserExpense) => {
@@ -598,6 +630,13 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     <CategoryDropdown value={value} onChange={onChange} disabled={disabled} />
   )
 
+  const preferenceButtons: { key: PreferenceTab; label: string; icon: string }[] = [
+    { key: 'categories', label: 'Expense Categories', icon: '📂' },
+    { key: 'expenses', label: 'Planned Expenses', icon: '💰' },
+    { key: 'display', label: 'Font Size & Theme', icon: '🎨' },
+    { key: 'currency', label: 'Currency', icon: '💱' },
+  ]
+
   return (
     <section className={styles.wrapper}>
       <h2 className={styles.title}>Profile</h2>
@@ -611,25 +650,8 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
           <dd>{email || '-'}</dd>
         </div>
       </dl>
+
       <div className={styles.primaryActions}>
-        <div className={styles.managementControls}>
-          <button
-            type="button"
-            className={styles.manageButton}
-            onClick={() => setCategoryEditorOpen((previous) => !previous)}
-            disabled={!canManageCategories}
-          >
-            {categoryEditorOpen ? 'Hide categories' : 'Edit your expense categories'}
-          </button>
-          <button
-            type="button"
-            className={styles.manageButton}
-            onClick={() => setExpenseEditorOpen((previous) => !previous)}
-            disabled={!canManageExpenses}
-          >
-            {expenseEditorOpen ? 'Hide planned expenses' : 'Edit your planned expenses'}
-          </button>
-        </div>
         <button
           type="button"
           className={styles.resetButton}
@@ -640,13 +662,34 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
         </button>
       </div>
 
-      <div className={styles.managementGrid}>
-        {categoryEditorOpen && (
-          <section className={styles.managementCard}>
-            <header className={styles.managementHeader}>
+      {/* Your Preferences Section */}
+      <section className={styles.preferencesSection}>
+        <h3 className={styles.sectionTitle}>Your Preferences</h3>
+        <p className={styles.sectionSubtitle}>Customize your experience by managing expense categories, planned expenses, and display settings.</p>
+
+        <div className={styles.preferenceTabs}>
+          {preferenceButtons.map(({ key, label, icon }) => (
+            <button
+              key={key}
+              type="button"
+              className={`${styles.preferenceTab} ${activeTab === key ? styles.preferenceTabActive : ''}`}
+              onClick={() => setActiveTab(activeTab === key ? null : key)}
+              disabled={!loginUsername}
+            >
+              <span className={styles.preferenceTabIcon}>{icon}</span>
+              <span className={styles.preferenceTabLabel}>{label}</span>
+              <span className={styles.preferenceTabArrow}>{activeTab === key ? '▲' : '▼'}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Categories Panel */}
+        {activeTab === 'categories' && (
+          <div className={styles.preferencePanel}>
+            <header className={styles.panelHeader}>
               <div>
-                <h3 className={styles.managementTitle}>Your Categories</h3>
-                <p className={styles.managementSubtitle}>
+                <h4 className={styles.panelTitle}>Your Categories</h4>
+                <p className={styles.panelSubtitle}>
                   {categories.length} / {MAX_USER_CATEGORIES} categories
                 </p>
               </div>
@@ -811,15 +854,16 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
             {categoryLimitReached && !addingCategory && (
               <p className={styles.limitNote}>Maximum of {MAX_USER_CATEGORIES} categories reached.</p>
             )}
-          </section>
+          </div>
         )}
 
-        {expenseEditorOpen && (
-          <section className={styles.managementCard}>
-            <header className={styles.managementHeader}>
+        {/* Expenses Panel */}
+        {activeTab === 'expenses' && (
+          <div className={styles.preferencePanel}>
+            <header className={styles.panelHeader}>
               <div>
-                <h3 className={styles.managementTitle}>Planned Expenses</h3>
-                <p className={styles.managementSubtitle}>
+                <h4 className={styles.panelTitle}>Planned Expenses</h4>
+                <p className={styles.panelSubtitle}>
                   {expenses.length} / {MAX_USER_EXPENSES} templates
                 </p>
               </div>
@@ -1049,9 +1093,96 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
             {!hasActiveCategory && expenses.length > 0 && (
               <p className={styles.helperNote}>Activate a category to add new expense templates.</p>
             )}
-          </section>
+          </div>
         )}
-      </div>
+
+        {/* Display Settings Panel */}
+        {activeTab === 'display' && (
+          <div className={styles.preferencePanel}>
+            <header className={styles.panelHeader}>
+              <div>
+                <h4 className={styles.panelTitle}>Display Settings</h4>
+                <p className={styles.panelSubtitle}>Customize font size and theme appearance</p>
+              </div>
+            </header>
+
+            <div className={styles.settingsGrid}>
+              {/* Font Size Setting */}
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>Font Size</label>
+                <p className={styles.settingDescription}>Adjust the text size across the application</p>
+                <div className={styles.optionGroup}>
+                  {FONT_SIZE_OPTIONS.map((option) => (
+                    <button
+                      key={option.code}
+                      type="button"
+                      className={`${styles.optionButton} ${fontSize === option.code ? styles.optionButtonActive : ''}`}
+                      onClick={() => handleFontSizeChange(option.code)}
+                    >
+                      <span className={styles.optionLabel}>{option.label}</span>
+                      {fontSize === option.code && <span className={styles.checkmark}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Theme Setting */}
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>Theme</label>
+                <p className={styles.settingDescription}>Switch between light and dark mode</p>
+                <div className={styles.themeToggleContainer}>
+                  <button
+                    type="button"
+                    className={`${styles.themeButton} ${theme === 'light' ? styles.themeButtonActive : ''}`}
+                    onClick={() => theme !== 'light' && handleThemeChange('light')}
+                  >
+                    <span className={styles.themeIcon}>☀️</span>
+                    <span>Light</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.themeButton} ${theme === 'dark' ? styles.themeButtonActive : ''}`}
+                    onClick={() => theme !== 'dark' && handleThemeChange('dark')}
+                  >
+                    <span className={styles.themeIcon}>🌙</span>
+                    <span>Dark</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Currency Panel */}
+        {activeTab === 'currency' && (
+          <div className={styles.preferencePanel}>
+            <header className={styles.panelHeader}>
+              <div>
+                <h4 className={styles.panelTitle}>Currency Settings</h4>
+                <p className={styles.panelSubtitle}>Choose your preferred currency for displaying amounts</p>
+              </div>
+            </header>
+
+            <div className={styles.currencyGrid}>
+              {CURRENCY_OPTIONS.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  className={`${styles.currencyOption} ${currencyCode === option.code ? styles.currencyOptionActive : ''}`}
+                  onClick={() => handleCurrencyChange(option.code)}
+                >
+                  <span className={styles.currencySymbol}>{option.symbol}</span>
+                  <div className={styles.currencyInfo}>
+                    <span className={styles.currencyCode}>{option.code}</span>
+                    <span className={styles.currencyName}>{option.name}</span>
+                  </div>
+                  {currencyCode === option.code && <span className={styles.currencyCheck}>✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </section>
   )
 }
