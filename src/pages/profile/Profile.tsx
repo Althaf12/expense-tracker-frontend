@@ -6,6 +6,8 @@ import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyC
 import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS } from '../../types/app'
 import {
   copyUserExpenseCategoriesFromMaster,
+  /* new helper */
+  copyUserExpensesFromMaster,
   createUserExpenseCategory,
   deleteUserExpenseCategory,
   fetchUserExpenseCategories,
@@ -91,6 +93,8 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const { theme, setTheme } = useTheme()
 
+  // handler state for resetting expenses (restore defaults)
+
   // Preference tab state
   const [activeTab, setActiveTab] = useState<PreferenceTab | null>(null)
 
@@ -135,14 +139,16 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const categoryLookup = useMemo(() => {
     const map = new Map<string, UserExpenseCategory>()
-    categories.forEach((category) => {
+    // Use active categories for lookup in the planned-expense dropdown
+    // so the dropdown lists only active categories when adding/editing expenses.
+    activeCategories.forEach((category) => {
       const key = String(category.userExpenseCategoryId)
       if (key) {
         map.set(key, category)
       }
     })
     return map
-  }, [categories])
+  }, [activeCategories])
 
   const categoryOptions = useMemo(
     () =>
@@ -225,6 +231,28 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       setLoadingExpenses(false)
     }
   }, [ensureUserExpenses, loginUsername, setStatus, syncActiveExpenses])
+
+  const handleResetExpenses = async () => {
+    if (!loginUsername) return
+    const confirmed = window.confirm(
+      'All current planned expenses will be replaced with the default templates. This action cannot be undone. Continue?',
+    )
+    if (!confirmed) return
+    setExpenseActionInFlight(true)
+    setStatus({ type: 'loading', message: 'Resetting planned expenses…' })
+    try {
+      await copyUserExpensesFromMaster(loginUsername)
+      setStatus({ type: 'success', message: 'Planned expenses reset to defaults.' })
+      cancelExpenseEdit()
+      cancelAddExpense()
+      await refreshUserExpenses()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    } finally {
+      setExpenseActionInFlight(false)
+    }
+  }
 
   useEffect(() => {
     // Always refresh the user's categories when the profile loads so the
@@ -867,7 +895,17 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
                   {expenses.length} / {MAX_USER_EXPENSES} templates
                 </p>
               </div>
-              <span className={styles.headerHint}>Active categories: {activeCategories.length}</span>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <span className={styles.headerHint}>Active categories: {activeCategories.length}</span>
+                <button
+                  type="button"
+                  className={styles.cardActionButton}
+                  onClick={handleResetExpenses}
+                  disabled={expenseActionInFlight || !canManageExpenses}
+                >
+                  Reset default
+                </button>
+              </div>
             </header>
 
             {!hasActiveCategory && expenses.length === 0 && (

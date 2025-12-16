@@ -173,6 +173,12 @@ export async function deleteUserExpense(payload: { username: string; id: string 
   await request(`/user-expenses/${safeUser}/${safeId}`, { method: 'DELETE' })
 }
 
+export async function copyUserExpensesFromMaster(username: string): Promise<void> {
+  const safeUser = ensureUsername(username)
+  // Use the exact endpoint provided by the caller (case-sensitive path)
+  await request(`/planned-expenses/${safeUser}/copyMaster`, { method: 'POST' })
+}
+
 export async function createUserExpenseCategory(payload: {
   username: string
   userExpenseCategoryName: string
@@ -477,6 +483,7 @@ export default {
   deleteUserExpenseCategory,
   deleteAllUserExpenseCategories,
   copyUserExpenseCategoriesFromMaster,
+  copyUserExpensesFromMaster,
   fetchExpensesByRange,
   fetchExpensesByMonth,
   fetchExpensesByYear,
