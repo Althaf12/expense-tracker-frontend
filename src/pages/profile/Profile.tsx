@@ -144,7 +144,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       }
     })
     return map
-  }, [categories])
+  }, [activeCategories])
 
   const categoryOptions = useMemo(
     () =>
