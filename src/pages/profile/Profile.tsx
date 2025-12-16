@@ -135,7 +135,9 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const categoryLookup = useMemo(() => {
     const map = new Map<string, UserExpenseCategory>()
-    categories.forEach((category) => {
+    // Use active categories for lookup in the planned-expense dropdown
+    // so the dropdown lists only active categories when adding/editing expenses.
+    activeCategories.forEach((category) => {
       const key = String(category.userExpenseCategoryId)
       if (key) {
         map.set(key, category)
