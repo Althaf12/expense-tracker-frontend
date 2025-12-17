@@ -175,7 +175,7 @@ export default function Dashboard(): ReactElement {
     expenseTemplatesTotal,
     completedMonthlyTemplates,
     monthlyTemplateProgress,
-    unpaidTemplatesTotal,
+    unpaidPlannedExpensesTotal,
     monthlyTotal,
     currentMonthExpenseTotal,
     previousMonthExpenseTotal,
@@ -258,7 +258,7 @@ export default function Dashboard(): ReactElement {
         label={label}
         totalBalance={totalBalance}
         totalAfterDueBalance={totalAfterDueBalance}
-        unpaidTemplatesTotal={unpaidTemplatesTotal}
+        unpaidPlannedExpensesTotal={unpaidPlannedExpensesTotal}
         previousMonthIncomeTotal={previousMonthIncomeTotal}
         currentMonthExpenseTotal={currentMonthExpenseTotal}
         incomeMonthLabel={incomeMonthLabel}

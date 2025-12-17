@@ -10,7 +10,7 @@ type Props = {
   label: string
   totalBalance: number
   totalAfterDueBalance: number
-  unpaidTemplatesTotal: number
+  unpaidPlannedExpensesTotal: number
   previousMonthIncomeTotal: number
   currentMonthExpenseTotal: number
   incomeMonthLabel: string
@@ -26,7 +26,7 @@ export default function SummaryGrid({
   label,
   totalBalance,
   totalAfterDueBalance,
-  unpaidTemplatesTotal,
+  unpaidPlannedExpensesTotal,
   previousMonthIncomeTotal,
   currentMonthExpenseTotal,
   incomeMonthLabel,
@@ -143,7 +143,7 @@ export default function SummaryGrid({
           {formatCurrency(totalAfterDueBalance)}
         </Typography>
         <div className={localStyles.metricFooter}>
-          <span className={localStyles.metricHint}>Unpaid templates: {formatCurrency(unpaidTemplatesTotal)}</span>
+            <span className={localStyles.metricHint}>Unpaid planned expenses: {formatCurrency(unpaidPlannedExpensesTotal)}</span>
         </div>
       </section>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">

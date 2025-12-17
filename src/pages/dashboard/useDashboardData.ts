@@ -419,7 +419,7 @@ export default function useDashboardData() {
 
   const monthlyTemplateProgress = useMemo(() => (visibleTemplates.length === 0 ? 0 : (completedMonthlyTemplates / visibleTemplates.length) * 100), [visibleTemplates.length, completedMonthlyTemplates])
 
-  const unpaidTemplatesTotal = useMemo(() => visibleTemplates.reduce((sum, expense) => ((expense.paid ?? 'N') === 'Y' ? sum : sum + amountFromUserExpense(expense)), 0), [visibleTemplates])
+  const unpaidPlannedExpensesTotal = useMemo(() => visibleTemplates.reduce((sum, expense) => ((expense.paid ?? 'N') === 'Y' ? sum : sum + amountFromUserExpense(expense)), 0), [visibleTemplates])
 
   const monthlyTotal = useMemo(() => filteredMonthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0), [filteredMonthlyExpenses])
 
@@ -446,7 +446,7 @@ export default function useDashboardData() {
 
   const expenseTrend = useMemo(() => calculateTrend(currentMonthExpenseTotal, previousMonthExpenseTotal, false), [currentMonthExpenseTotal, previousMonthExpenseTotal])
 
-  const totalAfterDueBalance = useMemo(() => totalBalance - unpaidTemplatesTotal, [totalBalance, unpaidTemplatesTotal])
+  const totalAfterDueBalance = useMemo(() => totalBalance - unpaidPlannedExpensesTotal, [totalBalance, unpaidPlannedExpensesTotal])
 
   const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }), [currencyCode])
 
@@ -716,7 +716,7 @@ export default function useDashboardData() {
     expenseTemplatesTotal,
     completedMonthlyTemplates,
     monthlyTemplateProgress,
-    unpaidTemplatesTotal,
+    unpaidPlannedExpensesTotal,
     monthlyTotal,
     currentMonthExpenseTotal,
     previousMonthExpenseTotal,
