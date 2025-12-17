@@ -135,6 +135,8 @@ export default function ExpensesOperations(): ReactElement {
   const [lastQuery, setLastQuery] = useState<{ mode: ViewMode; payload?: Record<string, unknown> } | null>(null)
   const [editingRowId, setEditingRowId] = useState<string | null>(null)
   const [editingRowDraft, setEditingRowDraft] = useState<InlineEditDraft | null>(null)
+  const [addingInline, setAddingInline] = useState<boolean>(false)
+  const [inlineAddDraft, setInlineAddDraft] = useState<InlineEditDraft | null>(null)
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState<boolean>(false)
   const categoryFieldRef = useRef<HTMLLabelElement | null>(null)
   const inlineCategoryFieldRef = useRef<HTMLDivElement | null>(null)
@@ -314,6 +316,130 @@ export default function ExpensesOperations(): ReactElement {
       category.userExpenseCategoryName.toLowerCase().includes(query),
     )
   }, [editingRowDraft, activeCategories])
+
+  const [inlineCategoryDropdownOpen, setInlineCategoryDropdownOpen] = useState<boolean>(false)
+
+  useEffect(() => {
+    if (!inlineCategoryDropdownOpen) return
+
+    const handleClickAway = (event: MouseEvent) => {
+      if (inlineCategoryFieldRef.current && !inlineCategoryFieldRef.current.contains(event.target as Node)) {
+        setInlineCategoryDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickAway)
+    return () => {
+      document.removeEventListener('mousedown', handleClickAway)
+    }
+  }, [inlineCategoryDropdownOpen])
+
+  const beginInlineAdd = () => {
+    setAddingInline(true)
+    setInlineAddDraft({
+      expenseName: '',
+      expenseCategoryId: '',
+      expenseCategoryName: '',
+      expenseAmount: '',
+      expenseDate: new Date().toISOString().slice(0, 10),
+    })
+    setInlineCategoryDropdownOpen(false)
+    setEditingRowId(null)
+  }
+
+  const cancelInlineAdd = () => {
+    setAddingInline(false)
+    setInlineAddDraft(null)
+    setInlineCategoryDropdownOpen(false)
+  }
+
+  const updateInlineAddDraft = (field: keyof InlineEditDraft, value: string) => {
+    setInlineAddDraft((previous) => (previous ? { ...previous, [field]: value } : previous))
+  }
+
+  const syncInlineAddCategoryName = (value: string) => {
+    const normalized = value.trim().toLowerCase()
+    const match = activeCategories.find(
+      (category) => category.userExpenseCategoryName.toLowerCase() === normalized,
+    )
+    setInlineAddDraft((previous) =>
+      previous
+        ? {
+            ...previous,
+            expenseCategoryName: value,
+            expenseCategoryId: match ? String(match.userExpenseCategoryId) : '',
+          }
+        : previous,
+    )
+  }
+
+  const inlineCategorySuggestions = useMemo(() => {
+    if (!inlineAddDraft) return activeCategories
+    const query = inlineAddDraft.expenseCategoryName.trim().toLowerCase()
+    if (!query) return activeCategories
+    return activeCategories.filter((category) =>
+      category.userExpenseCategoryName.toLowerCase().includes(query),
+    )
+  }, [inlineAddDraft, activeCategories])
+
+  const confirmInlineAdd = async () => {
+    if (!session || !inlineAddDraft) return
+
+    if (!inlineAddDraft.expenseName.trim()) {
+      setStatus({ type: 'error', message: 'Please provide an expense name.' })
+      return
+    }
+    let categoryIdToUse = inlineAddDraft.expenseCategoryId
+    if (!categoryIdToUse || String(categoryIdToUse).trim() === '') {
+      const name = (inlineAddDraft.expenseCategoryName ?? '').trim()
+      if (name) {
+        const matchActive = activeCategories.find(
+          (c) => c.userExpenseCategoryName.trim().toLowerCase() === name.toLowerCase(),
+        )
+        if (matchActive) {
+          categoryIdToUse = String(matchActive.userExpenseCategoryId)
+        } else {
+          const matchAll = expenseCategories.find(
+            (c) => c.userExpenseCategoryName.trim().toLowerCase() === name.toLowerCase(),
+          )
+          if (matchAll) {
+            categoryIdToUse = String(matchAll.userExpenseCategoryId)
+          }
+        }
+      }
+    }
+
+    if (!categoryIdToUse || String(categoryIdToUse).trim() === '') {
+      setStatus({ type: 'error', message: 'Please select an expense category.' })
+      return
+    }
+    const numericAmount = parseAmount(inlineAddDraft.expenseAmount)
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setStatus({ type: 'error', message: 'Enter a valid amount greater than zero.' })
+      return
+    }
+    if (!inlineAddDraft.expenseDate) {
+      setStatus({ type: 'error', message: 'Please select a date.' })
+      return
+    }
+
+    setStatus({ type: 'loading', message: 'Adding expense...' })
+    try {
+      await addExpense({
+        username: session.username,
+        userExpenseCategoryId: categoryIdToUse,
+        expenseAmount: numericAmount,
+        expenseDate: inlineAddDraft.expenseDate,
+        expenseName: inlineAddDraft.expenseName,
+      })
+      setStatus({ type: 'success', message: 'Expense added.' })
+      await refreshAfterMutation()
+      cancelInlineAdd()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    }
+  }
 
   const expenseSuggestions = useMemo(() => {
     const query = formState.expenseName.trim().toLowerCase()
@@ -797,15 +923,106 @@ export default function ExpensesOperations(): ReactElement {
                       />
                     </th>
                     <th scope="col">
-                      {filtersApplied && (
-                        <button type="button" onClick={clearFilters}>
-                          Clear
+                      <div style={{display:'flex',gap:8,justifyContent:'center',alignItems:'center'}}>
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          onClick={() => (addingInline ? cancelInlineAdd() : beginInlineAdd())}
+                        >
+                          {addingInline ? 'Close' : 'Add Expense'}
                         </button>
-                      )}
+                        {filtersApplied && (
+                          <button type="button" onClick={clearFilters}>
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
+                  {addingInline && inlineAddDraft && (
+                    <tr key="__inline_add">
+                      <td className={styles.date}>
+                        <input
+                          className={styles.inlineInput}
+                          value={inlineAddDraft.expenseName}
+                          onChange={(e) => updateInlineAddDraft('expenseName', e.target.value)}
+                          placeholder="Expense"
+                        />
+                      </td>
+                      <td>
+                        <div className={styles.inlineDropdownField} ref={inlineCategoryFieldRef}>
+                          <input
+                            className={styles.inlineInput}
+                            value={inlineAddDraft.expenseCategoryName}
+                            onChange={(e) => {
+                              setInlineCategoryDropdownOpen(true)
+                              syncInlineAddCategoryName(e.target.value)
+                            }}
+                            onFocus={() => setInlineCategoryDropdownOpen(true)}
+                            placeholder="Category"
+                            autoComplete="off"
+                          />
+                          {inlineCategoryDropdownOpen && (
+                            <ul className={styles.dropdownList} role="listbox">
+                              {inlineCategorySuggestions.length === 0 ? (
+                                <li className={styles.dropdownEmpty}>No categories found</li>
+                              ) : (
+                                inlineCategorySuggestions.map((category) => (
+                                  <li
+                                    key={category.userExpenseCategoryId}
+                                    className={styles.dropdownItem}
+                                    onMouseDown={(event) => {
+                                      event.preventDefault()
+                                      setInlineCategoryDropdownOpen(false)
+                                      setInlineAddDraft((previous) =>
+                                        previous
+                                          ? {
+                                              ...previous,
+                                              expenseCategoryId: String(category.userExpenseCategoryId),
+                                              expenseCategoryName: category.userExpenseCategoryName,
+                                            }
+                                          : previous,
+                                      )
+                                    }}
+                                  >
+                                    {category.userExpenseCategoryName}
+                                  </li>
+                                ))
+                              )}
+                            </ul>
+                          )}
+                        </div>
+                      </td>
+                      <td className={styles.numeric}>
+                        <input
+                          className={styles.inlineInput}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={inlineAddDraft.expenseAmount}
+                          onChange={(e) => updateInlineAddDraft('expenseAmount', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className={styles.inlineInput}
+                          type="date"
+                          value={inlineAddDraft.expenseDate}
+                          onChange={(e) => updateInlineAddDraft('expenseDate', e.target.value)}
+                        />
+                      </td>
+                      <td className={styles.actions}>
+                        <button type="button" onClick={() => void confirmInlineAdd()}>
+                          Confirm
+                        </button>
+                        <button type="button" onClick={cancelInlineAdd}>
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                   {filteredResults.length === 0 ? (
                     <tr className={styles.emptyRow}>
                       <td colSpan={5}>No expenses match the current filters.</td>
@@ -948,6 +1165,8 @@ export default function ExpensesOperations(): ReactElement {
               </table>
             )}
           </div>
+
+          
         </section>
       </Grid>
       <Grid size={{ xs: 12, xl: 4 }}>

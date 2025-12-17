@@ -81,6 +81,8 @@ export default function IncomeOperations(): ReactElement {
     month: '',
     year: '',
   })
+  const [addingInline, setAddingInline] = useState<boolean>(false)
+  const [inlineAddDraft, setInlineAddDraft] = useState<IncomeFormState | null>(null)
 
   useEffect(() => {
     if (!session) return
@@ -316,6 +318,60 @@ export default function IncomeOperations(): ReactElement {
     }
   }
 
+  const beginInlineAdd = () => {
+    setAddingInline(true)
+    setInlineAddDraft({ source: '', amount: '', receivedDate: new Date().toISOString().slice(0, 10) })
+    setEditingRowId(null)
+  }
+
+  const cancelInlineAdd = () => {
+    setAddingInline(false)
+    setInlineAddDraft(null)
+  }
+
+  const updateInlineAddDraft = (field: keyof IncomeFormState, value: string) => {
+    setInlineAddDraft((previous) => (previous ? { ...previous, [field]: value } : previous))
+  }
+
+  const confirmInlineAdd = async () => {
+    if (!session || !inlineAddDraft) return
+    const { source, amount, receivedDate } = inlineAddDraft
+    if (!source.trim()) {
+      setStatus({ type: 'error', message: 'Provide an income source.' })
+      return
+    }
+    const numericAmount = parseAmount(amount)
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setStatus({ type: 'error', message: 'Provide a valid income amount.' })
+      return
+    }
+    if (!receivedDate) {
+      setStatus({ type: 'error', message: 'Select a received date.' })
+      return
+    }
+    const { monthName, monthNumber, year } = deriveMonthYear(receivedDate)
+    setStatus({ type: 'loading', message: 'Adding income...' })
+    try {
+      await addIncome({
+        username: session.username,
+        source,
+        amount: numericAmount,
+        receivedDate,
+        month: monthName,
+        year,
+      })
+      setStatus({ type: 'success', message: 'Income added.' })
+      await reloadIncomesCache(session.username)
+      if (lastQuery) {
+        await loadIncomes(lastQuery.mode, lastQuery.payload)
+      }
+      cancelInlineAdd()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    }
+  }
+
   const handleDelete = async (income: Income) => {
     if (!session) return
     if (!income.incomeId) {
@@ -536,15 +592,65 @@ export default function IncomeOperations(): ReactElement {
                       />
                     </th>
                     <th scope="col">
-                      {filtersApplied && (
-                        <button type="button" onClick={clearFilters}>
-                          Clear
+                      <div style={{display:'flex',gap:8,justifyContent:'center',alignItems:'center'}}>
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          onClick={() => (addingInline ? cancelInlineAdd() : beginInlineAdd())}
+                        >
+                          {addingInline ? 'Close' : 'Add Income'}
                         </button>
-                      )}
+                        {filtersApplied && (
+                          <button type="button" onClick={clearFilters}>
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
+                  {addingInline && inlineAddDraft && (
+                    <tr key="__inline_add">
+                      <td>
+                        <input
+                          className={styles.inlineInput}
+                          type="text"
+                          value={inlineAddDraft.source}
+                          onChange={(e) => updateInlineAddDraft('source', e.target.value)}
+                          placeholder="Source"
+                        />
+                      </td>
+                      <td className={styles.numeric}>
+                        <input
+                          className={styles.inlineInput}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={inlineAddDraft.amount}
+                          onChange={(e) => updateInlineAddDraft('amount', e.target.value)}
+                        />
+                      </td>
+                      <td className={styles.date}>
+                        <input
+                          className={styles.inlineInput}
+                          type="date"
+                          value={inlineAddDraft.receivedDate}
+                          onChange={(e) => updateInlineAddDraft('receivedDate', e.target.value)}
+                        />
+                      </td>
+                      <td />
+                      <td />
+                      <td className={styles.actions}>
+                        <button type="button" onClick={() => void confirmInlineAdd()}>
+                          Confirm
+                        </button>
+                        <button type="button" onClick={cancelInlineAdd}>
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                   {filteredResults.length === 0 ? (
                     <tr className={styles.emptyRow}>
                       <td colSpan={6}>No income entries match the current filters.</td>
@@ -647,6 +753,8 @@ export default function IncomeOperations(): ReactElement {
               </table>
             )}
           </div>
+
+          
         </section>
       </Grid>
 
