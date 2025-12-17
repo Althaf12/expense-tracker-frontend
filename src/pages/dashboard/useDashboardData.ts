@@ -137,6 +137,11 @@ export default function useDashboardData() {
   const [templateCategoryOrder, setTemplateCategoryOrder] = useState<string[]>([])
   const [templateSaving, setTemplateSaving] = useState<Record<string, boolean>>({})
   const dragCategoryIdRef = useRef<string | null>(null)
+  // Pagination state for current month expenses
+  const [expenseCurrentPage, setExpenseCurrentPage] = useState<number>(0)
+  const [expensePageSize, setExpensePageSize] = useState<number>(20)
+  const [expenseTotalElements, setExpenseTotalElements] = useState<number>(0)
+  const [expenseTotalPages, setExpenseTotalPages] = useState<number>(1)
 
   const visibleTemplates = useMemo(() => activeUserExpenses.filter((expense) => (expense.status ?? 'A') === 'A'), [activeUserExpenses])
 
@@ -164,14 +169,14 @@ export default function useDashboardData() {
     void (async () => {
       try {
         const [
-          currentExpenses,
-          previousExpenses,
-          currentIncomeData,
-          previousIncomeData,
-          twoMonthsAgoIncomeData,
+          currentExpensesResponse,
+          previousExpensesResponse,
+          currentIncomeResponse,
+          previousIncomeResponse,
+          twoMonthsAgoIncomeResponse,
           previousMonthBalance,
         ] = await Promise.all([
-          fetchExpensesByMonth({ username, month, year }),
+          fetchExpensesByMonth({ username, month, year, page: expenseCurrentPage, size: expensePageSize }),
           fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month, year }),
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
@@ -181,11 +186,14 @@ export default function useDashboardData() {
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
 
-        setMonthlyExpenses(currentExpenses)
-        setPreviousMonthExpenses(previousExpenses)
-        setCurrentMonthIncome(currentIncomeData)
-        setPreviousMonthIncome(previousIncomeData)
-        setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
+        setMonthlyExpenses(currentExpensesResponse.content)
+        setExpenseTotalElements(currentExpensesResponse.totalElements)
+        setExpenseTotalPages(currentExpensesResponse.totalPages)
+        setExpenseCurrentPage(currentExpensesResponse.page)
+        setPreviousMonthExpenses(previousExpensesResponse.content)
+        setCurrentMonthIncome(currentIncomeResponse.content)
+        setPreviousMonthIncome(previousIncomeResponse.content)
+        setTwoMonthsAgoIncome(twoMonthsAgoIncomeResponse.content)
 
         const mb = previousMonthBalance as (import('../../types/app').MonthlyBalance | null)
         const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
@@ -521,8 +529,10 @@ export default function useDashboardData() {
 
       await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
 
-      const refreshed = await fetchExpensesByMonth({ username: session.username, month, year })
-      setMonthlyExpenses(refreshed)
+      const refreshed = await fetchExpensesByMonth({ username: session.username, month, year, page: expenseCurrentPage, size: expensePageSize })
+      setMonthlyExpenses(refreshed.content)
+      setExpenseTotalElements(refreshed.totalElements)
+      setExpenseTotalPages(refreshed.totalPages)
     } catch (error) {
       if (paidUpdated) {
         try {
@@ -634,6 +644,49 @@ export default function useDashboardData() {
   const clearExpenseFilters = () => setExpenseTableFilters({ name: '', amount: '', date: '' })
   const clearCategoryFilters = () => setCategoryTableFilters({ name: '', total: '' })
 
+  const handleExpensePageChange = useCallback((page: number) => {
+    if (!session) return
+    const username = session.username
+    setExpenseCurrentPage(page)
+    setLoading(true)
+    void (async () => {
+      try {
+        const response = await fetchExpensesByMonth({ username, month, year, page, size: expensePageSize })
+        setMonthlyExpenses(response.content)
+        setExpenseTotalElements(response.totalElements)
+        setExpenseTotalPages(response.totalPages)
+        setExpenseCurrentPage(response.page)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setStatus({ type: 'error', message })
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [session, month, year, expensePageSize, setStatus])
+
+  const handleExpensePageSizeChange = useCallback((size: number) => {
+    if (!session) return
+    const username = session.username
+    setExpensePageSize(size)
+    setExpenseCurrentPage(0)
+    setLoading(true)
+    void (async () => {
+      try {
+        const response = await fetchExpensesByMonth({ username, month, year, page: 0, size })
+        setMonthlyExpenses(response.content)
+        setExpenseTotalElements(response.totalElements)
+        setExpenseTotalPages(response.totalPages)
+        setExpenseCurrentPage(response.page)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setStatus({ type: 'error', message })
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [session, month, year, setStatus])
+
   return {
     userExpenses,
     session,
@@ -693,5 +746,12 @@ export default function useDashboardData() {
     filteredCategorySummary,
     expenseFiltersApplied,
     categoryFiltersApplied,
+    // Pagination
+    expenseCurrentPage,
+    expensePageSize,
+    expenseTotalElements,
+    expenseTotalPages,
+    handleExpensePageChange,
+    handleExpensePageSizeChange,
   }
 }

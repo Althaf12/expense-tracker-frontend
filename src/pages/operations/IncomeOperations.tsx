@@ -1,12 +1,16 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react'
+import { useRef } from 'react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
-import type { Income } from '../../types/app'
+import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate, parseAmount } from '../../utils/format'
 import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
+import Pagination from '../../components/Pagination'
+
+const DEFAULT_PAGE_SIZE = 20
 
 type IncomeViewMode = 'current-year' | 'month' | 'range'
 
@@ -81,11 +85,19 @@ export default function IncomeOperations(): ReactElement {
   })
   const [addingInline, setAddingInline] = useState<boolean>(false)
   const [inlineAddDraft, setInlineAddDraft] = useState<IncomeFormState | null>(null)
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(0)
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
+  const [totalElements, setTotalElements] = useState<number>(0)
+  const [totalPages, setTotalPages] = useState<number>(1)
+  const initialLoadRef = useRef<boolean>(false)
 
   useEffect(() => {
     if (!session) return
-  void reloadIncomesCache(session.username)
-  void loadIncomes('current-year')
+    if (initialLoadRef.current) return
+    initialLoadRef.current = true
+    // Avoid duplicate loads: only call paged load once on mount
+    void loadIncomes('current-year', undefined, 0, DEFAULT_PAGE_SIZE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
@@ -101,28 +113,30 @@ export default function IncomeOperations(): ReactElement {
     return Array.from(unique).slice(0, 10)
   }, [formState.source, incomesCache])
 
-  const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>) => {
+  const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
     if (!session) return
     const username = session.username
     setLoading(true)
     setStatus({ type: 'loading', message: 'Fetching income records...' })
     try {
-      let data: Income[] = []
+      let response: PagedResponse<Income>
       if (mode === 'current-year') {
         const currentYear = new Date().getFullYear()
-        data = await fetchIncomeByRange({
+        response = await fetchIncomeByRange({
           username,
           fromMonth: '01',
           fromYear: String(currentYear),
           toMonth: '12',
           toYear: String(currentYear),
+          page,
+          size,
         })
         setLastQuery({ mode })
       } else if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
         const month = monthPayload?.month ?? monthFilter
         const year = monthPayload?.year ?? yearFilter
-        data = await fetchIncomeByMonth({ username, month, year })
+        response = await fetchIncomeByMonth({ username, month, year, page, size })
         setLastQuery({ mode, payload: { month, year } })
       } else {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -144,10 +158,13 @@ export default function IncomeOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        data = await fetchIncomeByRange({ username, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4) })
+        response = await fetchIncomeByRange({ username, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4), page, size })
         setLastQuery({ mode, payload: { start, end } })
       }
-      setResults(data)
+      setResults(response.content)
+      setCurrentPage(response.page)
+      setTotalElements(response.totalElements)
+      setTotalPages(response.totalPages)
       setStatus(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -263,7 +280,7 @@ export default function IncomeOperations(): ReactElement {
       setStatus({ type: 'success', message: 'Income updated.' })
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
       cancelInlineEdit()
     } catch (error) {
@@ -304,7 +321,7 @@ export default function IncomeOperations(): ReactElement {
       setStatus({ type: 'success', message: 'Income added.' })
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
       setFormState(initialForm)
     } catch (error) {
@@ -358,7 +375,7 @@ export default function IncomeOperations(): ReactElement {
       setStatus({ type: 'success', message: 'Income added.' })
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
       cancelInlineAdd()
     } catch (error) {
@@ -385,7 +402,7 @@ export default function IncomeOperations(): ReactElement {
       }
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -410,6 +427,21 @@ export default function IncomeOperations(): ReactElement {
     setTableFilters({ source: '', amount: '', date: '', monthYear: '' })
   }
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    if (lastQuery) {
+      void loadIncomes(lastQuery.mode, lastQuery.payload, page, pageSize)
+    }
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setCurrentPage(0) // Reset to first page when page size changes
+    if (lastQuery) {
+      void loadIncomes(lastQuery.mode, lastQuery.payload, 0, size)
+    }
+  }
+
   return (
     <Grid container component="section" className={styles.page} spacing={3}>
       <Grid size={{ xs: 12, xl: 8 }}>
@@ -430,7 +462,8 @@ export default function IncomeOperations(): ReactElement {
             className={styles.filterRow}
             onSubmit={(event) => {
               event.preventDefault()
-              void loadIncomes(viewMode)
+              setCurrentPage(0) // Reset to first page on new search
+              void loadIncomes(viewMode, undefined, 0, pageSize)
             }}
           >
             <div className={styles.modeSelector}>
@@ -735,6 +768,16 @@ export default function IncomeOperations(): ReactElement {
               </table>
             )}
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            loading={loading}
+          />
 
           
         </section>

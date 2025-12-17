@@ -5,6 +5,7 @@ import type { Expense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './CurrentMonthExpenses.module.css'
 import Skeleton from '../../components/Skeleton'
+import Pagination from '../../components/Pagination'
 
 type Props = {
   label: string
@@ -17,6 +18,13 @@ type Props = {
   expenseFiltersApplied: boolean
   formatAmount: (value: number) => string
   monthlyTotal: number
+  // Pagination props
+  currentPage: number
+  totalPages: number
+  totalElements: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
 
 export default function CurrentMonthExpenses({
@@ -30,6 +38,12 @@ export default function CurrentMonthExpenses({
   expenseFiltersApplied,
   formatAmount,
   monthlyTotal,
+  currentPage,
+  totalPages,
+  totalElements,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }: Props): ReactElement {
   const formatToDDMMYYYY = (value: unknown): string => {
     if (value === undefined || value === null) return ''
@@ -159,6 +173,15 @@ export default function CurrentMonthExpenses({
               </tr>
             </tfoot>
           </table>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            loading={loading}
+          />
         </div>
       )}
     </section>

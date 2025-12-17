@@ -206,6 +206,13 @@ export default function Dashboard(): ReactElement {
     filteredCategorySummary,
     expenseFiltersApplied,
     categoryFiltersApplied,
+    // Pagination
+    expenseCurrentPage,
+    expensePageSize,
+    expenseTotalElements,
+    expenseTotalPages,
+    handleExpensePageChange,
+    handleExpensePageSizeChange,
   } = useDashboardData()
  
   const renderTrend = (trend: TrendSummary | null) => {
@@ -307,6 +314,12 @@ export default function Dashboard(): ReactElement {
           expenseFiltersApplied={expenseFiltersApplied}
           formatAmount={formatAmount}
           monthlyTotal={monthlyTotal}
+          currentPage={expenseCurrentPage}
+          totalPages={expenseTotalPages}
+          totalElements={expenseTotalElements}
+          pageSize={expensePageSize}
+          onPageChange={handleExpensePageChange}
+          onPageSizeChange={handleExpensePageSizeChange}
         />
       </div>
     </section>

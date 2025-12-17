@@ -1,7 +1,7 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import { ReactElement, useState, type FormEvent } from 'react'
-import { userDetails, fetchExpenses as apiFetchExpenses } from '../../api'
+import { userDetails } from '../../api'
 import { useNavigate } from 'react-router-dom'
 import type { Expense, SessionData, StatusMessage } from '../../types/app'
 import styles from './Login.module.css'
@@ -65,18 +65,8 @@ export default function Login({ onLogin, setStatus }: LoginProps): ReactElement 
       onLogin(session, [])
       navigate('/dashboard')
 
-      void (async () => {
-        try {
-          const expensesPayload = await apiFetchExpenses(String(username))
-          if (Array.isArray(expensesPayload)) {
-            onLogin(session, expensesPayload as Expense[])
-          }
-        } catch (backgroundError) {
-          const msg = backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
-          console.warn('Failed to fetch expenses after login', msg)
-          setStatus({ type: 'error', message: `Failed to fetch expenses after login: ${msg}` })
-        }
-      })()
+      /* Background fetch of all/current-month expenses removed — not required.
+         Keeping initial login flow lightweight. */
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })

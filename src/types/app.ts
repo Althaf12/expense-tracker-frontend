@@ -106,3 +106,12 @@ export type MonthlyBalance = {
   month?: number
   year?: number
 }
+
+/** Generic paginated API response type */
+export type PagedResponse<T> = {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  page: number
+  size: number
+}

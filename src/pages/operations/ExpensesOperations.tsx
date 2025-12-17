@@ -4,17 +4,18 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement
 import {
   addExpense,
   deleteExpense,
-  fetchExpenses,
   fetchExpensesByMonth,
   fetchExpensesByRange,
   updateExpense,
-  fetchUserExpenseCategoriesActive,
 } from '../../api'
-import type { Expense, UserExpenseCategory } from '../../types/app'
+import type { Expense, UserExpenseCategory, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatAmount, formatDate, parseAmount } from '../../utils/format'
 import styles from './ExpensesOperations.module.css'
 import Skeleton from '../../components/Skeleton'
+import Pagination from '../../components/Pagination'
+
+const DEFAULT_PAGE_SIZE = 20
 
 type ViewMode = 'month' | 'range'
 
@@ -140,11 +141,19 @@ export default function ExpensesOperations(): ReactElement {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState<boolean>(false)
   const categoryFieldRef = useRef<HTMLLabelElement | null>(null)
   const inlineCategoryFieldRef = useRef<HTMLDivElement | null>(null)
+  const initialLoadRef = useRef<boolean>(false)
   const [editingCategoryDropdownOpen, setEditingCategoryDropdownOpen] = useState<boolean>(false)
   const [tableFilters, setTableFilters] = useState<TableFilters>({ expenseName: '', category: '', amount: '', date: '' })
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(0)
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
+  const [totalElements, setTotalElements] = useState<number>(0)
+  const [totalPages, setTotalPages] = useState<number>(1)
 
   useEffect(() => {
     if (!session) return
+    if (initialLoadRef.current) return
+    initialLoadRef.current = true
 
     const now = new Date()
     const defaultMonth = now.getMonth() + 1
@@ -156,32 +165,41 @@ export default function ExpensesOperations(): ReactElement {
     // Always refresh categories from API before loading expenses for defaults
     void (async () => {
       await ensureExpenseCategories()
-      // load active categories directly for this component to avoid being
-      // overwritten by profile's 'all categories' flow
+      // Ensure categories are loaded via context helper and derive active list
       try {
-        const list = await fetchUserExpenseCategoriesActive(session.username)
-        // Some API implementations accidentally return all categories; defensively
-        // enforce status 'A' (active) on the client so operations UI only shows active ones.
-        const filtered = Array.isArray(list) ? list.filter((c) => (c as any).status === 'A') : list
+        const list = await ensureExpenseCategories()
+        const filtered = Array.isArray(list) ? list.filter((c) => (c as any).status === 'A') : []
         setActiveCategories(filtered)
         // Debug: log active vs context categories to help trace unexpected 'all' categories
         // eslint-disable-next-line no-console
-        console.debug(
-          'ExpensesOperations: activeCategories fetched',
-          list.length,
-          'filtered->',
-          filtered.length,
-          filtered.map((c) => c.userExpenseCategoryName),
-        )
+        console.debug('ExpensesOperations: activeCategories derived', filtered.length, filtered.map((c) => c.userExpenseCategoryName))
       } catch (err) {
         // non-fatal — keep context categories as fallback
       }
 
-      await reloadExpensesCache(session.username)
-      await loadExpenses('month', {
-        month: defaultMonth,
-        year: defaultYear,
-      })
+      // Inline initial load to avoid closure issues with loadExpenses
+      setLoading(true)
+      setStatus({ type: 'loading', message: 'Fetching expenses...' })
+      try {
+        const response = await fetchExpensesByMonth({
+          username: session.username,
+          month: defaultMonth,
+          year: defaultYear,
+          page: 0,
+          size: DEFAULT_PAGE_SIZE,
+        })
+        setResults(response.content)
+        setCurrentPage(response.page)
+        setTotalElements(response.totalElements)
+        setTotalPages(response.totalPages)
+        setLastQuery({ mode: 'month', payload: { month: defaultMonth, year: defaultYear } })
+        setStatus(null)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setStatus({ type: 'error', message })
+      } finally {
+        setLoading(false)
+      }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
@@ -469,19 +487,19 @@ export default function ExpensesOperations(): ReactElement {
     )
   }
 
-  const loadExpenses = async (mode: ViewMode, payload?: Record<string, unknown>) => {
+  const loadExpenses = async (mode: ViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
     if (!session) return
     const username = session.username
     setLoading(true)
     setStatus({ type: 'loading', message: 'Fetching expenses...' })
 
     try {
-      let data: Expense[] = []
+      let response: PagedResponse<Expense>
       if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
         const month = monthPayload?.month ?? selectedMonth
         const year = monthPayload?.year ?? selectedYear
-        data = await fetchExpensesByMonth({ username, month, year })
+        response = await fetchExpensesByMonth({ username, month, year, page, size })
         setLastQuery({ mode, payload: { month, year } })
       } else if (mode === 'range') {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -503,13 +521,19 @@ export default function ExpensesOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        data = await fetchExpensesByRange({ username, start, end })
+        response = await fetchExpensesByRange({ username, start, end, page, size })
         setLastQuery({ mode, payload: { start, end } })
       } else {
-        data = await fetchExpenses(username)
-        setLastQuery({ mode })
+        // The backend will remove the 'fetch all' endpoint. Use month API as a safe default.
+        const month = selectedMonth
+        const year = selectedYear
+        response = await fetchExpensesByMonth({ username, month, year, page, size })
+        setLastQuery({ mode: 'month', payload: { month, year } })
       }
-      setResults(data)
+      setResults(response.content)
+      setCurrentPage(response.page)
+      setTotalElements(response.totalElements)
+      setTotalPages(response.totalPages)
       setStatus(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -543,7 +567,22 @@ export default function ExpensesOperations(): ReactElement {
     if (!session) return
     await reloadExpensesCache(session.username)
     if (lastQuery) {
-      await loadExpenses(lastQuery.mode, lastQuery.payload)
+      await loadExpenses(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    if (lastQuery) {
+      void loadExpenses(lastQuery.mode, lastQuery.payload, page, pageSize)
+    }
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setCurrentPage(0) // Reset to first page when page size changes
+    if (lastQuery) {
+      void loadExpenses(lastQuery.mode, lastQuery.payload, 0, size)
     }
   }
 
@@ -786,7 +825,8 @@ export default function ExpensesOperations(): ReactElement {
             className={styles.filterRow}
             onSubmit={(event) => {
               event.preventDefault()
-              void loadExpenses(viewMode)
+              setCurrentPage(0) // Reset to first page on new search
+              void loadExpenses(viewMode, undefined, 0, pageSize)
             }}
           >
             <div className={styles.modeSelector}>
@@ -1165,6 +1205,16 @@ export default function ExpensesOperations(): ReactElement {
               </table>
             )}
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            loading={loading}
+          />
 
           
         </section>
