@@ -10,7 +10,7 @@ import {
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
-import { formatAmount, formatDate } from '../../utils/format'
+import { formatDate } from '../../utils/format'
 
 const getCurrentMonthContext = () => {
   const current = new Date()
@@ -123,7 +123,7 @@ export default function useDashboardData() {
     activeUserExpenses,
   } = useAppDataContext()
 
-  const { currencyCode } = usePreferences()
+  const { formatCurrency: preferencesFormatCurrency } = usePreferences()
 
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
@@ -263,7 +263,7 @@ export default function useDashboardData() {
       const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
       const numericAmount = amountFromExpense(expense)
       const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const formattedAmount = preferencesFormatCurrency(numericAmount).toLowerCase()
       const rawDate = (expense.expenseDate ?? '').toString().toLowerCase()
       const prettyDate = formatDate(expense.expenseDate).toLowerCase()
 
@@ -447,10 +447,13 @@ export default function useDashboardData() {
   const expenseTrend = useMemo(() => calculateTrend(currentMonthExpenseTotal, previousMonthExpenseTotal, false), [currentMonthExpenseTotal, previousMonthExpenseTotal])
 
   const totalAfterDueBalance = useMemo(() => totalBalance - unpaidPlannedExpensesTotal, [totalBalance, unpaidPlannedExpensesTotal])
+<<<<<<< HEAD
+=======
 
   const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }), [currencyCode])
 
   const formatCurrency = (value: number) => currencyFormatter.format(value)
+>>>>>>> 3bba25242f86e5bcafb1738532023bdbb2839cfe
 
   const incomeMonthLabel = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
@@ -626,7 +629,7 @@ export default function useDashboardData() {
     return categorySummary.filter((entry) => {
       const nameValue = entry.name.toLowerCase()
       const totalString = entry.total.toFixed(2)
-      const formattedTotal = formatAmount(entry.total).toLowerCase()
+      const formattedTotal = preferencesFormatCurrency(entry.total).toLowerCase()
       if (nameQuery && !nameValue.includes(nameQuery)) return false
       if (totalQuery && !totalString.includes(totalQuery) && !formattedTotal.includes(totalQuery)) return false
       return true
@@ -729,7 +732,7 @@ export default function useDashboardData() {
     incomeTrend,
     expenseTrend,
     totalAfterDueBalance,
-    formatCurrency,
+    formatCurrency: preferencesFormatCurrency,
     incomeMonthLabel,
     getTrendHint,
     handleCategoryDragStart,

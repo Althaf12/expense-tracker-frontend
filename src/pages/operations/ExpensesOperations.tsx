@@ -10,7 +10,8 @@ import {
 } from '../../api'
 import type { Expense, UserExpenseCategory, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
-import { formatAmount, formatDate, parseAmount } from '../../utils/format'
+import { formatDate, parseAmount } from '../../utils/format'
+import { usePreferences } from '../../context/PreferencesContext'
 import styles from './ExpensesOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 import Pagination from '../../components/Pagination'
@@ -120,6 +121,7 @@ export default function ExpensesOperations(): ReactElement {
     expensesCache,
     reloadExpensesCache,
   } = useAppDataContext()
+  const { formatCurrency } = usePreferences()
 
   // Local active categories state — use the active-only API for operations UI so
   // profile page can still fetch/preview 'all' categories without affecting this view.
@@ -604,7 +606,7 @@ export default function ExpensesOperations(): ReactElement {
 
       const numericAmount = getAmount(expense)
       const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const formattedAmount = formatCurrency(numericAmount).toLowerCase()
 
       const rawDate = (expense.expenseDate ?? '').toString().toLowerCase()
       const prettyDate = formatDate(expense.expenseDate).toLowerCase()
@@ -1152,7 +1154,7 @@ export default function ExpensesOperations(): ReactElement {
                                 onChange={(event) => updateInlineDraft('expenseAmount', event.target.value)}
                               />
                             ) : (
-                              formatAmount(expense.amount ?? expense.expenseAmount)
+                              formatCurrency(Number(expense.amount ?? expense.expenseAmount))
                             )}
                           </td>
                           <td>
@@ -1197,7 +1199,7 @@ export default function ExpensesOperations(): ReactElement {
                   <tr>
                     <td colSpan={2}>Total</td>
                     <td className={styles.numeric}>
-                      <span className={styles.totalPill}>{formatAmount(totalAmount)}</span>
+                      <span className={styles.totalPill}>{formatCurrency(totalAmount)}</span>
                     </td>
                     <td colSpan={2} />
                   </tr>

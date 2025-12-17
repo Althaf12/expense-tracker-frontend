@@ -5,7 +5,8 @@ import { useRef } from 'react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
-import { formatAmount, formatDate, parseAmount } from '../../utils/format'
+import { formatDate, parseAmount } from '../../utils/format'
+import { usePreferences } from '../../context/PreferencesContext'
 import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 import Pagination from '../../components/Pagination'
@@ -66,6 +67,7 @@ export default function IncomeOperations(): ReactElement {
     incomesCache,
     reloadIncomesCache,
   } = useAppDataContext()
+  const { formatCurrency } = usePreferences()
   const [viewMode, setViewMode] = useState<IncomeViewMode>('current-year')
   const [results, setResults] = useState<Income[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -189,7 +191,7 @@ export default function IncomeOperations(): ReactElement {
 
       const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
       const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const formattedAmount = formatCurrency(numericAmount).toLowerCase()
 
       const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
       const formattedDate = formatDate(income.receivedDate).toLowerCase()
@@ -714,7 +716,7 @@ export default function IncomeOperations(): ReactElement {
                                 onChange={(event) => updateInlineDraft('amount', event.target.value)}
                               />
                             ) : (
-                              formatAmount(income.amount)
+                              formatCurrency(Number(income.amount ?? 0))
                             )}
                           </td>
                           <td className={styles.date}>
@@ -760,7 +762,7 @@ export default function IncomeOperations(): ReactElement {
                   <tr>
                     <td>Total</td>
                     <td className={styles.numeric}>
-                      <span className={styles.totalPill}>{formatAmount(totalIncome)}</span>
+                      <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
                     </td>
                     <td colSpan={3} />
                   </tr>

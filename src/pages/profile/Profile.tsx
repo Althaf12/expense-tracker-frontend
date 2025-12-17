@@ -86,9 +86,9 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   const {
     fontSize,
     currencyCode,
-    currencySymbol,
     setFontSize,
     setCurrencyCode,
+    formatCurrency,
   } = usePreferences()
 
   const { theme, setTheme } = useTheme()
@@ -118,11 +118,6 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     amount: '',
   })
 
-  const amountFormatter = useMemo(
-    () => new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    [],
-  )
-
   const canManageCategories = Boolean(loginUsername)
   const canManageExpenses = Boolean(loginUsername)
 
@@ -132,9 +127,9 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       if (!Number.isFinite(numeric)) {
         return '-'
       }
-      return `${currencySymbol}${amountFormatter.format(numeric)}`
+      return formatCurrency(numeric)
     },
-    [amountFormatter, currencySymbol],
+    [formatCurrency],
   )
 
   const categoryLookup = useMemo(() => {

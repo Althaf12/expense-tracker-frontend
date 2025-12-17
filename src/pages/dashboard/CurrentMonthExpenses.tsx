@@ -16,7 +16,7 @@ type Props = {
   handleExpenseFilterChange: (field: 'name' | 'amount' | 'date', value: string) => void
   clearExpenseFilters: () => void
   expenseFiltersApplied: boolean
-  formatAmount: (value: number) => string
+  formatCurrency: (value: number) => string
   monthlyTotal: number
   // Pagination props
   currentPage: number
@@ -36,7 +36,7 @@ export default function CurrentMonthExpenses({
   handleExpenseFilterChange,
   clearExpenseFilters,
   expenseFiltersApplied,
-  formatAmount,
+  formatCurrency,
   monthlyTotal,
   currentPage,
   totalPages,
@@ -156,7 +156,7 @@ export default function CurrentMonthExpenses({
                   return (
                     <tr key={key}>
                       <td>{expense.expenseName ?? expense.description ?? '-'}</td>
-                      <td className={styles.numeric}>{formatAmount(Number(expense.amount ?? expense.expenseAmount))}</td>
+                      <td className={styles.numeric}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</td>
                       <td>{expense.expenseDate ? formatToDDMMYYYY(expense.expenseDate) : ''}</td>
                     </tr>
                   )
@@ -167,7 +167,7 @@ export default function CurrentMonthExpenses({
               <tr>
                 <td>Total</td>
                 <td className={styles.numeric}>
-                  <span className={styles.totalPill}>{formatAmount(monthlyTotal)}</span>
+                  <span className={styles.totalPill}>{formatCurrency(monthlyTotal)}</span>
                 </td>
                 <td />
               </tr>

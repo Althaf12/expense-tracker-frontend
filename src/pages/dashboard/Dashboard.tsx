@@ -10,7 +10,6 @@ import {
 } from '../../api'
 import { useAppDataContext } from '../../context/AppDataContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
-import { formatAmount, formatDate } from '../../utils/format'
 import styles from './Dashboard.shared.module.css'
 import useDashboardData from './useDashboardData'
 import SummaryGrid from './SummaryGrid'
@@ -286,7 +285,7 @@ export default function Dashboard(): ReactElement {
             handleCategoryDragEnd={handleCategoryDragEnd}
             handleTemplateMarkPaid={handleTemplateMarkPaid}
             expenseTemplatesTotal={expenseTemplatesTotal}
-            formatAmount={formatAmount}
+            formatCurrency={formatCurrency}
             userExpenses={userExpenses}
             loading={loading}
           />
@@ -298,7 +297,7 @@ export default function Dashboard(): ReactElement {
             handleCategoryFilterChange={handleCategoryFilterChange}
             clearCategoryFilters={clearCategoryFilters}
             categoryFiltersApplied={categoryFiltersApplied}
-            formatAmount={formatAmount}
+            formatCurrency={formatCurrency}
             loading={loading}
           />
         </div>
@@ -312,7 +311,7 @@ export default function Dashboard(): ReactElement {
           handleExpenseFilterChange={handleExpenseFilterChange}
           clearExpenseFilters={clearExpenseFilters}
           expenseFiltersApplied={expenseFiltersApplied}
-          formatAmount={formatAmount}
+          formatCurrency={formatCurrency}
           monthlyTotal={monthlyTotal}
           currentPage={expenseCurrentPage}
           totalPages={expenseTotalPages}
