@@ -25,7 +25,7 @@ type Props = {
   handleCategoryDragEnd: () => void
   handleTemplateMarkPaid: (expense: UserExpense) => Promise<void>
   expenseTemplatesTotal: number
-  formatAmount: (n: number) => string
+  formatCurrency: (n: number) => string
   userExpenses: UserExpense[]
 }
 
@@ -42,7 +42,7 @@ export default function PlannedExpenses({
   handleCategoryDragEnd,
   handleTemplateMarkPaid,
   expenseTemplatesTotal,
-  formatAmount,
+  formatCurrency,
   userExpenses,
   loading = false,
 }: Props): ReactElement {
@@ -126,7 +126,7 @@ export default function PlannedExpenses({
                       <span className={localStyles.dragHandle} aria-hidden="true">⋮⋮</span>
                       <div className={localStyles.plannedCategoryMeta}>
                         <span className={localStyles.plannedCategoryName}>{group.categoryName}</span>
-                        <span className={localStyles.plannedCategoryTotal}>{formatAmount(groupTotal)}</span>
+                        <span className={localStyles.plannedCategoryTotal}>{formatCurrency(groupTotal)}</span>
                       </div>
                     </div>
 
@@ -144,7 +144,7 @@ export default function PlannedExpenses({
                               <li key={expenseId} className={localStyles.plannedExpenseItem}>
                                 <div className={localStyles.plannedExpenseInfo}>
                                   <span className={localStyles.plannedExpenseName}>{expense.userExpenseName}</span>
-                                  <span className={localStyles.plannedExpenseAmount}>{formatAmount(Number(expense.amount ?? 0))}</span>
+                                  <span className={localStyles.plannedExpenseAmount}>{formatCurrency(Number(expense.amount ?? 0))}</span>
                                 </div>
                                 <label className={localStyles.plannedCheckboxLabel}>
                                   <input
@@ -169,7 +169,7 @@ export default function PlannedExpenses({
           </div>
           <div className={localStyles.plannedFooter}>
             <span className={localStyles.plannedFooterLabel}>Total planned</span>
-            <span className={localStyles.plannedFooterAmount}>{formatAmount(expenseTemplatesTotal)}</span>
+            <span className={localStyles.plannedFooterAmount}>{formatCurrency(expenseTemplatesTotal)}</span>
           </div>
         </>
       )}

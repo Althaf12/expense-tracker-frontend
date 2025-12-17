@@ -15,7 +15,7 @@ type Props = {
   handleCategoryFilterChange: (field: 'name' | 'total', value: string) => void
   clearCategoryFilters: () => void
   categoryFiltersApplied: boolean
-  formatAmount: (value: number) => string
+  formatCurrency: (value: number) => string
 }
 
 export default function SpendByCategory({
@@ -26,7 +26,7 @@ export default function SpendByCategory({
   handleCategoryFilterChange,
   clearCategoryFilters,
   categoryFiltersApplied,
-  formatAmount,
+  formatCurrency,
   loading = false,
 }: Props): ReactElement {
   if (loading) {
@@ -123,7 +123,7 @@ export default function SpendByCategory({
                         <td className={styles.numeric}>
                           <div className={localStyles.categoryBar} aria-hidden>
                             <div className={localStyles.categoryBarHeader}>
-                              <div className={localStyles.categoryBarValue}>{formatAmount(entry.total)}</div>
+                              <div className={localStyles.categoryBarValue}>{formatCurrency(entry.total)}</div>
                             </div>
                             <div className={localStyles.categoryBarTrack}>
                               <div className={localStyles.categoryBarFill} style={{ width: `${pct}%` }} />

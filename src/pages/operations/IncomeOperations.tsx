@@ -1,12 +1,17 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react'
+import { useRef } from 'react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
-import type { Income } from '../../types/app'
+import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
-import { formatAmount, formatDate, parseAmount } from '../../utils/format'
+import { formatDate, parseAmount } from '../../utils/format'
+import { usePreferences } from '../../context/PreferencesContext'
 import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
+import Pagination from '../../components/Pagination'
+
+const DEFAULT_PAGE_SIZE = 20
 
 type IncomeViewMode = 'current-year' | 'month' | 'range'
 
@@ -20,8 +25,7 @@ type TableFilters = {
   source: string
   amount: string
   date: string
-  month: string
-  year: string
+  monthYear: string
 }
 
 const initialForm: IncomeFormState = {
@@ -63,6 +67,7 @@ export default function IncomeOperations(): ReactElement {
     incomesCache,
     reloadIncomesCache,
   } = useAppDataContext()
+  const { formatCurrency } = usePreferences()
   const [viewMode, setViewMode] = useState<IncomeViewMode>('current-year')
   const [results, setResults] = useState<Income[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -78,14 +83,23 @@ export default function IncomeOperations(): ReactElement {
     source: '',
     amount: '',
     date: '',
-    month: '',
-    year: '',
+    monthYear: '',
   })
+  const [addingInline, setAddingInline] = useState<boolean>(false)
+  const [inlineAddDraft, setInlineAddDraft] = useState<IncomeFormState | null>(null)
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(0)
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
+  const [totalElements, setTotalElements] = useState<number>(0)
+  const [totalPages, setTotalPages] = useState<number>(1)
+  const initialLoadRef = useRef<boolean>(false)
 
   useEffect(() => {
     if (!session) return
-  void reloadIncomesCache(session.username)
-  void loadIncomes('current-year')
+    if (initialLoadRef.current) return
+    initialLoadRef.current = true
+    // Avoid duplicate loads: only call paged load once on mount
+    void loadIncomes('current-year', undefined, 0, DEFAULT_PAGE_SIZE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
@@ -101,28 +115,30 @@ export default function IncomeOperations(): ReactElement {
     return Array.from(unique).slice(0, 10)
   }, [formState.source, incomesCache])
 
-  const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>) => {
+  const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
     if (!session) return
     const username = session.username
     setLoading(true)
     setStatus({ type: 'loading', message: 'Fetching income records...' })
     try {
-      let data: Income[] = []
+      let response: PagedResponse<Income>
       if (mode === 'current-year') {
         const currentYear = new Date().getFullYear()
-        data = await fetchIncomeByRange({
+        response = await fetchIncomeByRange({
           username,
           fromMonth: '01',
           fromYear: String(currentYear),
           toMonth: '12',
           toYear: String(currentYear),
+          page,
+          size,
         })
         setLastQuery({ mode })
       } else if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
         const month = monthPayload?.month ?? monthFilter
         const year = monthPayload?.year ?? yearFilter
-        data = await fetchIncomeByMonth({ username, month, year })
+        response = await fetchIncomeByMonth({ username, month, year, page, size })
         setLastQuery({ mode, payload: { month, year } })
       } else {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -144,10 +160,13 @@ export default function IncomeOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        data = await fetchIncomeByRange({ username, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4) })
+        response = await fetchIncomeByRange({ username, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4), page, size })
         setLastQuery({ mode, payload: { start, end } })
       }
-      setResults(data)
+      setResults(response.content)
+      setCurrentPage(response.page)
+      setTotalElements(response.totalElements)
+      setTotalPages(response.totalPages)
       setStatus(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -161,10 +180,9 @@ export default function IncomeOperations(): ReactElement {
     const sourceQuery = tableFilters.source.trim().toLowerCase()
     const amountQuery = tableFilters.amount.trim().toLowerCase()
     const dateQuery = tableFilters.date.trim().toLowerCase()
-    const monthQuery = tableFilters.month.trim().toLowerCase()
-    const yearQuery = tableFilters.year.trim().toLowerCase()
+    const monthYearQuery = tableFilters.monthYear.trim().toLowerCase()
 
-    if (!sourceQuery && !amountQuery && !dateQuery && !monthQuery && !yearQuery) {
+    if (!sourceQuery && !amountQuery && !dateQuery && !monthYearQuery) {
       return results
     }
 
@@ -173,7 +191,7 @@ export default function IncomeOperations(): ReactElement {
 
       const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
       const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const formattedAmount = formatCurrency(numericAmount).toLowerCase()
 
       const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
       const formattedDate = formatDate(income.receivedDate).toLowerCase()
@@ -183,6 +201,7 @@ export default function IncomeOperations(): ReactElement {
         typeof income.month === 'number' ? MONTHS[income.month - 1] ?? String(income.month) : income.month
       const monthDisplay = (normalizedMonth ?? derived?.monthName ?? '').toString().toLowerCase()
       const yearDisplay = String(income.year ?? derived?.year ?? '').toLowerCase()
+      const monthYearDisplay = `${monthDisplay}, ${yearDisplay}`.toLowerCase()
 
       if (sourceQuery && !sourceValue.includes(sourceQuery)) {
         return false
@@ -193,10 +212,7 @@ export default function IncomeOperations(): ReactElement {
       if (dateQuery && !rawDate.includes(dateQuery) && !formattedDate.includes(dateQuery)) {
         return false
       }
-      if (monthQuery && !monthDisplay.includes(monthQuery)) {
-        return false
-      }
-      if (yearQuery && !yearDisplay.includes(yearQuery)) {
+      if (monthYearQuery && !monthYearDisplay.includes(monthYearQuery)) {
         return false
       }
 
@@ -266,7 +282,7 @@ export default function IncomeOperations(): ReactElement {
       setStatus({ type: 'success', message: 'Income updated.' })
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
       cancelInlineEdit()
     } catch (error) {
@@ -307,9 +323,63 @@ export default function IncomeOperations(): ReactElement {
       setStatus({ type: 'success', message: 'Income added.' })
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
       setFormState(initialForm)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message })
+    }
+  }
+
+  const beginInlineAdd = () => {
+    setAddingInline(true)
+    setInlineAddDraft({ source: '', amount: '', receivedDate: new Date().toISOString().slice(0, 10) })
+    setEditingRowId(null)
+  }
+
+  const cancelInlineAdd = () => {
+    setAddingInline(false)
+    setInlineAddDraft(null)
+  }
+
+  const updateInlineAddDraft = (field: keyof IncomeFormState, value: string) => {
+    setInlineAddDraft((previous) => (previous ? { ...previous, [field]: value } : previous))
+  }
+
+  const confirmInlineAdd = async () => {
+    if (!session || !inlineAddDraft) return
+    const { source, amount, receivedDate } = inlineAddDraft
+    if (!source.trim()) {
+      setStatus({ type: 'error', message: 'Provide an income source.' })
+      return
+    }
+    const numericAmount = parseAmount(amount)
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setStatus({ type: 'error', message: 'Provide a valid income amount.' })
+      return
+    }
+    if (!receivedDate) {
+      setStatus({ type: 'error', message: 'Select a received date.' })
+      return
+    }
+    const { monthName, monthNumber, year } = deriveMonthYear(receivedDate)
+    setStatus({ type: 'loading', message: 'Adding income...' })
+    try {
+      await addIncome({
+        username: session.username,
+        source,
+        amount: numericAmount,
+        receivedDate,
+        month: monthName,
+        year,
+      })
+      setStatus({ type: 'success', message: 'Income added.' })
+      await reloadIncomesCache(session.username)
+      if (lastQuery) {
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
+      }
+      cancelInlineAdd()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message })
@@ -334,7 +404,7 @@ export default function IncomeOperations(): ReactElement {
       }
       await reloadIncomesCache(session.username)
       if (lastQuery) {
-        await loadIncomes(lastQuery.mode, lastQuery.payload)
+        await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -356,7 +426,22 @@ export default function IncomeOperations(): ReactElement {
   }
 
   const clearFilters = () => {
-    setTableFilters({ source: '', amount: '', date: '', month: '', year: '' })
+    setTableFilters({ source: '', amount: '', date: '', monthYear: '' })
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    if (lastQuery) {
+      void loadIncomes(lastQuery.mode, lastQuery.payload, page, pageSize)
+    }
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setCurrentPage(0) // Reset to first page when page size changes
+    if (lastQuery) {
+      void loadIncomes(lastQuery.mode, lastQuery.payload, 0, size)
+    }
   }
 
   return (
@@ -379,7 +464,8 @@ export default function IncomeOperations(): ReactElement {
             className={styles.filterRow}
             onSubmit={(event) => {
               event.preventDefault()
-              void loadIncomes(viewMode)
+              setCurrentPage(0) // Reset to first page on new search
+              void loadIncomes(viewMode, undefined, 0, pageSize)
             }}
           >
             <div className={styles.modeSelector}>
@@ -463,8 +549,7 @@ export default function IncomeOperations(): ReactElement {
               loading ? (
                 <div style={{padding:16}}>
                   {[0,1,2,3].map((i) => (
-                    <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 120px 120px 120px 80px 80px',gap:12,alignItems:'center',marginBottom:12}}>
-                      <div><Skeleton /></div>
+                    <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 120px 120px 120px 80px',gap:12,alignItems:'center',marginBottom:12}}>
                       <div><Skeleton /></div>
                       <div><Skeleton /></div>
                       <div><Skeleton /></div>
@@ -485,8 +570,7 @@ export default function IncomeOperations(): ReactElement {
                     <th scope="col">Source</th>
                     <th scope="col" className={styles.numeric}>Amount</th>
                     <th scope="col">Received</th>
-                    <th scope="col">Month</th>
-                    <th scope="col">Year</th>
+                    <th scope="col">Month &amp; Year</th>
                     <th scope="col" className={styles.actions}>Actions</th>
                   </tr>
                   <tr className={styles.tableFilterRow}>
@@ -521,33 +605,73 @@ export default function IncomeOperations(): ReactElement {
                       <input
                         className={styles.tableFilterInput}
                         type="search"
-                        placeholder="Filter month"
-                        value={tableFilters.month}
-                        onChange={(event) => handleFilterChange('month', event.target.value)}
+                        placeholder="Filter month & year"
+                        value={tableFilters.monthYear}
+                        onChange={(event) => handleFilterChange('monthYear', event.target.value)}
                       />
                     </th>
                     <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter year"
-                        value={tableFilters.year}
-                        onChange={(event) => handleFilterChange('year', event.target.value)}
-                      />
-                    </th>
-                    <th scope="col">
-                      {filtersApplied && (
-                        <button type="button" onClick={clearFilters}>
-                          Clear
+                      <div style={{display:'flex',gap:8,justifyContent:'center',alignItems:'center'}}>
+                        <button
+                          type="button"
+                          className={styles.primaryButton}
+                          onClick={() => (addingInline ? cancelInlineAdd() : beginInlineAdd())}
+                        >
+                          {addingInline ? 'Close' : 'Add Income'}
                         </button>
-                      )}
+                        {filtersApplied && (
+                          <button type="button" onClick={clearFilters}>
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
+                  {addingInline && inlineAddDraft && (
+                    <tr key="__inline_add">
+                      <td>
+                        <input
+                          className={styles.inlineInput}
+                          type="text"
+                          value={inlineAddDraft.source}
+                          onChange={(e) => updateInlineAddDraft('source', e.target.value)}
+                          placeholder="Source"
+                        />
+                      </td>
+                      <td className={styles.numeric}>
+                        <input
+                          className={styles.inlineInput}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={inlineAddDraft.amount}
+                          onChange={(e) => updateInlineAddDraft('amount', e.target.value)}
+                        />
+                      </td>
+                      <td className={styles.date}>
+                        <input
+                          className={styles.inlineInput}
+                          type="date"
+                          value={inlineAddDraft.receivedDate}
+                          onChange={(e) => updateInlineAddDraft('receivedDate', e.target.value)}
+                        />
+                      </td>
+                      <td />
+                      <td className={styles.actions}>
+                        <button type="button" onClick={() => void confirmInlineAdd()}>
+                          Confirm
+                        </button>
+                        <button type="button" onClick={cancelInlineAdd}>
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                   {filteredResults.length === 0 ? (
                     <tr className={styles.emptyRow}>
-                      <td colSpan={6}>No income entries match the current filters.</td>
+                      <td colSpan={5}>No income entries match the current filters.</td>
                     </tr>
                   ) : (
                     filteredResults.map((income) => {
@@ -592,7 +716,7 @@ export default function IncomeOperations(): ReactElement {
                                 onChange={(event) => updateInlineDraft('amount', event.target.value)}
                               />
                             ) : (
-                              formatAmount(income.amount)
+                              formatCurrency(Number(income.amount ?? 0))
                             )}
                           </td>
                           <td className={styles.date}>
@@ -607,8 +731,7 @@ export default function IncomeOperations(): ReactElement {
                               formatDate(income.receivedDate)
                             )}
                           </td>
-                          <td>{monthDisplay}</td>
-                          <td>{yearDisplay}</td>
+                          <td>{monthDisplay}, {yearDisplay}</td>
                           <td className={styles.actions}>
                             {isEditing ? (
                               <>
@@ -639,14 +762,26 @@ export default function IncomeOperations(): ReactElement {
                   <tr>
                     <td>Total</td>
                     <td className={styles.numeric}>
-                      <span className={styles.totalPill}>{formatAmount(totalIncome)}</span>
+                      <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
                     </td>
-                    <td colSpan={4} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>
             )}
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            loading={loading}
+          />
+
+          
         </section>
       </Grid>
 

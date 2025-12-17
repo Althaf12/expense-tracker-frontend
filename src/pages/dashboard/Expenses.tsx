@@ -1,6 +1,7 @@
 import type { Expense } from '../../types/app'
 import type { ReactElement } from 'react'
-import { formatAmount, formatDate } from '../../utils/format'
+import { formatDate } from '../../utils/format'
+import { usePreferences } from '../../context/PreferencesContext'
 import styles from './Expenses.module.css'
 
 type ExpensesProps = {
@@ -9,6 +10,7 @@ type ExpensesProps = {
 
 export default function Expenses({ expenses = [] }: ExpensesProps): ReactElement {
   const items = Array.isArray(expenses) ? expenses : []
+  const { formatCurrency } = usePreferences()
 
   return (
     <section className={styles.wrapper}>
@@ -35,7 +37,7 @@ export default function Expenses({ expenses = [] }: ExpensesProps): ReactElement
                 return (
                   <tr key={key}>
                     <td>{expense.expenseName ?? '-'}</td>
-                    <td className={styles.numeric}>{formatAmount(expense.expenseAmount)}</td>
+                    <td className={styles.numeric}>{formatCurrency(Number(expense.expenseAmount ?? 0))}</td>
                     <td>{formatDate(expense.expenseDate)}</td>
                   </tr>
                 )

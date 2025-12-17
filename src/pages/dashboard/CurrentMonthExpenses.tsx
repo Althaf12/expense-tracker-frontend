@@ -5,6 +5,7 @@ import type { Expense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './CurrentMonthExpenses.module.css'
 import Skeleton from '../../components/Skeleton'
+import Pagination from '../../components/Pagination'
 
 type Props = {
   label: string
@@ -15,8 +16,15 @@ type Props = {
   handleExpenseFilterChange: (field: 'name' | 'amount' | 'date', value: string) => void
   clearExpenseFilters: () => void
   expenseFiltersApplied: boolean
-  formatAmount: (value: number) => string
+  formatCurrency: (value: number) => string
   monthlyTotal: number
+  // Pagination props
+  currentPage: number
+  totalPages: number
+  totalElements: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
 
 export default function CurrentMonthExpenses({
@@ -28,8 +36,14 @@ export default function CurrentMonthExpenses({
   handleExpenseFilterChange,
   clearExpenseFilters,
   expenseFiltersApplied,
-  formatAmount,
+  formatCurrency,
   monthlyTotal,
+  currentPage,
+  totalPages,
+  totalElements,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }: Props): ReactElement {
   const formatToDDMMYYYY = (value: unknown): string => {
     if (value === undefined || value === null) return ''
@@ -142,7 +156,7 @@ export default function CurrentMonthExpenses({
                   return (
                     <tr key={key}>
                       <td>{expense.expenseName ?? expense.description ?? '-'}</td>
-                      <td className={styles.numeric}>{formatAmount(Number(expense.amount ?? expense.expenseAmount))}</td>
+                      <td className={styles.numeric}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</td>
                       <td>{expense.expenseDate ? formatToDDMMYYYY(expense.expenseDate) : ''}</td>
                     </tr>
                   )
@@ -153,12 +167,21 @@ export default function CurrentMonthExpenses({
               <tr>
                 <td>Total</td>
                 <td className={styles.numeric}>
-                  <span className={styles.totalPill}>{formatAmount(monthlyTotal)}</span>
+                  <span className={styles.totalPill}>{formatCurrency(monthlyTotal)}</span>
                 </td>
                 <td />
               </tr>
             </tfoot>
           </table>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            loading={loading}
+          />
         </div>
       )}
     </section>

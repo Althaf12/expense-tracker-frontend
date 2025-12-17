@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode } from '../types/app'
+import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse } from '../types/app'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -259,14 +259,32 @@ export async function resolveUserExpenseCategoryId(payload: {
   return null
 }
 
-export async function fetchExpensesByRange(payload: { username: string; start: string; end: string }): Promise<Expense[]> {
-  const result = await request('/expense/range', { body: payload })
-  return Array.isArray(result) ? (result as Expense[]) : []
+export async function fetchExpensesByRange(payload: { username: string; start: string; end: string; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+  const body: Record<string, unknown> = { username: payload.username, start: payload.start, end: payload.end }
+  if (typeof payload.page === 'number') body.page = payload.page
+  if (typeof payload.size === 'number') body.size = payload.size
+  const result = await request('/expense/range', { body })
+  // Handle both paginated and legacy array responses
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
+    return result as PagedResponse<Expense>
+  }
+  // Legacy fallback: wrap array in PagedResponse format
+  const arr = Array.isArray(result) ? (result as Expense[]) : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchExpensesByMonth(payload: { username: string; month: number; year: number }): Promise<Expense[]> {
-  const result = await request('/expense/month', { body: payload })
-  return Array.isArray(result) ? (result as Expense[]) : []
+export async function fetchExpensesByMonth(payload: { username: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+  const body: Record<string, unknown> = { username: payload.username, month: payload.month, year: payload.year }
+  if (typeof payload.page === 'number') body.page = payload.page
+  if (typeof payload.size === 'number') body.size = payload.size
+  const result = await request('/expense/month', { body })
+  // Handle both paginated and legacy array responses
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
+    return result as PagedResponse<Expense>
+  }
+  // Legacy fallback: wrap array in PagedResponse format
+  const arr = Array.isArray(result) ? (result as Expense[]) : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
 export async function fetchExpensesByYear(payload: { username: string; year: number }): Promise<Expense[]> {
@@ -332,14 +350,40 @@ export async function fetchIncomeByRange(payload: {
   fromYear: string | number
   toMonth: string | number
   toYear: string | number
-}): Promise<Income[]> {
-  const result = await request('/income/range', { body: payload })
-  return Array.isArray(result) ? (result as Income[]) : []
+  page?: number
+  size?: number
+}): Promise<PagedResponse<Income>> {
+  const body: Record<string, unknown> = {
+    username: payload.username,
+    fromMonth: payload.fromMonth,
+    fromYear: payload.fromYear,
+    toMonth: payload.toMonth,
+    toYear: payload.toYear,
+  }
+  if (typeof payload.page === 'number') body.page = payload.page
+  if (typeof payload.size === 'number') body.size = payload.size
+  const result = await request('/income/range', { body })
+  // Handle both paginated and legacy array responses
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
+    return result as PagedResponse<Income>
+  }
+  // Legacy fallback: wrap array in PagedResponse format
+  const arr = Array.isArray(result) ? (result as Income[]) : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchIncomeByMonth(payload: { username: string; month: number; year: number }): Promise<Income[]> {
-  const result = await request('/income/month', { body: payload })
-  return Array.isArray(result) ? (result as Income[]) : []
+export async function fetchIncomeByMonth(payload: { username: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Income>> {
+  const body: Record<string, unknown> = { username: payload.username, month: payload.month, year: payload.year }
+  if (typeof payload.page === 'number') body.page = payload.page
+  if (typeof payload.size === 'number') body.size = payload.size
+  const result = await request('/income/month', { body })
+  // Handle both paginated and legacy array responses
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
+    return result as PagedResponse<Income>
+  }
+  // Legacy fallback: wrap array in PagedResponse format
+  const arr = Array.isArray(result) ? (result as Income[]) : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
 export async function fetchIncomeLastYear(username: string, currentYear: number): Promise<Income[]> {

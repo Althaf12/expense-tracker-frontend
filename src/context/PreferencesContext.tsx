@@ -153,16 +153,27 @@ export function PreferencesProvider({
 
   const currencySymbol = useMemo(() => CURRENCY_SYMBOLS[currencyCode], [currencyCode])
 
+  const numberFormatter = useMemo(() => {
+    const locale = currencyCode === 'INR' ? 'en-IN' : 'en-US'
+    return new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  }, [currencyCode])
+
   const formatCurrency = useCallback(
     (amount: number): string => {
-      const symbol = CURRENCY_SYMBOLS[currencyCode]
-      const formatted = new Intl.NumberFormat(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount)
-      return `${symbol}${formatted}`
+      if (!Number.isFinite(amount)) {
+        return '-'
+      }
+      const symbol = CURRENCY_SYMBOLS[currencyCode] ?? currencyCode
+      try {
+        return `${symbol}${numberFormatter.format(amount)}`
+      } catch {
+        return `${symbol}${amount.toFixed(2)}`
+      }
     },
-    [currencyCode]
+    [currencyCode, numberFormatter]
   )
 
   const value = useMemo(

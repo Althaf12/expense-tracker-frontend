@@ -10,7 +10,7 @@ import ExpensesOperations from './pages/operations/ExpensesOperations'
 import IncomeOperations from './pages/operations/IncomeOperations'
 import Profile from './pages/profile/Profile'
 import {
-  fetchExpenses as apiFetchExpenses,
+  fetchExpensesByMonth as apiFetchExpensesByMonth,
   forgotPassword as apiForgotPassword,
   fetchIncomeLastYear as apiFetchIncomeLastYear,
   fetchUserExpenseCategoriesActive as apiFetchUserExpenseCategoriesActive,
@@ -101,6 +101,10 @@ export default function App(): ReactElement {
       setExpenseCategories([])
       return []
     }
+    // If we already have categories loaded for this session, reuse them to avoid duplicate API calls
+    if (expenseCategories && expenseCategories.length > 0) {
+      return expenseCategories
+    }
     const categories = await apiFetchUserExpenseCategoriesActive(username)
     setExpenseCategories(categories)
     return categories
@@ -130,9 +134,19 @@ export default function App(): ReactElement {
 
   const reloadExpensesCache = useCallback(async (username: string): Promise<Expense[]> => {
     if (!username) return []
-    const list = await apiFetchExpenses(username)
-    setExpensesCache(list)
-    return list
+    const now = new Date()
+    const month = now.getMonth() + 1
+    const year = now.getFullYear()
+    try {
+      const paged = await apiFetchExpensesByMonth({ username, month, year, page: 0, size: 20 })
+      const list = Array.isArray((paged as any).content) ? (paged as any).content as Expense[] : []
+      setExpensesCache(list)
+      return list
+    } catch {
+      // fallback to empty cache on error
+      setExpensesCache([])
+      return []
+    }
   }, [])
 
   const reloadIncomesCache = useCallback(async (username: string): Promise<Income[]> => {

@@ -10,7 +10,7 @@ import {
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
-import { formatAmount, formatDate } from '../../utils/format'
+import { formatDate } from '../../utils/format'
 
 const getCurrentMonthContext = () => {
   const current = new Date()
@@ -123,7 +123,7 @@ export default function useDashboardData() {
     activeUserExpenses,
   } = useAppDataContext()
 
-  const { currencyCode } = usePreferences()
+  const { formatCurrency: preferencesFormatCurrency } = usePreferences()
 
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
@@ -137,6 +137,11 @@ export default function useDashboardData() {
   const [templateCategoryOrder, setTemplateCategoryOrder] = useState<string[]>([])
   const [templateSaving, setTemplateSaving] = useState<Record<string, boolean>>({})
   const dragCategoryIdRef = useRef<string | null>(null)
+  // Pagination state for current month expenses
+  const [expenseCurrentPage, setExpenseCurrentPage] = useState<number>(0)
+  const [expensePageSize, setExpensePageSize] = useState<number>(20)
+  const [expenseTotalElements, setExpenseTotalElements] = useState<number>(0)
+  const [expenseTotalPages, setExpenseTotalPages] = useState<number>(1)
 
   const visibleTemplates = useMemo(() => activeUserExpenses.filter((expense) => (expense.status ?? 'A') === 'A'), [activeUserExpenses])
 
@@ -164,14 +169,14 @@ export default function useDashboardData() {
     void (async () => {
       try {
         const [
-          currentExpenses,
-          previousExpenses,
-          currentIncomeData,
-          previousIncomeData,
-          twoMonthsAgoIncomeData,
+          currentExpensesResponse,
+          previousExpensesResponse,
+          currentIncomeResponse,
+          previousIncomeResponse,
+          twoMonthsAgoIncomeResponse,
           previousMonthBalance,
         ] = await Promise.all([
-          fetchExpensesByMonth({ username, month, year }),
+          fetchExpensesByMonth({ username, month, year, page: expenseCurrentPage, size: expensePageSize }),
           fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ username, month, year }),
           fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
@@ -181,11 +186,14 @@ export default function useDashboardData() {
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
 
-        setMonthlyExpenses(currentExpenses)
-        setPreviousMonthExpenses(previousExpenses)
-        setCurrentMonthIncome(currentIncomeData)
-        setPreviousMonthIncome(previousIncomeData)
-        setTwoMonthsAgoIncome(twoMonthsAgoIncomeData)
+        setMonthlyExpenses(currentExpensesResponse.content)
+        setExpenseTotalElements(currentExpensesResponse.totalElements)
+        setExpenseTotalPages(currentExpensesResponse.totalPages)
+        setExpenseCurrentPage(currentExpensesResponse.page)
+        setPreviousMonthExpenses(previousExpensesResponse.content)
+        setCurrentMonthIncome(currentIncomeResponse.content)
+        setPreviousMonthIncome(previousIncomeResponse.content)
+        setTwoMonthsAgoIncome(twoMonthsAgoIncomeResponse.content)
 
         const mb = previousMonthBalance as (import('../../types/app').MonthlyBalance | null)
         const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
@@ -255,7 +263,7 @@ export default function useDashboardData() {
       const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
       const numericAmount = amountFromExpense(expense)
       const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatAmount(numericAmount).toLowerCase()
+      const formattedAmount = preferencesFormatCurrency(numericAmount).toLowerCase()
       const rawDate = (expense.expenseDate ?? '').toString().toLowerCase()
       const prettyDate = formatDate(expense.expenseDate).toLowerCase()
 
@@ -411,7 +419,7 @@ export default function useDashboardData() {
 
   const monthlyTemplateProgress = useMemo(() => (visibleTemplates.length === 0 ? 0 : (completedMonthlyTemplates / visibleTemplates.length) * 100), [visibleTemplates.length, completedMonthlyTemplates])
 
-  const unpaidTemplatesTotal = useMemo(() => visibleTemplates.reduce((sum, expense) => ((expense.paid ?? 'N') === 'Y' ? sum : sum + amountFromUserExpense(expense)), 0), [visibleTemplates])
+  const unpaidPlannedExpensesTotal = useMemo(() => visibleTemplates.reduce((sum, expense) => ((expense.paid ?? 'N') === 'Y' ? sum : sum + amountFromUserExpense(expense)), 0), [visibleTemplates])
 
   const monthlyTotal = useMemo(() => filteredMonthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0), [filteredMonthlyExpenses])
 
@@ -438,11 +446,10 @@ export default function useDashboardData() {
 
   const expenseTrend = useMemo(() => calculateTrend(currentMonthExpenseTotal, previousMonthExpenseTotal, false), [currentMonthExpenseTotal, previousMonthExpenseTotal])
 
-  const totalAfterDueBalance = useMemo(() => totalBalance - unpaidTemplatesTotal, [totalBalance, unpaidTemplatesTotal])
+  const totalAfterDueBalance = useMemo(() => totalBalance - unpaidPlannedExpensesTotal, [totalBalance, unpaidPlannedExpensesTotal])
 
-  const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }), [currencyCode])
-
-  const formatCurrency = (value: number) => currencyFormatter.format(value)
+  // Currency formatting is provided by preferences via `preferencesFormatCurrency`.
+  // Removed local `currencyFormatter` that referenced an undefined `currencyCode`.
 
   const incomeMonthLabel = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
@@ -521,8 +528,10 @@ export default function useDashboardData() {
 
       await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
 
-      const refreshed = await fetchExpensesByMonth({ username: session.username, month, year })
-      setMonthlyExpenses(refreshed)
+      const refreshed = await fetchExpensesByMonth({ username: session.username, month, year, page: expenseCurrentPage, size: expensePageSize })
+      setMonthlyExpenses(refreshed.content)
+      setExpenseTotalElements(refreshed.totalElements)
+      setExpenseTotalPages(refreshed.totalPages)
     } catch (error) {
       if (paidUpdated) {
         try {
@@ -616,7 +625,7 @@ export default function useDashboardData() {
     return categorySummary.filter((entry) => {
       const nameValue = entry.name.toLowerCase()
       const totalString = entry.total.toFixed(2)
-      const formattedTotal = formatAmount(entry.total).toLowerCase()
+      const formattedTotal = preferencesFormatCurrency(entry.total).toLowerCase()
       if (nameQuery && !nameValue.includes(nameQuery)) return false
       if (totalQuery && !totalString.includes(totalQuery) && !formattedTotal.includes(totalQuery)) return false
       return true
@@ -633,6 +642,49 @@ export default function useDashboardData() {
 
   const clearExpenseFilters = () => setExpenseTableFilters({ name: '', amount: '', date: '' })
   const clearCategoryFilters = () => setCategoryTableFilters({ name: '', total: '' })
+
+  const handleExpensePageChange = useCallback((page: number) => {
+    if (!session) return
+    const username = session.username
+    setExpenseCurrentPage(page)
+    setLoading(true)
+    void (async () => {
+      try {
+        const response = await fetchExpensesByMonth({ username, month, year, page, size: expensePageSize })
+        setMonthlyExpenses(response.content)
+        setExpenseTotalElements(response.totalElements)
+        setExpenseTotalPages(response.totalPages)
+        setExpenseCurrentPage(response.page)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setStatus({ type: 'error', message })
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [session, month, year, expensePageSize, setStatus])
+
+  const handleExpensePageSizeChange = useCallback((size: number) => {
+    if (!session) return
+    const username = session.username
+    setExpensePageSize(size)
+    setExpenseCurrentPage(0)
+    setLoading(true)
+    void (async () => {
+      try {
+        const response = await fetchExpensesByMonth({ username, month, year, page: 0, size })
+        setMonthlyExpenses(response.content)
+        setExpenseTotalElements(response.totalElements)
+        setExpenseTotalPages(response.totalPages)
+        setExpenseCurrentPage(response.page)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setStatus({ type: 'error', message })
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [session, month, year, setStatus])
 
   return {
     userExpenses,
@@ -663,7 +715,7 @@ export default function useDashboardData() {
     expenseTemplatesTotal,
     completedMonthlyTemplates,
     monthlyTemplateProgress,
-    unpaidTemplatesTotal,
+    unpaidPlannedExpensesTotal,
     monthlyTotal,
     currentMonthExpenseTotal,
     previousMonthExpenseTotal,
@@ -676,7 +728,7 @@ export default function useDashboardData() {
     incomeTrend,
     expenseTrend,
     totalAfterDueBalance,
-    formatCurrency,
+    formatCurrency: preferencesFormatCurrency,
     incomeMonthLabel,
     getTrendHint,
     handleCategoryDragStart,
@@ -693,5 +745,12 @@ export default function useDashboardData() {
     filteredCategorySummary,
     expenseFiltersApplied,
     categoryFiltersApplied,
+    // Pagination
+    expenseCurrentPage,
+    expensePageSize,
+    expenseTotalElements,
+    expenseTotalPages,
+    handleExpensePageChange,
+    handleExpensePageSizeChange,
   }
 }
