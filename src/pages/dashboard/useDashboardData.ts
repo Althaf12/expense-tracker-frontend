@@ -447,13 +447,9 @@ export default function useDashboardData() {
   const expenseTrend = useMemo(() => calculateTrend(currentMonthExpenseTotal, previousMonthExpenseTotal, false), [currentMonthExpenseTotal, previousMonthExpenseTotal])
 
   const totalAfterDueBalance = useMemo(() => totalBalance - unpaidPlannedExpensesTotal, [totalBalance, unpaidPlannedExpensesTotal])
-<<<<<<< HEAD
-=======
 
-  const currencyFormatter = useMemo(() => new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }), [currencyCode])
-
-  const formatCurrency = (value: number) => currencyFormatter.format(value)
->>>>>>> 3bba25242f86e5bcafb1738532023bdbb2839cfe
+  // Currency formatting is provided by preferences via `preferencesFormatCurrency`.
+  // Removed local `currencyFormatter` that referenced an undefined `currencyCode`.
 
   const incomeMonthLabel = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
