@@ -20,8 +20,7 @@ type TableFilters = {
   source: string
   amount: string
   date: string
-  month: string
-  year: string
+  monthYear: string
 }
 
 const initialForm: IncomeFormState = {
@@ -78,8 +77,7 @@ export default function IncomeOperations(): ReactElement {
     source: '',
     amount: '',
     date: '',
-    month: '',
-    year: '',
+    monthYear: '',
   })
   const [addingInline, setAddingInline] = useState<boolean>(false)
   const [inlineAddDraft, setInlineAddDraft] = useState<IncomeFormState | null>(null)
@@ -163,10 +161,9 @@ export default function IncomeOperations(): ReactElement {
     const sourceQuery = tableFilters.source.trim().toLowerCase()
     const amountQuery = tableFilters.amount.trim().toLowerCase()
     const dateQuery = tableFilters.date.trim().toLowerCase()
-    const monthQuery = tableFilters.month.trim().toLowerCase()
-    const yearQuery = tableFilters.year.trim().toLowerCase()
+    const monthYearQuery = tableFilters.monthYear.trim().toLowerCase()
 
-    if (!sourceQuery && !amountQuery && !dateQuery && !monthQuery && !yearQuery) {
+    if (!sourceQuery && !amountQuery && !dateQuery && !monthYearQuery) {
       return results
     }
 
@@ -185,6 +182,7 @@ export default function IncomeOperations(): ReactElement {
         typeof income.month === 'number' ? MONTHS[income.month - 1] ?? String(income.month) : income.month
       const monthDisplay = (normalizedMonth ?? derived?.monthName ?? '').toString().toLowerCase()
       const yearDisplay = String(income.year ?? derived?.year ?? '').toLowerCase()
+      const monthYearDisplay = `${monthDisplay}, ${yearDisplay}`.toLowerCase()
 
       if (sourceQuery && !sourceValue.includes(sourceQuery)) {
         return false
@@ -195,10 +193,7 @@ export default function IncomeOperations(): ReactElement {
       if (dateQuery && !rawDate.includes(dateQuery) && !formattedDate.includes(dateQuery)) {
         return false
       }
-      if (monthQuery && !monthDisplay.includes(monthQuery)) {
-        return false
-      }
-      if (yearQuery && !yearDisplay.includes(yearQuery)) {
+      if (monthYearQuery && !monthYearDisplay.includes(monthYearQuery)) {
         return false
       }
 
@@ -412,7 +407,7 @@ export default function IncomeOperations(): ReactElement {
   }
 
   const clearFilters = () => {
-    setTableFilters({ source: '', amount: '', date: '', month: '', year: '' })
+    setTableFilters({ source: '', amount: '', date: '', monthYear: '' })
   }
 
   return (
@@ -519,8 +514,7 @@ export default function IncomeOperations(): ReactElement {
               loading ? (
                 <div style={{padding:16}}>
                   {[0,1,2,3].map((i) => (
-                    <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 120px 120px 120px 80px 80px',gap:12,alignItems:'center',marginBottom:12}}>
-                      <div><Skeleton /></div>
+                    <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 120px 120px 120px 80px',gap:12,alignItems:'center',marginBottom:12}}>
                       <div><Skeleton /></div>
                       <div><Skeleton /></div>
                       <div><Skeleton /></div>
@@ -541,8 +535,7 @@ export default function IncomeOperations(): ReactElement {
                     <th scope="col">Source</th>
                     <th scope="col" className={styles.numeric}>Amount</th>
                     <th scope="col">Received</th>
-                    <th scope="col">Month</th>
-                    <th scope="col">Year</th>
+                    <th scope="col">Month &amp; Year</th>
                     <th scope="col" className={styles.actions}>Actions</th>
                   </tr>
                   <tr className={styles.tableFilterRow}>
@@ -577,18 +570,9 @@ export default function IncomeOperations(): ReactElement {
                       <input
                         className={styles.tableFilterInput}
                         type="search"
-                        placeholder="Filter month"
-                        value={tableFilters.month}
-                        onChange={(event) => handleFilterChange('month', event.target.value)}
-                      />
-                    </th>
-                    <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter year"
-                        value={tableFilters.year}
-                        onChange={(event) => handleFilterChange('year', event.target.value)}
+                        placeholder="Filter month & year"
+                        value={tableFilters.monthYear}
+                        onChange={(event) => handleFilterChange('monthYear', event.target.value)}
                       />
                     </th>
                     <th scope="col">
@@ -640,7 +624,6 @@ export default function IncomeOperations(): ReactElement {
                         />
                       </td>
                       <td />
-                      <td />
                       <td className={styles.actions}>
                         <button type="button" onClick={() => void confirmInlineAdd()}>
                           Confirm
@@ -653,7 +636,7 @@ export default function IncomeOperations(): ReactElement {
                   )}
                   {filteredResults.length === 0 ? (
                     <tr className={styles.emptyRow}>
-                      <td colSpan={6}>No income entries match the current filters.</td>
+                      <td colSpan={5}>No income entries match the current filters.</td>
                     </tr>
                   ) : (
                     filteredResults.map((income) => {
@@ -713,8 +696,7 @@ export default function IncomeOperations(): ReactElement {
                               formatDate(income.receivedDate)
                             )}
                           </td>
-                          <td>{monthDisplay}</td>
-                          <td>{yearDisplay}</td>
+                          <td>{monthDisplay}, {yearDisplay}</td>
                           <td className={styles.actions}>
                             {isEditing ? (
                               <>
@@ -747,7 +729,7 @@ export default function IncomeOperations(): ReactElement {
                     <td className={styles.numeric}>
                       <span className={styles.totalPill}>{formatAmount(totalIncome)}</span>
                     </td>
-                    <td colSpan={4} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>
