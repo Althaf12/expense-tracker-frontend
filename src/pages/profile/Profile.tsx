@@ -480,7 +480,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       return
     }
     setExpenseActionInFlight(true)
-    setStatus({ type: 'loading', message: 'Updating expense template…' })
+    setStatus({ type: 'loading', message: 'Updating planned expense…' })
     try {
       await updateUserExpense({
         username: loginUsername,
@@ -490,7 +490,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
         amount: amountValue,
         status: expenseDraft.status,
       })
-      setStatus({ type: 'success', message: 'Expense template updated.' })
+      setStatus({ type: 'success', message: 'Planned expense updated.' })
       cancelExpenseEdit()
       await refreshUserExpenses()
     } catch (error) {
@@ -503,13 +503,13 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const handleDeleteExpense = async (expense: UserExpense) => {
     if (!loginUsername) return
-    const confirmed = window.confirm(`Delete the expense template "${expense.userExpenseName}"?`)
+    const confirmed = window.confirm(`Delete the planned expense "${expense.userExpenseName}"?`)
     if (!confirmed) return
     setExpenseActionInFlight(true)
-    setStatus({ type: 'loading', message: 'Deleting expense template…' })
+    setStatus({ type: 'loading', message: 'Deleting planned expense…' })
     try {
       await deleteUserExpense({ username: loginUsername, id: expense.userExpensesId })
-      setStatus({ type: 'success', message: 'Expense template deleted.' })
+      setStatus({ type: 'success', message: 'Planned expense deleted.' })
       await refreshUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -541,7 +541,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       return
     }
     setExpenseActionInFlight(true)
-    setStatus({ type: 'loading', message: 'Adding expense template…' })
+    setStatus({ type: 'loading', message: 'Adding planned expense…' })
     try {
       await createUserExpense({
         username: loginUsername,
@@ -551,7 +551,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
         status: expenseAddDraft.status,
         paid: 'N',
       })
-      setStatus({ type: 'success', message: 'Expense template added.' })
+      setStatus({ type: 'success', message: 'Planned expense added.' })
       cancelAddExpense()
       await refreshUserExpenses()
     } catch (error) {
@@ -910,7 +910,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
             {!hasActiveCategory && expenses.length === 0 && (
               <p className={styles.helperNote}>
-                Activate at least one category before adding expense templates.
+                Activate at least one category before adding planned expenses.
               </p>
             )}
 
@@ -926,7 +926,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
                 ))}
               </div>
             ) : expenses.length === 0 && !addingExpense ? (
-              <p className={styles.placeholder}>No expense templates yet. Add your first template below.</p>
+              <p className={styles.placeholder}>No planned expenses yet. Add your first planned expense below.</p>
             ) : (
               <div className={styles.tableContainer}>
                 <table className={styles.table}>
@@ -1120,16 +1120,16 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
                 onClick={beginAddExpense}
                 disabled={expenseActionInFlight || !hasActiveCategory}
               >
-                Add expense template
+                Add planned expense
               </button>
             )}
 
             {expenseLimitReached && !addingExpense && (
-              <p className={styles.limitNote}>Maximum of {MAX_USER_EXPENSES} expense templates reached.</p>
+              <p className={styles.limitNote}>Maximum of {MAX_USER_EXPENSES} planned expenses reached.</p>
             )}
 
             {!hasActiveCategory && expenses.length > 0 && (
-              <p className={styles.helperNote}>Activate a category to add new expense templates.</p>
+              <p className={styles.helperNote}>Activate a category to add new planned expenses.</p>
             )}
           </div>
         )}
