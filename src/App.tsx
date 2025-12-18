@@ -24,6 +24,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
+import { friendlyErrorMessage } from './utils/format'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
@@ -184,7 +185,7 @@ export default function App(): ReactElement {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatusState({ type: 'error', message })
+      setStatusState({ type: 'error', message: friendlyErrorMessage(message, 'generating reset token') })
     }
   }
 

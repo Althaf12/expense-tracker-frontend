@@ -4,6 +4,7 @@ import { ReactElement, useState, type FormEvent } from 'react'
 import { userDetails } from '../../api'
 import { useNavigate } from 'react-router-dom'
 import type { Expense, SessionData, StatusMessage } from '../../types/app'
+import { friendlyErrorMessage } from '../../utils/format'
 import styles from './Login.module.css'
 
 type StatusSetter = (status: StatusMessage | null) => void
@@ -69,7 +70,7 @@ export default function Login({ onLogin, setStatus }: LoginProps): ReactElement 
          Keeping initial login flow lightweight. */
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'logging in') })
     } finally {
       setLoading(false)
     }

@@ -1,7 +1,7 @@
 .container {
   position: fixed;
-  /* place notifications below the sticky header so profile menu remains accessible */
-  top: calc(var(--app-header-height) + 0.5rem);
+  /* place notifications directly below the sticky header so profile menu remains accessible */
+  top: calc(var(--app-header-height) + 2rem);
   right: 1rem;
   display: flex;
   flex-direction: column;

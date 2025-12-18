@@ -5,7 +5,7 @@ import { useRef } from 'react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
-import { formatDate, parseAmount } from '../../utils/format'
+import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
 import { usePreferences } from '../../context/PreferencesContext'
 import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
@@ -170,7 +170,7 @@ export default function IncomeOperations(): ReactElement {
       setStatus(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching income records') })
     } finally {
       setLoading(false)
     }
@@ -287,7 +287,7 @@ export default function IncomeOperations(): ReactElement {
       cancelInlineEdit()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating income') })
     }
   }
 
@@ -328,7 +328,7 @@ export default function IncomeOperations(): ReactElement {
       setFormState(initialForm)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding income') })
     }
   }
 
@@ -382,7 +382,7 @@ export default function IncomeOperations(): ReactElement {
       cancelInlineAdd()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding income') })
     }
   }
 
@@ -408,7 +408,7 @@ export default function IncomeOperations(): ReactElement {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting income') })
     }
   }
 
