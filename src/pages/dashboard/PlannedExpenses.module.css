@@ -14,9 +14,8 @@
   transition: width 0.2s ease;
 }
 
-/* Container - define column width here so all children inherit it */
+/* Container - columns are equal width (two columns) across all sizes */
 .plannedTableContainer {
-  --category-col-width: 220px;
   margin-top: 1rem;
   border: 1px solid var(--surface-table-border);
   border-radius: 0.85rem;
@@ -27,7 +26,7 @@
 /* Header: two columns */
 .gridHeader {
   display: grid;
-  grid-template-columns: var(--category-col-width) 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
   background: var(--surface-table-head);
   padding: 0.75rem 0;
@@ -48,7 +47,7 @@
 /* Each row is a two-column grid matching the header */
 .plannedRow {
   display: grid;
-  grid-template-columns: var(--category-col-width) 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--surface-table-border);
