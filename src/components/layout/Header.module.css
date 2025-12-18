@@ -181,3 +181,43 @@
     display: inline-flex;
   }
 }
+
+@media (max-width: 960px) {
+  .header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .left {
+    gap: 0.5rem;
+  }
+
+  .brand {
+    font-size: 1rem;
+  }
+
+  .logo {
+    height: 18px;
+    margin-right: 0.5rem;
+    margin-top: 0;
+  }
+
+  .brandLink {
+    font-size: 0.95rem;
+  }
+
+  .tm {
+    font-size: 0.45rem;
+    margin-left: 1px;
+  }
+
+  .actions {
+    gap: 0.5rem;
+  }
+}
+
+/* Update header height variable on small screens so overlays can align */
+@media (max-width: 960px) {
+  :root {
+    --app-header-height: 2.6rem;
+  }
+}
