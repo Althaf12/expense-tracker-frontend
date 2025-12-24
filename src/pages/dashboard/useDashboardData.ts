@@ -10,7 +10,7 @@ import {
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
-import { formatDate } from '../../utils/format'
+import { formatDate, friendlyErrorMessage } from '../../utils/format'
 
 const getCurrentMonthContext = () => {
   const current = new Date()
@@ -201,7 +201,7 @@ export default function useDashboardData() {
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        setStatus({ type: 'error', message })
+        setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading dashboard data') })
       } finally {
         setLoading(false)
       }
@@ -541,7 +541,7 @@ export default function useDashboardData() {
         }
       }
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'recording the expense') })
     } finally {
       setTemplateSaving((previous) => {
         const next = { ...previous }
@@ -578,7 +578,7 @@ export default function useDashboardData() {
       setStatus({ type: 'success', message: 'Monthly template status reset. All templates are marked unpaid.' })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting monthly status') })
     } finally {
       setTemplateSaving({})
     }
@@ -657,7 +657,7 @@ export default function useDashboardData() {
         setExpenseCurrentPage(response.page)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        setStatus({ type: 'error', message })
+        setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching expenses') })
       } finally {
         setLoading(false)
       }
@@ -679,7 +679,7 @@ export default function useDashboardData() {
         setExpenseCurrentPage(response.page)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        setStatus({ type: 'error', message })
+        setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching expenses') })
       } finally {
         setLoading(false)
       }

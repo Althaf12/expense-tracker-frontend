@@ -10,7 +10,7 @@ import {
 } from '../../api'
 import type { Expense, UserExpenseCategory, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
-import { formatDate, parseAmount } from '../../utils/format'
+import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
 import { usePreferences } from '../../context/PreferencesContext'
 import styles from './ExpensesOperations.module.css'
 import Skeleton from '../../components/Skeleton'
@@ -198,7 +198,7 @@ export default function ExpensesOperations(): ReactElement {
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        setStatus({ type: 'error', message })
+        setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching expenses') })
       } finally {
         setLoading(false)
       }
@@ -457,7 +457,7 @@ export default function ExpensesOperations(): ReactElement {
       cancelInlineAdd()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding expense') })
     }
   }
 
@@ -539,7 +539,7 @@ export default function ExpensesOperations(): ReactElement {
       setStatus(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching expenses') })
     } finally {
       setLoading(false)
     }
@@ -725,7 +725,7 @@ export default function ExpensesOperations(): ReactElement {
       cancelInlineEdit()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating expense') })
     }
   }
 
@@ -749,7 +749,7 @@ export default function ExpensesOperations(): ReactElement {
       await refreshAfterMutation()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting expense') })
     }
   }
 
@@ -790,7 +790,7 @@ export default function ExpensesOperations(): ReactElement {
       resetForm()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding expense') })
     }
   }
 

@@ -55,8 +55,8 @@ export default function PlannedExpenses({
               Planned Expenses
             </Typography>
             <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-              Drag categories to prioritise and track their monthly status.
-            </Typography>
+                  Drag categories to prioritise and track their monthly status.
+                </Typography>
           </div>
           <div className={styles.headerActions}>
             <span className={styles.cardBadge}>—</span>
@@ -95,8 +95,8 @@ export default function PlannedExpenses({
       {visibleTemplates.length === 0 ? (
         <Typography variant="body2" component="p" className={styles.placeholder}>
           {userExpenses.length === 0
-            ? 'No expense templates yet. Add them in your profile to plan monthly spending.'
-            : 'All expense templates are inactive. Activate templates in your profile to track them here.'}
+            ? 'No planned expenses yet. Add them in your profile to plan monthly spending.'
+            : 'All planned expenses are inactive. Activate planned expenses in your profile to track them here.'}
         </Typography>
       ) : (
         <>
@@ -132,7 +132,7 @@ export default function PlannedExpenses({
 
                     <div className={localStyles.plannedExpenseListCell}>
                       {group.expenses.length === 0 ? (
-                        <span className={localStyles.plannedEmpty}>No templates in this category.</span>
+                        <span className={localStyles.plannedEmpty}>No planned expenses in this category.</span>
                       ) : (
                         <ul className={localStyles.plannedExpenseList}>
                           {group.expenses.map((expense) => {

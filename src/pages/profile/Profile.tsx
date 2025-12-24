@@ -18,6 +18,7 @@ import {
 } from '../../api'
 import styles from './Profile.module.css'
 import Skeleton from '../../components/Skeleton'
+import { friendlyErrorMessage } from '../../utils/format'
 
 type ProfileProps = {
   session: SessionData | null
@@ -183,7 +184,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await ensureExpenseCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading categories') })
     }
   }, [ensureExpenseCategories, loginUsername, setStatus])
 
@@ -196,7 +197,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await syncActiveCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading categories') })
     } finally {
       setLoadingCategories(false)
     }
@@ -208,7 +209,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await ensureActiveUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading planned expenses') })
     }
   }, [ensureActiveUserExpenses, loginUsername, setStatus])
 
@@ -221,7 +222,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await syncActiveExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading planned expenses') })
     } finally {
       setLoadingExpenses(false)
     }
@@ -243,7 +244,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting planned expenses') })
     } finally {
       setExpenseActionInFlight(false)
     }
@@ -325,7 +326,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating category') })
     } finally {
       setCategoryActionInFlight(false)
     }
@@ -343,7 +344,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting category') })
     } finally {
       setCategoryActionInFlight(false)
     }
@@ -369,7 +370,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding category') })
     } finally {
       setCategoryActionInFlight(false)
     }
@@ -391,7 +392,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting categories') })
     } finally {
       setCategoryActionInFlight(false)
     }
@@ -490,7 +491,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating planned expense') })
     } finally {
       setExpenseActionInFlight(false)
     }
@@ -508,7 +509,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting planned expense') })
     } finally {
       setExpenseActionInFlight(false)
     }
@@ -551,7 +552,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
       await refreshUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding planned expense') })
     } finally {
       setExpenseActionInFlight(false)
     }

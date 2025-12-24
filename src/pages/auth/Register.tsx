@@ -3,6 +3,7 @@ import { Typography } from '@mui/material'
 import { useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
+import { friendlyErrorMessage } from '../../utils/format'
 import styles from './Register.module.css'
 import { registerUser } from '../../api'
 
@@ -30,7 +31,7 @@ export default function Register({ setStatus }: RegisterProps): ReactElement {
       navigate('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'registering') })
     } finally {
       setLoading(false)
     }

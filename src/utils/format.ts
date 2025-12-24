@@ -69,3 +69,25 @@ export const parseAmount = (value: unknown): number => {
   }
   return Number.NaN
 }
+
+/**
+ * Converts a raw error message (which may include API paths/URLs) into a
+ * user-friendly message. Use this before displaying errors in notifications.
+ */
+export const friendlyErrorMessage = (raw: string, context?: string): string => {
+  // If the message looks like an API error (contains http paths or Request to),
+  // replace it with a generic friendly message.
+  const isApiError =
+    /https?:\/\/|Request to|API request error|failed:\s*\d{3}/i.test(raw)
+
+  if (isApiError) {
+    if (context) {
+      return `Something went wrong while ${context}. Please try again.`
+    }
+    return 'Something went wrong. Please try again.'
+  }
+
+  // Otherwise keep the original message (it's likely already user-friendly).
+  return raw
+}
+

@@ -3,6 +3,7 @@ import { Typography } from '@mui/material'
 import { useEffect, useState, type FormEvent, type ReactElement } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { StatusMessage } from '../../types/app'
+import { friendlyErrorMessage } from '../../utils/format'
 import styles from './ResetPassword.module.css'
 import { resetPassword } from '../../api'
 
@@ -78,7 +79,7 @@ export default function ResetPassword({ setStatus }: ResetPasswordProps): ReactE
       navigate('/')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message })
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting password') })
     } finally {
       setLoading(false)
     }

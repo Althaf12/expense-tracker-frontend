@@ -1,58 +1,54 @@
 ## Copilot / AI Agent Instructions for expense-tracker-frontend
 
 Summary
-- **Stack**: React 18 + TypeScript + Vite. Router: `react-router-dom` v6. Build scripts in `package.json`.
-- **Purpose**: Frontend expects a backend API (default `http://localhost:8081/api`). Many flows depend on a running backend.
+- Stack: React 18 + TypeScript + Vite; Router: `react-router-dom` v6.
+- Purpose: UI is a thin frontend that talks to a backend API (default base `http://localhost:8081/api`). Many flows require a running backend.
 
 Quick start (PowerShell)
 ```powershell
 npm install
-VITE_API_BASE=http://localhost:8081/api npm run dev
+$env:VITE_API_BASE='http://localhost:8081/api'; npm run dev
 ```
-Or set a `.env` / environment variable `VITE_API_BASE` before `npm run dev` to override the API base.
+Or set `VITE_API_BASE` in `.env` or your environment before `npm run dev`.
 
-Important files & patterns
-- `src/api/index.ts`: single HTTP helper `request(path, options)` and many exported API helpers (e.g. `fetchUserExpenses`, `createUserExpenseCategory`). Use this file to add or update REST calls. The helper:
-  - uses `import.meta.env.VITE_API_BASE` fallback to `http://localhost:8081/api`.
-  - sets `Content-Type: application/json` when a `body` is provided and serializes non-string bodies.
-  - returns parsed JSON (or text) and throws a helpful error on non-2xx responses.
-  - many exported functions validate `username` via `ensureUsername` and expect encoded path params.
+Key places to look
+- `src/api/index.ts`: single `request(path, options)` helper used by all endpoints. It:
+  - reads `import.meta.env.VITE_API_BASE` (falls back to `http://localhost:8081/api`),
+  - sets `Content-Type: application/json` when `body` exists and serializes non-string bodies,
+  - parses JSON (or text) and throws on non-2xx with helpful messages.
+  - many helpers validate `username` via `ensureUsername` and expect encoded path params.
+- `src/types/app.ts`: central types (`SessionData`, `Expense`, `UserExpenseCategory`, etc.). Update types first when shapes change.
+- `src/context/AppDataContext.tsx`: global data provider — session, caches, and helpers like `ensureExpenseCategories` and `reloadExpensesCache`.
+- `src/App.tsx` / `src/main.tsx`: routing and app wiring. Pages live under `src/pages/*`; layout under `src/components/layout/*`.
 
-- `src/types/app.ts`: central TypeScript types for `SessionData`, `Expense`, `UserExpenseCategory`, `UserExpense`, `Income`. When changing shapes, update these types first and then the API layer.
+Conventions & project patterns
+- API helpers live in `src/api/index.ts` (add new endpoints here using `request()` and export them).
+- Naming: camelCase helpers (e.g. `fetchUserExpenses`). Validate inputs (use `ensureUsername` when needed).
+- Session: stored in `localStorage['session']` by `App`. Many flows read username from this session — set it explicitly when testing.
+- Styling: CSS Modules for components/pages; global styles in `src/styles.css` and tokens in `src/theme.ts`.
 
-- `src/context/AppDataContext.tsx`: single app-wide data context. The app relies on this provider for session, caches, and helpers like `ensureExpenseCategories` and `reloadExpensesCache`.
-  - `App` populates and persists session into `localStorage` under key `session` (see `src/App.tsx`). Keep this in mind when modifying authentication/session flows.
+Debugging & common troubleshooting
+- If lists are empty: confirm backend + CORS. Check `http://localhost:8081/api/health` or call `api.checkHealth()` from the console.
+- Use Network tab to inspect payloads — `request()` frequently sends JSON bodies even for lookups.
+- To simulate login: set localStorage key `session` to `{"username":"yourname"}` before load.
 
-- `src/App.tsx` and `src/main.tsx`: app wiring — `BrowserRouter`, `Routes`, `Layout` usage, and how pages are mounted. Route components live under `src/pages/*` and layout pieces under `src/components/layout/*`.
+Where to edit for common tasks
+- Add endpoint: `src/api/index.ts` → add helper → export in default export.
+- Change shared state/flows: `src/context/AppDataContext.tsx` and `src/App.tsx`.
+- Add route/page: create file under `src/pages/*` and register route in `src/App.tsx`.
 
-Conventions & patterns to follow
-- Add API requests to `src/api/index.ts` (use the `request()` helper). Export the function and include it in the default export at the bottom of the file.
-- All API helpers are camelCase and validate inputs (especially `username`). Reuse `ensureUsername` when constructing path parameters.
-- UI state flows live in `App` and are provided via `AppDataContext`. Prefer adding data-loading helpers as context providers when the data is shared between pages.
-- Styling uses CSS modules for components under `components/` and `pages/` plus a small global `styles.css` and `theme.ts`. Follow existing modules naming and scoping.
+Project-specific gotchas
+- Backend often expects `username` in request bodies or path params (not via auth headers).
+- `request()` throws enriched errors including the URL and server response — read thrown errors for debugging.
+- Environment vars use Vite `import.meta.env`; ensure `VITE_API_BASE` is available at build/runtime.
 
-Debugging / developer tips
-- If UI shows empty lists, verify backend availability and CORS. Default API is `http://localhost:8081/api` — confirm by visiting `http://localhost:8081/api/health` or calling `api.checkHealth()` from the console (import `src/api`).
-- Use browser Network tab to inspect requests; the API helper attaches JSON and returns parsed JSON or text. Errors thrown include URL and server response text for clarity.
-- Session loading: `App` reads `localStorage['session']` on startup. To simulate logged-in state, set that key with a minimal `{ "username": "<name>" }` JSON.
+If you change API shapes
+- Update `src/types/app.ts` first, then `src/api/index.ts` helpers, then components and context that consume them.
 
-Where to look when making common changes
-- New API endpoints: `src/api/index.ts` (add function, add to default export).
-- Shared UI/data changes: `src/context/AppDataContext.tsx` and `src/App.tsx` (how state is seeded and persisted).
-- Routes / pages: `src/App.tsx` (Routes) and `src/pages/*` for page components.
-- Layout and small components: `src/components/layout/*`.
+Quick references
+- API helpers: [src/api/index.ts](src/api/index.ts)
+- App context: [src/context/AppDataContext.tsx](src/context/AppDataContext.tsx)
+- Types: [src/types/app.ts](src/types/app.ts)
+- Routes & wiring: [src/App.tsx](src/App.tsx) and [src/main.tsx](src/main.tsx)
 
-Notes and gotchas discovered in the codebase
-- Backend expectations: many endpoints expect `username` and sometimes POST bodies containing `username` (not automatic auth headers). Tests or new integrations must include the username in payloads.
-- `request()` sometimes posts JSON bodies for lookups (e.g. `resolveUserExpenseCategoryId`) — don't assume all GETs are used for retrieval; read the specific API helper.
-- Environment variables are read from `import.meta.env` (Vite). When running outside the dev server, ensure `VITE_API_BASE` is provided at build time.
-
-If you make changes
-- Update `src/types/app.ts` when the API shape changes, then update API helpers to match.
-- Run `npm run dev` (Vite) and refresh; use the console + network tab to validate requests.
-
-Questions / feedback
-- If any part of the app's runtime environment or CI differs from these notes (custom `.env` files, proxies, or Docker setups), tell me and I will incorporate those details.
-
----
-References: `src/api/index.ts`, `src/context/AppDataContext.tsx`, `src/types/app.ts`, `src/App.tsx`, `package.json`, `README.md`
+If anything here is unclear or you want the instructions expanded (CI, tests, or environment matrix), tell me and I will iterate.
