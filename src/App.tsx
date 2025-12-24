@@ -1,22 +1,20 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/layout/Layout'
-import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
-import ForgotPassword from './pages/auth/ForgotPassword'
-import ResetPassword from './pages/auth/ResetPassword'
+import LoginRequired from './components/LoginRequired'
 import Dashboard from './pages/dashboard/Dashboard'
 import ExpensesOperations from './pages/operations/ExpensesOperations'
 import IncomeOperations from './pages/operations/IncomeOperations'
 import Profile from './pages/profile/Profile'
 import {
   fetchExpensesByMonth as apiFetchExpensesByMonth,
-  forgotPassword as apiForgotPassword,
   fetchIncomeLastYear as apiFetchIncomeLastYear,
   fetchUserExpenseCategoriesActive as apiFetchUserExpenseCategoriesActive,
   fetchUserExpenses as apiFetchUserExpenses,
   fetchUserExpensesActive as apiFetchUserExpensesActive,
   fetchPreviousMonthlyBalance as apiFetchPreviousMonthlyBalance,
+  ensureUserExists as apiEnsureUserExists,
+  logoutUser as apiLogoutUser,
 } from './api'
 import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
@@ -24,41 +22,19 @@ import { ThemeProvider } from './context/ThemeContext'
 import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
-import { friendlyErrorMessage } from './utils/format'
+import { getAuthFromCookies, clearAuthCookies } from './utils/cookies'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
 
-const SESSION_STORAGE_KEY = 'session'
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
-
-const parseSession = (raw: string | null): SessionData | null => {
-  if (!raw) return null
-  try {
-    const candidate = JSON.parse(raw) as unknown
-    if (!isRecord(candidate)) {
-      return null
-    }
-    const username = candidate.username
-    if (typeof username !== 'string' || username.length === 0) {
-      return null
-    }
-    return {
-      username,
-      identifier: typeof candidate.identifier === 'string' ? candidate.identifier : undefined,
-      user: isRecord(candidate.user) ? candidate.user : undefined,
-    }
-  } catch {
-    return null
-  }
-}
+const REDIRECT_URL = import.meta.env.VITE_MAIN_SITE_URL || 'https://eternivity.com'
 
 export default function App(): ReactElement {
   const [session, setSession] = useState<SessionData | null>(null)
+  const [isAuthChecked, setIsAuthChecked] = useState(false)
   const [status, setStatusState] = useState<StatusState>(null)
   const [expenseCategories, setExpenseCategories] = useState<UserExpenseCategory[]>([])
+  const expenseCategoriesRef = useRef<UserExpenseCategory[]>([])
   const [userExpenses, setUserExpenses] = useState<UserExpense[]>([])
   const [activeUserExpenses, setActiveUserExpenses] = useState<UserExpense[]>([])
   const [expensesCache, setExpensesCache] = useState<Expense[]>([])
@@ -68,133 +44,123 @@ export default function App(): ReactElement {
     setStatusState(next)
   }, [])
 
-  const handleLogin = (sessionData: SessionData, _initialExpenses: Expense[] = []) => {
-    setSession(sessionData)
-    try {
-      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData))
-    } catch {
-      /* ignore storage errors */
+  const handleLogout = useCallback(async () => {
+    if (session?.userId) {
+      try {
+        await apiLogoutUser(session.userId)
+      } catch {
+        /* ignore logout API errors */
+      }
     }
-  }
-
-  const handleLogout = () => {
+    
+    // Clear all state
     setSession(null)
     setExpensesCache([])
     setExpenseCategories([])
+    expenseCategoriesRef.current = []
     setUserExpenses([])
     setActiveUserExpenses([])
     setIncomesCache([])
-    try {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY)
-    } catch {
-      /* ignore storage errors */
-    }
-    try {
-      window.location.href = '/'
-    } catch {
-      /* ignore navigation issues */
-    }
-  }
+    
+    // Clear cookies
+    clearAuthCookies()
+    
+    // Redirect to main domain
+    window.location.href = REDIRECT_URL
+  }, [session?.userId])
 
   const ensureExpenseCategories = useCallback(async (): Promise<UserExpenseCategory[]> => {
-    const username = session?.username
-    if (!username) {
+    const userId = session?.userId
+    if (!userId) {
       setExpenseCategories([])
+      expenseCategoriesRef.current = []
       return []
     }
-    // If we already have categories loaded for this session, reuse them to avoid duplicate API calls
-    if (expenseCategories && expenseCategories.length > 0) {
-      return expenseCategories
+    const cached = expenseCategoriesRef.current
+    if (cached.length > 0) {
+      return cached
     }
-    const categories = await apiFetchUserExpenseCategoriesActive(username)
+    const categories = await apiFetchUserExpenseCategoriesActive(userId)
+    expenseCategoriesRef.current = categories
     setExpenseCategories(categories)
     return categories
-  }, [session?.username])
+  }, [session?.userId])
 
   const ensureUserExpenses = useCallback(async (): Promise<UserExpense[]> => {
-    const username = session?.username
-    if (!username) {
+    const userId = session?.userId
+    if (!userId) {
       setUserExpenses([])
       return []
     }
-    const expenses = await apiFetchUserExpenses(username)
+    const expenses = await apiFetchUserExpenses(userId)
     setUserExpenses(expenses)
     return expenses
-  }, [session?.username])
+  }, [session?.userId])
 
   const ensureActiveUserExpenses = useCallback(async (): Promise<UserExpense[]> => {
-    const username = session?.username
-    if (!username) {
+    const userId = session?.userId
+    if (!userId) {
       setActiveUserExpenses([])
       return []
     }
-    const expenses = await apiFetchUserExpensesActive(username)
+    const expenses = await apiFetchUserExpensesActive(userId)
     setActiveUserExpenses(expenses)
     return expenses
-  }, [session?.username])
+  }, [session?.userId])
 
-  const reloadExpensesCache = useCallback(async (username: string): Promise<Expense[]> => {
-    if (!username) return []
+  const reloadExpensesCache = useCallback(async (userId: string): Promise<Expense[]> => {
+    if (!userId) return []
     const now = new Date()
     const month = now.getMonth() + 1
     const year = now.getFullYear()
     try {
-      const paged = await apiFetchExpensesByMonth({ username, month, year, page: 0, size: 20 })
+      const paged = await apiFetchExpensesByMonth({ userId, month, year, page: 0, size: 20 })
       const list = Array.isArray((paged as any).content) ? (paged as any).content as Expense[] : []
       setExpensesCache(list)
       return list
     } catch {
-      // fallback to empty cache on error
       setExpensesCache([])
       return []
     }
   }, [])
 
-  const reloadIncomesCache = useCallback(async (username: string): Promise<Income[]> => {
-    if (!username) return []
+  const reloadIncomesCache = useCallback(async (userId: string): Promise<Income[]> => {
+    if (!userId) return []
     const currentYear = new Date().getFullYear()
-    const list = await apiFetchIncomeLastYear(username, currentYear)
+    const list = await apiFetchIncomeLastYear(userId, currentYear)
     setIncomesCache(list)
     return list
   }, [])
 
-  const handleGenerateTokenForUser = async (usernameOrEmail: string) => {
-    if (!usernameOrEmail) return
-    setStatusState({ type: 'loading', message: 'Generating reset token...' })
-    try {
-      const isEmail = usernameOrEmail.includes('@')
-      const payload = isEmail ? { email: usernameOrEmail } : { username: usernameOrEmail }
-      const json = await apiForgotPassword(payload)
-
-      if (isRecord(json) && typeof (json as Record<string, unknown>).token === 'string') {
-        setStatusState({ type: 'success', message: 'Token generated. Proceed to reset password.' })
-        try {
-          window.location.href = `/reset-password?token=${encodeURIComponent(
-            String((json as Record<string, unknown>).token)
-          )}&username=${encodeURIComponent(usernameOrEmail)}`
-        } catch {
-          /* ignore navigation issues */
-        }
-      } else {
-        setStatusState({ type: 'success', message: 'If the account exists, a token was generated (check email).' })
-        try {
-          window.location.href = '/reset-password'
-        } catch {
-          /* ignore navigation issues */
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setStatusState({ type: 'error', message: friendlyErrorMessage(message, 'generating reset token') })
-    }
-  }
-
+  // Check for cookie-based authentication on mount
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = parseSession(window.localStorage.getItem(SESSION_STORAGE_KEY))
-    if (stored) {
-      setSession(stored)
+    const initAuth = async () => {
+      const authData = getAuthFromCookies()
+      
+      if (authData && authData.userId && authData.token) {
+        // Create session from cookie data
+        const sessionData: SessionData = {
+          userId: authData.userId,
+          username: authData.username,
+          email: authData.email,
+          token: authData.token,
+          subscription: authData.subscription,
+        }
+        
+        // Ensure user exists in backend (first-time login check)
+        try {
+          await apiEnsureUserExists(authData.userId)
+        } catch {
+          /* User might already exist, ignore */
+        }
+        
+        setSession(sessionData)
+      }
+      
+      setIsAuthChecked(true)
     }
+    
+    initAuth()
   }, [])
 
   // Scheduler: fetch previous monthly closing balance at 00:05 on the 1st of each month
@@ -205,22 +171,11 @@ export default function App(): ReactElement {
 
     const runFetchAndScheduleNext = async () => {
       try {
-        const username = session?.username ?? (() => {
+        const userId = session?.userId
+        if (userId) {
           try {
-            const raw = window.localStorage.getItem(SESSION_STORAGE_KEY)
-            if (!raw) return null
-            const parsed = JSON.parse(raw)
-            return parsed?.username || null
-          } catch {
-            return null
-          }
-        })()
-
-        if (username) {
-          try {
-            const mb = await apiFetchPreviousMonthlyBalance(username)
+            const mb = await apiFetchPreviousMonthlyBalance(userId)
             const now = new Date()
-            // scheduler runs at the start of a new month — store balance for the previous month
             const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
             const month = prev.getMonth() + 1
             const year = prev.getFullYear()
@@ -237,25 +192,24 @@ export default function App(): ReactElement {
             }
 
             if (balance !== null) {
-              const key = `dashboard:monthly-balance:${username}:${year}-${String(month).padStart(2, '0')}`
+              const key = `dashboard:monthly-balance:${userId}:${year}-${String(month).padStart(2, '0')}`
               try {
                 window.localStorage.setItem(key, JSON.stringify({ balance, month, year, storedAt: new Date().toISOString() }))
               } catch {
                 /* ignore storage errors */
               }
               try {
-                window.dispatchEvent(new CustomEvent('monthlyBalanceUpdated', { detail: { username, month, year, balance } }))
+                window.dispatchEvent(new CustomEvent('monthlyBalanceUpdated', { detail: { userId, month, year, balance } }))
               } catch {
                 /* ignore event dispatch failures */
               }
             }
-          } catch (err) {
+          } catch {
             /* swallow API errors; schedule next run */
           }
         }
       } finally {
         if (!mounted) return
-        // schedule next 1st @ 00:05
         const now = new Date()
         let next = new Date(now.getFullYear(), now.getMonth(), 1, 0, 5, 0, 0)
         if (now >= next) {
@@ -266,14 +220,13 @@ export default function App(): ReactElement {
       }
     }
 
-    // kick off the scheduler (will schedule itself after run)
     runFetchAndScheduleNext()
 
     return () => {
       mounted = false
       if (timerId) clearTimeout(timerId)
     }
-  }, [session?.username])
+  }, [session?.userId])
 
   const contextValue = useMemo(
     () => ({
@@ -314,42 +267,48 @@ export default function App(): ReactElement {
     ],
   )
 
+  // Show nothing while checking auth
+  if (!isAuthChecked) {
+    return (
+      <div className={styles.appShell}>
+        <div className={styles.loadingScreen}>
+          <div className={styles.loadingSpinner} />
+        </div>
+      </div>
+    )
+  }
+
+  // Show login required if no session
+  if (!session) {
+    return (
+      <ThemeProvider userId={undefined}>
+        <div className={styles.appShell}>
+          <LoginRequired />
+        </div>
+      </ThemeProvider>
+    )
+  }
+
   return (
-    <ThemeProvider username={session?.username}>
+    <ThemeProvider userId={session?.userId}>
       <AppDataProvider value={contextValue}>
-        <PreferencesProvider username={session?.username}>
+        <PreferencesProvider userId={session?.userId}>
           <NotificationsProvider>
-          <div className={styles.appShell}>
-          <Notifications />
+            <div className={styles.appShell}>
+              <Notifications />
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                
+                <Route element={<Layout session={session} onLogout={handleLogout} />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/operations/expenses" element={<ExpensesOperations />} />
+                  <Route path="/operations/income" element={<IncomeOperations />} />
+                  <Route path="/profile" element={<Profile session={session} />} />
+                </Route>
 
-          <Routes>
-            <Route
-              path="/"
-              element={
-                session ? (
-                  <Navigate to="/dashboard" replace />
-                ) : (
-                  <Login onLogin={handleLogin} setStatus={updateStatus} />
-                )
-              }
-            />
-            <Route path="/register" element={<Register setStatus={updateStatus} />} />
-            <Route path="/forgot-password" element={<ForgotPassword setStatus={updateStatus} />} />
-            <Route path="/reset-password" element={<ResetPassword setStatus={updateStatus} />} />
-
-            <Route element={<Layout session={session} onLogout={handleLogout} />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/operations/expenses" element={<ExpensesOperations />} />
-              <Route path="/operations/income" element={<IncomeOperations />} />
-              <Route
-                path="/profile"
-                element={<Profile session={session} onRequestReset={handleGenerateTokenForUser} />}
-              />
-            </Route>
-
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </div>
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </div>
           </NotificationsProvider>
         </PreferencesProvider>
       </AppDataProvider>

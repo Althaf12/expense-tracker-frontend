@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactElement } from 'react'
 import { NavLink } from 'react-router-dom'
+import { LayoutDashboard, Receipt, Wallet, X, Menu } from 'lucide-react'
 import styles from './Sidebar.module.css'
 
 type SidebarProps = {
@@ -69,13 +70,7 @@ export default function Sidebar({ collapsed = false, onToggle, isMobile = false,
           <li>
             <NavLink to="/dashboard" className={linkClassName}>
               <span className={styles.icon} aria-hidden="true">
-                {/* Dashboard grid icon */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <rect x="3" y="3" width="8" height="8" stroke="currentColor" strokeWidth="1.4" rx="1" />
-                  <rect x="13" y="3" width="8" height="8" stroke="currentColor" strokeWidth="1.4" rx="1" />
-                  <rect x="3" y="13" width="8" height="8" stroke="currentColor" strokeWidth="1.4" rx="1" />
-                  <rect x="13" y="13" width="8" height="8" stroke="currentColor" strokeWidth="1.4" rx="1" />
-                </svg>
+                <LayoutDashboard size={20} />
               </span>
               <span className={styles.label}>Dashboard</span>
             </NavLink>
@@ -86,12 +81,7 @@ export default function Sidebar({ collapsed = false, onToggle, isMobile = false,
           <li>
             <NavLink to="/operations/expenses" className={linkClassName}>
               <span className={styles.icon} aria-hidden="true">
-                {/* Receipt / expense icon */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M4 3h12l4 4v14H4V3z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M8 7h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M8 11h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <Receipt size={20} />
               </span>
               <span className={styles.label}>Expenses</span>
             </NavLink>
@@ -99,11 +89,7 @@ export default function Sidebar({ collapsed = false, onToggle, isMobile = false,
           <li>
             <NavLink to="/operations/income" className={linkClassName}>
               <span className={styles.icon} aria-hidden="true">
-                {/* Wallet / income icon */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M3 7h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M16 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <Wallet size={20} />
               </span>
               <span className={styles.label}>Income</span>
             </NavLink>

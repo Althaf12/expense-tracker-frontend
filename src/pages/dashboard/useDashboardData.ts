@@ -137,6 +137,8 @@ export default function useDashboardData() {
   const [templateCategoryOrder, setTemplateCategoryOrder] = useState<string[]>([])
   const [templateSaving, setTemplateSaving] = useState<Record<string, boolean>>({})
   const dragCategoryIdRef = useRef<string | null>(null)
+  const lastLoadKeyRef = useRef<string | null>(null)
+  const inflightLoadKeyRef = useRef<string | null>(null)
   // Pagination state for current month expenses
   const [expenseCurrentPage, setExpenseCurrentPage] = useState<number>(0)
   const [expensePageSize, setExpensePageSize] = useState<number>(20)
@@ -159,10 +161,17 @@ export default function useDashboardData() {
       setPreviousMonthIncome([])
       setTwoMonthsAgoIncome([])
       setMonthlyBalanceBase(0)
+      lastLoadKeyRef.current = null
+      inflightLoadKeyRef.current = null
       return
     }
 
-    const username = session.username
+    const userId = session.userId
+    const loadKey = `${userId}:${month}:${year}`
+    if (lastLoadKeyRef.current === loadKey || inflightLoadKeyRef.current === loadKey) {
+      return
+    }
+    inflightLoadKeyRef.current = loadKey
     setLoading(true)
     setStatus({ type: 'loading', message: 'Loading dashboard...' })
 
@@ -176,12 +185,12 @@ export default function useDashboardData() {
           twoMonthsAgoIncomeResponse,
           previousMonthBalance,
         ] = await Promise.all([
-          fetchExpensesByMonth({ username, month, year, page: expenseCurrentPage, size: expensePageSize }),
-          fetchExpensesByMonth({ username, month: previousContext.month, year: previousContext.year }),
-          fetchIncomeByMonth({ username, month, year }),
-          fetchIncomeByMonth({ username, month: previousContext.month, year: previousContext.year }),
-          fetchIncomeByMonth({ username, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
-          fetchPreviousMonthlyBalance(username),
+          fetchExpensesByMonth({ userId, month, year, page: expenseCurrentPage, size: expensePageSize }),
+          fetchExpensesByMonth({ userId, month: previousContext.month, year: previousContext.year }),
+          fetchIncomeByMonth({ userId, month, year }),
+          fetchIncomeByMonth({ userId, month: previousContext.month, year: previousContext.year }),
+          fetchIncomeByMonth({ userId, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
+          fetchPreviousMonthlyBalance(userId),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -199,10 +208,14 @@ export default function useDashboardData() {
         const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
         setMonthlyBalanceBase(resolved)
         setStatus(null)
+        lastLoadKeyRef.current = loadKey
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading dashboard data') })
       } finally {
+        if (inflightLoadKeyRef.current === loadKey) {
+          inflightLoadKeyRef.current = null
+        }
         setLoading(false)
       }
     })()
@@ -227,8 +240,8 @@ export default function useDashboardData() {
       try {
         const detail = (ev as CustomEvent)?.detail
         if (!detail) return
-        const { username: updatedUsername, balance } = detail as { username?: string; balance?: number }
-        if (!session || updatedUsername !== session.username) return
+        const { userId: updatedUserId, balance } = detail as { userId?: string; balance?: number }
+        if (!session || updatedUserId !== session.userId) return
         if (typeof balance === 'number') {
           setMonthlyBalanceBase(balance)
           return
@@ -236,7 +249,7 @@ export default function useDashboardData() {
         // fallback: re-fetch via API helper (which is cached/dedupe)
         void (async () => {
           try {
-            const mb = await fetchPreviousMonthlyBalance(session.username)
+            const mb = await fetchPreviousMonthlyBalance(session.userId)
             const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
             setMonthlyBalanceBase(resolved)
           } catch {
@@ -337,7 +350,7 @@ export default function useDashboardData() {
     return ordered
   }, [resolveCategoryForExpense, visibleTemplates])
 
-  const categoryOrderStorageKey = useMemo(() => (session ? `dashboard:template-category-order:${session.username}` : null), [session?.username])
+  const categoryOrderStorageKey = useMemo(() => (session ? `dashboard:template-category-order:${session.userId}` : null), [session?.userId])
 
   useEffect(() => {
     if (!session) {
@@ -516,26 +529,26 @@ export default function useDashboardData() {
     setTemplateSaving((previous) => ({ ...previous, [expenseId]: true }))
     let paidUpdated = false
     try {
-      await updateUserExpense({ username: session.username, id: expense.userExpensesId, paid: 'Y' })
+      await updateUserExpense({ userId: session.userId, id: expense.userExpensesId, paid: 'Y' })
       paidUpdated = true
 
-      const resolvedCategoryId = await resolveUserExpenseCategoryId({ username: session.username, userExpenseCategoryName: categoryName })
+      const resolvedCategoryId = await resolveUserExpenseCategoryId({ userId: session.userId, userExpenseCategoryName: categoryName })
       if (resolvedCategoryId === null || resolvedCategoryId === undefined) throw new Error(`Could not find a category for "${categoryName}".`)
 
-      await addExpense({ username: session.username, userExpenseCategoryId: resolvedCategoryId, expenseAmount: amount, expenseDate, expenseName: expense.userExpenseName })
+      await addExpense({ userId: session.userId, userExpenseCategoryId: resolvedCategoryId, expenseAmount: amount, expenseDate, expenseName: expense.userExpenseName })
 
       setStatus({ type: 'success', message: `${expense.userExpenseName} marked as paid for this month.` })
 
       await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
 
-      const refreshed = await fetchExpensesByMonth({ username: session.username, month, year, page: expenseCurrentPage, size: expensePageSize })
+      const refreshed = await fetchExpensesByMonth({ userId: session.userId, month, year, page: expenseCurrentPage, size: expensePageSize })
       setMonthlyExpenses(refreshed.content)
       setExpenseTotalElements(refreshed.totalElements)
       setExpenseTotalPages(refreshed.totalPages)
     } catch (error) {
       if (paidUpdated) {
         try {
-          await updateUserExpense({ username: session.username, id: expense.userExpensesId, paid: 'N' })
+          await updateUserExpense({ userId: session.userId, id: expense.userExpensesId, paid: 'N' })
         } catch {
           /* ignore */
         }
@@ -572,7 +585,7 @@ export default function useDashboardData() {
     }, {}))
 
     try {
-      await Promise.all(visibleTemplates.map((expense) => updateUserExpense({ username: session.username, id: expense.userExpensesId, paid: 'N' })))
+      await Promise.all(visibleTemplates.map((expense) => updateUserExpense({ userId: session.userId, id: expense.userExpensesId, paid: 'N' })))
 
       await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
       setStatus({ type: 'success', message: 'Monthly template status reset. All templates are marked unpaid.' })
@@ -645,12 +658,12 @@ export default function useDashboardData() {
 
   const handleExpensePageChange = useCallback((page: number) => {
     if (!session) return
-    const username = session.username
+    const userId = session.userId
     setExpenseCurrentPage(page)
     setLoading(true)
     void (async () => {
       try {
-        const response = await fetchExpensesByMonth({ username, month, year, page, size: expensePageSize })
+        const response = await fetchExpensesByMonth({ userId, month, year, page, size: expensePageSize })
         setMonthlyExpenses(response.content)
         setExpenseTotalElements(response.totalElements)
         setExpenseTotalPages(response.totalPages)
@@ -666,13 +679,13 @@ export default function useDashboardData() {
 
   const handleExpensePageSizeChange = useCallback((size: number) => {
     if (!session) return
-    const username = session.username
+    const userId = session.userId
     setExpensePageSize(size)
     setExpenseCurrentPage(0)
     setLoading(true)
     void (async () => {
       try {
-        const response = await fetchExpensesByMonth({ username, month, year, page: 0, size })
+        const response = await fetchExpensesByMonth({ userId, month, year, page: 0, size })
         setMonthlyExpenses(response.content)
         setExpenseTotalElements(response.totalElements)
         setExpenseTotalPages(response.totalPages)

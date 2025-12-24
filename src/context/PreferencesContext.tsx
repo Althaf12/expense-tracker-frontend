@@ -65,8 +65,8 @@ const applyFontSize = (size: FontSize) => {
 
 export function PreferencesProvider({
   children,
-  username,
-}: PropsWithChildren<{ username?: string | null }>): ReactElement {
+  userId,
+}: PropsWithChildren<{ userId?: string | null }>): ReactElement {
   const { setTheme: setThemeContext } = useTheme()
 
   const [fontSize, setFontSizeState] = useState<FontSize>(() => {
@@ -82,9 +82,9 @@ export function PreferencesProvider({
   })
 
   const [loading, setLoading] = useState(false)
-  const [currentUsername, setCurrentUsername] = useState<string | null>(username || null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(userId || null)
 
-  // Load preferences from API when username changes
+  // Load preferences from API when userId changes
   const loadPreferences = useCallback(async (user: string) => {
     if (!user) return
     setLoading(true)
@@ -103,10 +103,10 @@ export function PreferencesProvider({
           fontSize: prefs.fontSize,
           currencyCode: prefs.currencyCode,
           theme: prefs.theme,
-          username: user,
+          userId: user,
         })
       }
-      setCurrentUsername(user)
+      setCurrentUserId(user)
     } catch {
       /* use defaults if API fails */
     } finally {
@@ -115,40 +115,40 @@ export function PreferencesProvider({
   }, [setThemeContext])
 
   useEffect(() => {
-    if (username && username !== currentUsername) {
-      loadPreferences(username)
+    if (userId && userId !== currentUserId) {
+      loadPreferences(userId)
     }
-  }, [username, currentUsername, loadPreferences])
+  }, [userId, currentUserId, loadPreferences])
 
   const setFontSize = useCallback(
     async (size: FontSize) => {
       setFontSizeState(size)
       applyFontSize(size)
       storePreferences({ fontSize: size })
-      if (currentUsername) {
+      if (currentUserId) {
         try {
-          await updateUserPreferences({ username: currentUsername, fontSize: size })
+          await updateUserPreferences({ userId: currentUserId, fontSize: size })
         } catch {
           /* ignore API errors - local state is updated */
         }
       }
     },
-    [currentUsername]
+    [currentUserId]
   )
 
   const setCurrencyCode = useCallback(
     async (code: CurrencyCode) => {
       setCurrencyCodeState(code)
       storePreferences({ currencyCode: code })
-      if (currentUsername) {
+      if (currentUserId) {
         try {
-          await updateUserPreferences({ username: currentUsername, currencyCode: code })
+          await updateUserPreferences({ userId: currentUserId, currencyCode: code })
         } catch {
           /* ignore API errors */
         }
       }
     },
-    [currentUsername]
+    [currentUserId]
   )
 
   const currencySymbol = useMemo(() => CURRENCY_SYMBOLS[currencyCode], [currencyCode])

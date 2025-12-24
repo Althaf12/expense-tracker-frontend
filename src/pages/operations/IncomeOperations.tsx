@@ -2,6 +2,15 @@ import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react'
 import { useRef } from 'react'
+import { 
+  Wallet, 
+  Search, 
+  Plus, 
+  Trash2, 
+  Pencil, 
+  Check, 
+  X 
+} from 'lucide-react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
@@ -117,7 +126,7 @@ export default function IncomeOperations(): ReactElement {
 
   const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
     if (!session) return
-    const username = session.username
+    const userId = session.userId
     setLoading(true)
     setStatus({ type: 'loading', message: 'Fetching income records...' })
     try {
@@ -125,7 +134,7 @@ export default function IncomeOperations(): ReactElement {
       if (mode === 'current-year') {
         const currentYear = new Date().getFullYear()
         response = await fetchIncomeByRange({
-          username,
+          userId,
           fromMonth: '01',
           fromYear: String(currentYear),
           toMonth: '12',
@@ -138,7 +147,7 @@ export default function IncomeOperations(): ReactElement {
         const monthPayload = payload as { month: number; year: number } | undefined
         const month = monthPayload?.month ?? monthFilter
         const year = monthPayload?.year ?? yearFilter
-        response = await fetchIncomeByMonth({ username, month, year, page, size })
+        response = await fetchIncomeByMonth({ userId, month, year, page, size })
         setLastQuery({ mode, payload: { month, year } })
       } else {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -160,7 +169,7 @@ export default function IncomeOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        response = await fetchIncomeByRange({ username, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4), page, size })
+        response = await fetchIncomeByRange({ userId, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4), page, size })
         setLastQuery({ mode, payload: { start, end } })
       }
       setResults(response.content)
@@ -272,7 +281,7 @@ export default function IncomeOperations(): ReactElement {
     try {
       await updateIncome({
         incomeId,
-        username: session.username,
+        userId: session.userId,
         source: editingRowDraft.source,
         amount: numericAmount,
         receivedDate: editingRowDraft.receivedDate,
@@ -280,7 +289,7 @@ export default function IncomeOperations(): ReactElement {
         year,
       })
       setStatus({ type: 'success', message: 'Income updated.' })
-      await reloadIncomesCache(session.username)
+      await reloadIncomesCache(session.userId)
       if (lastQuery) {
         await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
@@ -313,7 +322,7 @@ export default function IncomeOperations(): ReactElement {
     setStatus({ type: 'loading', message: 'Adding income...' })
     try {
       await addIncome({
-        username: session.username,
+        userId: session.userId,
         source,
         amount: numericAmount,
         receivedDate,
@@ -321,7 +330,7 @@ export default function IncomeOperations(): ReactElement {
         year,
       })
       setStatus({ type: 'success', message: 'Income added.' })
-      await reloadIncomesCache(session.username)
+      await reloadIncomesCache(session.userId)
       if (lastQuery) {
         await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
@@ -367,7 +376,7 @@ export default function IncomeOperations(): ReactElement {
     setStatus({ type: 'loading', message: 'Adding income...' })
     try {
       await addIncome({
-        username: session.username,
+        userId: session.userId,
         source,
         amount: numericAmount,
         receivedDate,
@@ -375,7 +384,7 @@ export default function IncomeOperations(): ReactElement {
         year,
       })
       setStatus({ type: 'success', message: 'Income added.' })
-      await reloadIncomesCache(session.username)
+      await reloadIncomesCache(session.userId)
       if (lastQuery) {
         await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
@@ -397,12 +406,12 @@ export default function IncomeOperations(): ReactElement {
     if (!confirmed) return
     setStatus({ type: 'loading', message: 'Deleting income...' })
     try {
-      await deleteIncome({ username: session.username, incomeId: income.incomeId })
+      await deleteIncome({ userId: session.userId, incomeId: income.incomeId })
       setStatus({ type: 'success', message: 'Income deleted.' })
       if (editingRowId === rowKey) {
         cancelInlineEdit()
       }
-      await reloadIncomesCache(session.username)
+      await reloadIncomesCache(session.userId)
       if (lastQuery) {
         await loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
       }
@@ -449,13 +458,18 @@ export default function IncomeOperations(): ReactElement {
       <Grid size={{ xs: 12, xl: 8 }}>
         <section className={styles.card}>
           <header className={styles.cardHeader}>
-            <div>
-              <Typography variant="h5" component="h2" className={styles.title}>
-                Income Overview
-              </Typography>
-              <Typography variant="body2" component="p" className={styles.subtitle}>
-                Review and manage income entries.
-              </Typography>
+            <div className={styles.headerWithIcon}>
+              <div className={styles.iconWrapper}>
+                <Wallet size={22} />
+              </div>
+              <div>
+                <Typography variant="h5" component="h2" className={styles.title}>
+                  Income Overview
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.subtitle}>
+                  Review and manage income entries.
+                </Typography>
+              </div>
             </div>
             <span className={styles.badge}>{filteredResults.length} records</span>
           </header>
@@ -540,6 +554,7 @@ export default function IncomeOperations(): ReactElement {
             )}
 
             <button className={styles.primaryButton} type="submit" disabled={loading}>
+              <Search size={16} />
               {loading ? 'Loading…' : 'Load Income'}
             </button>
           </form>
@@ -788,13 +803,18 @@ export default function IncomeOperations(): ReactElement {
       <Grid size={{ xs: 12, xl: 4 }}>
         <section className={styles.card}>
           <header className={styles.cardHeader}>
-            <div>
-              <Typography variant="h5" component="h2" className={styles.title}>
-                Add Income
-              </Typography>
-              <Typography variant="body2" component="p" className={styles.subtitle}>
-                Capture a new income item.
-              </Typography>
+            <div className={styles.headerWithIcon}>
+              <div className={styles.iconWrapperGreen}>
+                <Plus size={22} />
+              </div>
+              <div>
+                <Typography variant="h5" component="h2" className={styles.title}>
+                  Add Income
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.subtitle}>
+                  Capture a new income item.
+                </Typography>
+              </div>
             </div>
           </header>
 

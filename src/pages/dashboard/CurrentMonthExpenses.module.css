@@ -1,3 +1,22 @@
+.headerWithIcon {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.iconWrapper {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+}
+
 .placeholder {
   margin: 1rem 0 0;
   color: var(--placeholder-text);
@@ -13,4 +32,17 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .headerWithIcon {
+    gap: 0.5rem;
+  }
+
+  .iconWrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
 }

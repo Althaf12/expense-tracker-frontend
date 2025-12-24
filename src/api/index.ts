@@ -16,16 +16,13 @@ async function request(path: string, options: ApiRequestOptions = {}): Promise<u
   try {
     const isBodyPresent = body !== undefined && body !== null
     const requestMethod = method ?? (isBodyPresent ? 'POST' : 'GET')
-    // If a body is present we will include a JSON Content-Type header and
-    // attach the serialized body to the request. Note: including a body on
-    // GET requests is non-standard but some servers accept it; caller asked
-    // to support that behavior.
     const fetchOptions: RequestInit = {
       method: requestMethod,
       headers: {
         ...(isBodyPresent ? { 'Content-Type': 'application/json' } : {}),
         ...headers,
       },
+      credentials: 'include', // Include cookies for cross-origin requests
     }
 
     if (isBodyPresent) {
@@ -36,7 +33,6 @@ async function request(path: string, options: ApiRequestOptions = {}): Promise<u
 
     const text = await response.text().catch(() => '')
     if (!response.ok) {
-      // include response body / status for clearer errors
       throw new Error(`Request to ${url} failed: ${response.status} ${text || response.statusText}`)
     }
 
@@ -48,54 +44,14 @@ async function request(path: string, options: ApiRequestOptions = {}): Promise<u
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    // Rethrow with context
     throw new Error(`API request error for ${url}: ${message}`)
   }
 }
 
-export async function userDetails(payload: { username?: string; email?: string }): Promise<Record<string, unknown> | null> {
-  const result = await request('/user/details', { body: payload })
-  return (result && typeof result === 'object') ? (result as Record<string, unknown>) : null
-}
-
-export async function registerUser(payload: { username: string; email: string; password: string }): Promise<void> {
-  await request('/user', { body: payload })
-}
-
-export async function fetchExpenses(username: string): Promise<Expense[]> {
-  const user = String(username ?? '').trim()
-  if (!user) {
-    throw new Error('fetchExpenses: username is required')
-  }
-  const result = await request('/expense/all', { body: { username: user } })
-  if (Array.isArray(result)) {
-    return result as Expense[]
-  }
-  // If server returned something unexpected, surface a clear error so callers can see why
-  throw new Error('fetchExpenses: unexpected response format')
-}
-
-export async function forgotPassword(payload: { username?: string; email?: string }): Promise<unknown> {
-  return await request('/user/forgot-password', { body: payload })
-}
-
-export async function resetPassword(payload: Record<string, unknown>): Promise<unknown> {
-  return await request('/user/reset-password', { body: payload })
-}
-
-export async function updatePassword(payload: { username?: string; email?: string; newPassword: string }): Promise<unknown> {
-  return await request('/user/password', { method: 'PUT', body: payload })
-}
-
-export async function fetchExpenseCategories(): Promise<UserExpenseCategory[]> {
-  const result = await request('/expense-category/all', { method: 'GET' })
-  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
-}
-
-const ensureUsername = (username: string): string => {
-  const value = String(username ?? '').trim()
+const ensureUserId = (userId: string): string => {
+  const value = String(userId ?? '').trim()
   if (!value) {
-    throw new Error('Username is required for this request')
+    throw new Error('UserId is required for this request')
   }
   return encodeURIComponent(value)
 }
@@ -104,136 +60,123 @@ const ensureUsername = (username: string): string => {
 const _prevMonthlyBalancePromises = new Map<string, Promise<MonthlyBalance | null>>()
 const _prevMonthlyBalanceCache = new Map<string, MonthlyBalance | null>()
 
-export async function fetchUserExpenseCategories(username: string): Promise<UserExpenseCategory[]> {
-  const safeUser = ensureUsername(username)
-  const result = await request(`/user-expense-category/${safeUser}`, { method: 'GET' })
-  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
-}
+// ============================================================================
+// User Management APIs
+// ============================================================================
 
-export async function fetchUserExpenseCategoriesActive(username: string): Promise<UserExpenseCategory[]> {
-  const safeUser = ensureUsername(username)
-  const result = await request(`/user-expense-category/${safeUser}/active`, { method: 'GET' })
-  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
-}
-
-export async function fetchUserExpenses(username: string): Promise<UserExpense[]> {
-  const safeUser = ensureUsername(username)
-  const result = await request(`/user-expenses/${safeUser}`, { method: 'GET' })
-  return Array.isArray(result) ? (result as UserExpense[]) : []
-}
-
-export async function fetchUserExpensesActive(username: string): Promise<UserExpense[]> {
-  const safeUser = ensureUsername(username)
-  const result = await request(`/user-expenses/${safeUser}/active`, { method: 'GET' })
-  return Array.isArray(result) ? (result as UserExpense[]) : []
-}
-
-export async function createUserExpense(payload: {
-  username: string
-  userExpenseName: string
-  userExpenseCategoryId: string | number
-  amount: number
-  status?: 'A' | 'I'
-  paid?: 'Y' | 'N'
-}): Promise<void> {
-  const safeUser = ensureUsername(payload.username)
-  const body = {
-    userExpenseName: payload.userExpenseName,
-    userExpenseCategoryId: payload.userExpenseCategoryId,
-    amount: payload.amount,
-    status: payload.status ?? 'A',
-    paid: payload.paid ?? 'N',
+/**
+ * Check if user exists, if not create the user
+ */
+export async function ensureUserExists(userId: string): Promise<void> {
+  const safeUserId = ensureUserId(userId)
+  try {
+    // Try to get user first
+    const result = await request(`/user/${safeUserId}`, { method: 'GET' })
+    if (result) return // User exists
+  } catch {
+    // User doesn't exist, create them
   }
-  await request(`/user-expenses/${safeUser}`, { method: 'POST', body })
+  
+  // Create user with just userId
+  await request('/user', { 
+    method: 'POST',
+    body: { userId } 
+  })
 }
 
-export async function updateUserExpense(payload: {
-  username: string
-  id: string | number
-  userExpenseName?: string
-  userExpenseCategoryId?: string | number
-  amount?: number
-  status?: 'A' | 'I'
-  paid?: 'Y' | 'N'
-}): Promise<void> {
-  const safeUser = ensureUsername(payload.username)
-  const safeId = encodeURIComponent(String(payload.id))
-  const body: Record<string, unknown> = {}
-  if (payload.userExpenseName !== undefined) body.userExpenseName = payload.userExpenseName
-  if (payload.userExpenseCategoryId !== undefined) body.userExpenseCategoryId = payload.userExpenseCategoryId
-  if (payload.amount !== undefined) body.amount = payload.amount
-  if (payload.status !== undefined) body.status = payload.status
-  if (payload.paid !== undefined) body.paid = payload.paid
-  await request(`/user-expenses/${safeUser}/${safeId}`, { method: 'PUT', body })
+/**
+ * User logout - calls backend logout API
+ */
+export async function logoutUser(userId: string): Promise<void> {
+  await request('/user/logout', { 
+    method: 'POST',
+    body: { userId } 
+  })
 }
 
-export async function deleteUserExpense(payload: { username: string; id: string | number }): Promise<void> {
-  const safeUser = ensureUsername(payload.username)
-  const safeId = encodeURIComponent(String(payload.id))
-  await request(`/user-expenses/${safeUser}/${safeId}`, { method: 'DELETE' })
+/**
+ * Get user details by userId
+ */
+export async function getUserDetails(userId: string): Promise<Record<string, unknown> | null> {
+  const safeUserId = ensureUserId(userId)
+  try {
+    const result = await request(`/user/${safeUserId}`, { method: 'GET' })
+    return (result && typeof result === 'object') ? (result as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
 }
 
-export async function copyUserExpensesFromMaster(username: string): Promise<void> {
-  const safeUser = ensureUsername(username)
-  // Use the exact endpoint provided by the caller (case-sensitive path)
-  await request(`/planned-expenses/${safeUser}/copyMaster`, { method: 'POST' })
+// ============================================================================
+// Expense Category APIs
+// ============================================================================
+
+export async function fetchUserExpenseCategories(userId: string): Promise<UserExpenseCategory[]> {
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-expense-category/${safeUserId}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
+}
+
+export async function fetchUserExpenseCategoriesActive(userId: string): Promise<UserExpenseCategory[]> {
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-expense-category/${safeUserId}/active`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
 }
 
 export async function createUserExpenseCategory(payload: {
-  username: string
+  userId: string
   userExpenseCategoryName: string
   status?: 'A' | 'I'
 }): Promise<void> {
-  const safeUser = ensureUsername(payload.username)
+  const safeUserId = ensureUserId(payload.userId)
   const body = {
     userExpenseCategoryName: payload.userExpenseCategoryName,
     status: payload.status ?? 'A',
   }
-  await request(`/user-expense-category/${safeUser}`, { method: 'POST', body })
+  await request(`/user-expense-category/${safeUserId}`, { method: 'POST', body })
 }
 
 export async function updateUserExpenseCategory(payload: {
-  username: string
+  userId: string
   id: string | number
   userExpenseCategoryName: string
   status: 'A' | 'I'
 }): Promise<void> {
-  const safeUser = ensureUsername(payload.username)
+  const safeUserId = ensureUserId(payload.userId)
   const safeId = encodeURIComponent(String(payload.id))
   const body = {
     userExpenseCategoryName: payload.userExpenseCategoryName,
     status: payload.status,
   }
-  await request(`/user-expense-category/${safeUser}/${safeId}`, { method: 'PUT', body })
+  await request(`/user-expense-category/${safeUserId}/${safeId}`, { method: 'PUT', body })
 }
 
-export async function deleteUserExpenseCategory(payload: { username: string; id: string | number }): Promise<void> {
-  const safeUser = ensureUsername(payload.username)
+export async function deleteUserExpenseCategory(payload: { userId: string; id: string | number }): Promise<void> {
+  const safeUserId = ensureUserId(payload.userId)
   const safeId = encodeURIComponent(String(payload.id))
-  await request(`/user-expense-category/${safeUser}/${safeId}`, { method: 'DELETE' })
+  await request(`/user-expense-category/${safeUserId}/${safeId}`, { method: 'DELETE' })
 }
 
-export async function deleteAllUserExpenseCategories(username: string): Promise<void> {
-  const safeUser = ensureUsername(username)
-  await request(`/user-expense-category/${safeUser}`, { method: 'DELETE' })
+export async function deleteAllUserExpenseCategories(userId: string): Promise<void> {
+  const safeUserId = ensureUserId(userId)
+  await request(`/user-expense-category/${safeUserId}`, { method: 'DELETE' })
 }
 
-export async function copyUserExpenseCategoriesFromMaster(username: string): Promise<void> {
-  const safeUser = ensureUsername(username)
-  await request(`/user-expense-category/${safeUser}/copy-master`, { method: 'POST' })
+export async function copyUserExpenseCategoriesFromMaster(userId: string): Promise<void> {
+  const safeUserId = ensureUserId(userId)
+  await request(`/user-expense-category/${safeUserId}/copy-master`, { method: 'POST' })
 }
 
 export async function resolveUserExpenseCategoryId(payload: {
-  username: string
+  userId: string
   userExpenseCategoryName: string
 }): Promise<string | number | null> {
-  const safeUser = ensureUsername(payload.username)
+  const safeUserId = ensureUserId(payload.userId)
   const name = String(payload.userExpenseCategoryName ?? '').trim()
   if (!name) {
     throw new Error('userExpenseCategoryName is required')
   }
-  // Use POST body for lookup (server expects JSON body)
-  const result = await request(`/user-expense-category/${safeUser}/id`, {
+  const result = await request(`/user-expense-category/${safeUserId}/id`, {
     method: 'POST',
     body: { userExpenseCategoryName: name },
   })
@@ -259,41 +202,116 @@ export async function resolveUserExpenseCategoryId(payload: {
   return null
 }
 
-export async function fetchExpensesByRange(payload: { username: string; start: string; end: string; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
-  const body: Record<string, unknown> = { username: payload.username, start: payload.start, end: payload.end }
+// ============================================================================
+// User Expenses (Planned Expenses) APIs
+// ============================================================================
+
+export async function fetchUserExpenses(userId: string): Promise<UserExpense[]> {
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-expenses/${safeUserId}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpense[]) : []
+}
+
+export async function fetchUserExpensesActive(userId: string): Promise<UserExpense[]> {
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-expenses/${safeUserId}/active`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpense[]) : []
+}
+
+export async function createUserExpense(payload: {
+  userId: string
+  userExpenseName: string
+  userExpenseCategoryId: string | number
+  amount: number
+  status?: 'A' | 'I'
+  paid?: 'Y' | 'N'
+}): Promise<void> {
+  const safeUserId = ensureUserId(payload.userId)
+  const body = {
+    userExpenseName: payload.userExpenseName,
+    userExpenseCategoryId: payload.userExpenseCategoryId,
+    amount: payload.amount,
+    status: payload.status ?? 'A',
+    paid: payload.paid ?? 'N',
+  }
+  await request(`/user-expenses/${safeUserId}`, { method: 'POST', body })
+}
+
+export async function updateUserExpense(payload: {
+  userId: string
+  id: string | number
+  userExpenseName?: string
+  userExpenseCategoryId?: string | number
+  amount?: number
+  status?: 'A' | 'I'
+  paid?: 'Y' | 'N'
+}): Promise<void> {
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const body: Record<string, unknown> = {}
+  if (payload.userExpenseName !== undefined) body.userExpenseName = payload.userExpenseName
+  if (payload.userExpenseCategoryId !== undefined) body.userExpenseCategoryId = payload.userExpenseCategoryId
+  if (payload.amount !== undefined) body.amount = payload.amount
+  if (payload.status !== undefined) body.status = payload.status
+  if (payload.paid !== undefined) body.paid = payload.paid
+  await request(`/user-expenses/${safeUserId}/${safeId}`, { method: 'PUT', body })
+}
+
+export async function deleteUserExpense(payload: { userId: string; id: string | number }): Promise<void> {
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  await request(`/user-expenses/${safeUserId}/${safeId}`, { method: 'DELETE' })
+}
+
+export async function copyUserExpensesFromMaster(userId: string): Promise<void> {
+  const safeUserId = ensureUserId(userId)
+  await request(`/planned-expenses/${safeUserId}/copyMaster`, { method: 'POST' })
+}
+
+// ============================================================================
+// Expenses APIs
+// ============================================================================
+
+export async function fetchExpenses(userId: string): Promise<Expense[]> {
+  const safeUserId = ensureUserId(userId)
+  const result = await request('/expense/all', { body: { userId: safeUserId } })
+  if (Array.isArray(result)) {
+    return result as Expense[]
+  }
+  throw new Error('fetchExpenses: unexpected response format')
+}
+
+export async function fetchExpensesByRange(payload: { userId: string; start: string; end: string; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+  const body: Record<string, unknown> = { userId: payload.userId, start: payload.start, end: payload.end }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
   const result = await request('/expense/range', { body })
-  // Handle both paginated and legacy array responses
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Expense>
   }
-  // Legacy fallback: wrap array in PagedResponse format
   const arr = Array.isArray(result) ? (result as Expense[]) : []
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchExpensesByMonth(payload: { username: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
-  const body: Record<string, unknown> = { username: payload.username, month: payload.month, year: payload.year }
+export async function fetchExpensesByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+  const body: Record<string, unknown> = { userId: payload.userId, month: payload.month, year: payload.year }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
   const result = await request('/expense/month', { body })
-  // Handle both paginated and legacy array responses
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Expense>
   }
-  // Legacy fallback: wrap array in PagedResponse format
   const arr = Array.isArray(result) ? (result as Expense[]) : []
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchExpensesByYear(payload: { username: string; year: number }): Promise<Expense[]> {
+export async function fetchExpensesByYear(payload: { userId: string; year: number }): Promise<Expense[]> {
   const result = await request('/expense/year', { body: payload })
   return Array.isArray(result) ? (result as Expense[]) : []
 }
 
 export async function addExpense(payload: {
-  username: string
+  userId: string
   userExpenseCategoryId: number | string
   expenseAmount: number
   expenseDate: string
@@ -302,13 +320,13 @@ export async function addExpense(payload: {
   return await request('/expense/add', { body: payload })
 }
 
-export async function deleteExpense(payload: { username: string; expensesId: string | number }): Promise<unknown> {
+export async function deleteExpense(payload: { userId: string; expensesId: string | number }): Promise<unknown> {
   return await request('/expense/delete', { body: payload })
 }
 
 export async function updateExpense(payload: {
   expensesId: string | number
-  username: string
+  userId: string
   expenseAmount?: number
   expenseName?: string
   expenseDate?: string
@@ -317,8 +335,12 @@ export async function updateExpense(payload: {
   return await request('/expense/update', { method: 'PUT', body: payload })
 }
 
+// ============================================================================
+// Income APIs
+// ============================================================================
+
 export async function addIncome(payload: {
-  username: string
+  userId: string
   source: string
   amount: number
   receivedDate: string
@@ -328,13 +350,13 @@ export async function addIncome(payload: {
   return await request('/income/add', { body: payload })
 }
 
-export async function deleteIncome(payload: { username: string; incomeId: string | number }): Promise<unknown> {
+export async function deleteIncome(payload: { userId: string; incomeId: string | number }): Promise<unknown> {
   return await request('/income/delete', { body: payload })
 }
 
 export async function updateIncome(payload: {
   incomeId: string | number
-  username: string
+  userId: string
   source?: string
   amount?: number
   receivedDate?: string
@@ -345,7 +367,7 @@ export async function updateIncome(payload: {
 }
 
 export async function fetchIncomeByRange(payload: {
-  username: string
+  userId: string
   fromMonth: string | number
   fromYear: string | number
   toMonth: string | number
@@ -354,7 +376,7 @@ export async function fetchIncomeByRange(payload: {
   size?: number
 }): Promise<PagedResponse<Income>> {
   const body: Record<string, unknown> = {
-    username: payload.username,
+    userId: payload.userId,
     fromMonth: payload.fromMonth,
     fromYear: payload.fromYear,
     toMonth: payload.toMonth,
@@ -363,34 +385,30 @@ export async function fetchIncomeByRange(payload: {
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
   const result = await request('/income/range', { body })
-  // Handle both paginated and legacy array responses
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Income>
   }
-  // Legacy fallback: wrap array in PagedResponse format
   const arr = Array.isArray(result) ? (result as Income[]) : []
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchIncomeByMonth(payload: { username: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Income>> {
-  const body: Record<string, unknown> = { username: payload.username, month: payload.month, year: payload.year }
+export async function fetchIncomeByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Income>> {
+  const body: Record<string, unknown> = { userId: payload.userId, month: payload.month, year: payload.year }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
   const result = await request('/income/month', { body })
-  // Handle both paginated and legacy array responses
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Income>
   }
-  // Legacy fallback: wrap array in PagedResponse format
   const arr = Array.isArray(result) ? (result as Income[]) : []
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchIncomeLastYear(username: string, currentYear: number): Promise<Income[]> {
+export async function fetchIncomeLastYear(userId: string, currentYear: number): Promise<Income[]> {
   const fromYear = currentYear - 1
   const result = await request('/income/range', {
     body: {
-      username,
+      userId,
       fromMonth: '01',
       fromYear: String(fromYear),
       toMonth: '12',
@@ -400,22 +418,23 @@ export async function fetchIncomeLastYear(username: string, currentYear: number)
   return Array.isArray(result) ? (result as Income[]) : []
 }
 
-export async function fetchPreviousMonthlyBalance(username: string): Promise<MonthlyBalance | null> {
-  const safeUser = ensureUsername(username)
+// ============================================================================
+// Monthly Balance APIs
+// ============================================================================
 
-  // determine the previous month/year key (API returns previous month info)
+export async function fetchPreviousMonthlyBalance(userId: string): Promise<MonthlyBalance | null> {
+  const safeUserId = ensureUserId(userId)
+
   const now = new Date()
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const monthKey = String(prev.getMonth() + 1).padStart(2, '0')
   const yearKey = prev.getFullYear()
-  const storageKey = `dashboard:monthly-balance:${safeUser}:${yearKey}-${monthKey}`
+  const storageKey = `dashboard:monthly-balance:${safeUserId}:${yearKey}-${monthKey}`
 
-  // return in-memory cached value if present
   if (_prevMonthlyBalanceCache.has(storageKey)) {
     return _prevMonthlyBalanceCache.get(storageKey) ?? null
   }
 
-  // check localStorage cache
   if (typeof window !== 'undefined') {
     try {
       const raw = window.localStorage.getItem(storageKey)
@@ -437,14 +456,13 @@ export async function fetchPreviousMonthlyBalance(username: string): Promise<Mon
     }
   }
 
-  // dedupe inflight requests
   if (_prevMonthlyBalancePromises.has(storageKey)) {
     return _prevMonthlyBalancePromises.get(storageKey)!
   }
 
   const inflight = (async (): Promise<MonthlyBalance | null> => {
     try {
-      const result = await request(`/monthly-balance/previous?username=${safeUser}`, { method: 'GET' })
+      const result = await request(`/monthly-balance/previous?userId=${safeUserId}`, { method: 'GET' })
       if (result && typeof result === 'object') {
         const payload = result as { openingBalance?: unknown; closingBalance?: unknown; month?: unknown; year?: unknown }
         const openingBalance = typeof payload.openingBalance === 'number' ? payload.openingBalance : undefined
@@ -453,7 +471,6 @@ export async function fetchPreviousMonthlyBalance(username: string): Promise<Mon
         const year = typeof payload.year === 'number' ? payload.year : yearKey
         const mb: MonthlyBalance = { openingBalance, closingBalance, month, year }
 
-        // persist a simple numeric balance to localStorage for quick reuse
         const storeValue = closingBalance ?? openingBalance ?? null
         if (storeValue !== null && typeof window !== 'undefined') {
           try {
@@ -477,19 +494,14 @@ export async function fetchPreviousMonthlyBalance(username: string): Promise<Mon
   return inflight
 }
 
-export async function checkHealth(): Promise<string> {
-  const result = await request('/health', { method: 'GET' })
-  return typeof result === 'string' ? result : 'OK'
-}
+// ============================================================================
+// User Preferences APIs
+// ============================================================================
 
-export function getApiBase(): string {
-  return API_BASE
-}
-
-export async function fetchUserPreferences(username: string): Promise<UserPreferences | null> {
-  const safeUser = ensureUsername(username)
+export async function fetchUserPreferences(userId: string): Promise<UserPreferences | null> {
+  const safeUserId = ensureUserId(userId)
   try {
-    const result = await request(`/user/preferences/${safeUser}`, { method: 'GET' })
+    const result = await request(`/user/preferences/${safeUserId}`, { method: 'GET' })
     if (result && typeof result === 'object') {
       return result as UserPreferences
     }
@@ -500,26 +512,36 @@ export async function fetchUserPreferences(username: string): Promise<UserPrefer
 }
 
 export async function updateUserPreferences(payload: {
-  username: string
+  userId: string
   fontSize?: FontSize
   currencyCode?: CurrencyCode
   theme?: ThemeCode
 }): Promise<void> {
-  const body: Record<string, unknown> = { username: payload.username }
+  const body: Record<string, unknown> = { userId: payload.userId }
   if (payload.fontSize !== undefined) body.fontSize = payload.fontSize
   if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode
   if (payload.theme !== undefined) body.theme = payload.theme
   await request('/user/preferences', { method: 'POST', body })
 }
 
+// ============================================================================
+// Health Check
+// ============================================================================
+
+export async function checkHealth(): Promise<string> {
+  const result = await request('/health', { method: 'GET' })
+  return typeof result === 'string' ? result : 'OK'
+}
+
+export function getApiBase(): string {
+  return API_BASE
+}
+
 export default {
-  userDetails,
-  registerUser,
+  ensureUserExists,
+  logoutUser,
+  getUserDetails,
   fetchExpenses,
-  forgotPassword,
-  resetPassword,
-  updatePassword,
-  fetchExpenseCategories,
   fetchUserExpenseCategories,
   fetchUserExpenseCategoriesActive,
   createUserExpenseCategory,
@@ -528,6 +550,12 @@ export default {
   deleteAllUserExpenseCategories,
   copyUserExpenseCategoriesFromMaster,
   copyUserExpensesFromMaster,
+  resolveUserExpenseCategoryId,
+  fetchUserExpenses,
+  fetchUserExpensesActive,
+  createUserExpense,
+  updateUserExpense,
+  deleteUserExpense,
   fetchExpensesByRange,
   fetchExpensesByMonth,
   fetchExpensesByYear,

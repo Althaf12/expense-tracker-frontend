@@ -20,6 +20,38 @@
   margin-bottom: 1.5rem;
 }
 
+.headerWithIcon {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.iconWrapper {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+}
+
+.iconWrapperGreen {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #34d399, #10b981);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
 .title {
   margin: 0;
   font-size: 1.45rem;
@@ -103,6 +135,9 @@
 }
 
 .primaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   background: linear-gradient(135deg, #60a5fa, #2563eb);
   color: var(--color-text-inverse);
   box-shadow: 0 2.5px 5px rgba(37, 99, 235, 0.35);
@@ -110,6 +145,7 @@
 
 .primaryButton:hover {
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
 }
 
 .secondaryButton {
@@ -144,6 +180,14 @@
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--surface-table-inner-border);
   color: var(--table-text-primary);
+}
+
+.table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.table tbody tr:hover {
+  background: var(--surface-table-hover);
 }
 
 .tableFilterRow th {
@@ -439,5 +483,46 @@
   .monthInputs,
   .rangeInputs {
     gap: 0.5rem;
+  }
+}
+
+/* Additional mobile responsiveness */
+@media (max-width: 600px) {
+  .card {
+    padding: 1rem;
+    border-radius: 0.5rem;
+  }
+
+  .headerWithIcon {
+    gap: 0.5rem;
+  }
+
+  .iconWrapper,
+  .iconWrapperGreen {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .title {
+    font-size: 1.2rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .form {
+    gap: 0.75rem;
+  }
+
+  .field {
+    gap: 0.25rem;
   }
 }

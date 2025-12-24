@@ -7,6 +7,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
+    // Force dev server to run on port 5176 for local testing consistency
+    port: 5176,
     // Only enable proxy in development
     proxy: mode === 'development' ? {
       '/api': {
@@ -16,5 +18,9 @@ export default defineConfig(({ mode }) => ({
         // rewrite: path => path.replace(/^\/api/, '/api') // not necessary here
       },
     } : undefined,
+  },
+  // Ensure preview (static preview) runs on the same port by default
+  preview: {
+    port: 5176,
   },
 }))

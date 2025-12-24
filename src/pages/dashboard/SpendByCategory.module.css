@@ -1,3 +1,22 @@
+.headerWithIcon {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.iconWrapper {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
 .categoryGraph {
   list-style: none;
   margin: 0;
@@ -42,5 +61,18 @@
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(135deg, #60a5fa, #2563eb);
-  transition: width 0.25s ease;
+  transition: width 0.4s ease;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .headerWithIcon {
+    gap: 0.5rem;
+  }
+
+  .iconWrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
 }

@@ -1,5 +1,6 @@
 import { Typography } from '@mui/material'
 import type { ReactElement } from 'react'
+import { ClipboardList, GripVertical, Check, RefreshCw } from 'lucide-react'
 import type { UserExpense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './PlannedExpenses.module.css'
@@ -76,17 +77,23 @@ export default function PlannedExpenses({
   return (
     <section className={styles.card} aria-live="polite">
       <header className={styles.cardHeader}>
-        <div>
-          <Typography variant="h5" component="h2" className={styles.cardTitle}>
-            Planned Expenses
-          </Typography>
-          <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-            Drag categories to prioritise and track their monthly status.
-          </Typography>
+        <div className={localStyles.headerWithIcon}>
+          <div className={localStyles.iconWrapper}>
+            <ClipboardList size={22} />
+          </div>
+          <div>
+            <Typography variant="h5" component="h2" className={styles.cardTitle}>
+              Planned Expenses
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+              Drag categories to prioritise and track their monthly status.
+            </Typography>
+          </div>
         </div>
         <div className={styles.headerActions}>
           <span className={styles.cardBadge}>{completedMonthlyTemplates}/{visibleTemplates.length} completed</span>
-          <button type="button" className={styles.secondaryButton} onClick={handleResetMonthlyStatus} disabled={visibleTemplates.length === 0}>
+          <button type="button" className={localStyles.resetButton} onClick={handleResetMonthlyStatus} disabled={visibleTemplates.length === 0}>
+            <RefreshCw size={16} />
             Reset month
           </button>
         </div>
@@ -123,7 +130,9 @@ export default function PlannedExpenses({
                     onDragEnd={handleCategoryDragEnd}
                   >
                     <div className={localStyles.plannedCategoryCell}>
-                      <span className={localStyles.dragHandle} aria-hidden="true">⋮⋮</span>
+                      <span className={localStyles.dragHandle} aria-hidden="true">
+                        <GripVertical size={18} />
+                      </span>
                       <div className={localStyles.plannedCategoryMeta}>
                         <span className={localStyles.plannedCategoryName}>{group.categoryName}</span>
                         <span className={localStyles.plannedCategoryTotal}>{formatCurrency(groupTotal)}</span>

@@ -65,10 +65,10 @@ const getPreferredTheme = (): Theme => {
 }
 
 type ThemeProviderProps = PropsWithChildren<{
-  username?: string | null
+  userId?: string | null
 }>
 
-export function ThemeProvider({ children, username }: ThemeProviderProps): ReactElement {
+export function ThemeProvider({ children, userId }: ThemeProviderProps): ReactElement {
   const [theme, setThemeState] = useState<Theme>(() => {
     const preferred = getPreferredTheme()
     if (typeof document !== 'undefined') {
@@ -102,12 +102,12 @@ export function ThemeProvider({ children, username }: ThemeProviderProps): React
       /* ignore storage write issues */
     }
     // Call API to persist theme preference if user is logged in
-    if (username) {
-      updateUserPreferences({ username, theme: themeCode }).catch(() => {
+    if (userId) {
+      updateUserPreferences({ userId, theme: themeCode }).catch(() => {
         /* ignore API errors - local state is already updated */
       })
     }
-  }, [username])
+  }, [userId])
 
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'dark' ? 'light' : 'dark')

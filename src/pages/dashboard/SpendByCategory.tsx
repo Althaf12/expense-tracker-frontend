@@ -1,5 +1,6 @@
 import { Typography } from '@mui/material'
 import type { ReactElement } from 'react'
+import { PieChart, X } from 'lucide-react'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './SpendByCategory.module.css'
 import Skeleton from '../../components/Skeleton'
@@ -57,13 +58,18 @@ export default function SpendByCategory({
   return (
     <section className={styles.card}>
       <header className={styles.cardHeader}>
-        <div>
-          <Typography variant="h5" component="h2" className={styles.cardTitle}>
-            Spend by Category
-          </Typography>
-          <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-            {label}
-          </Typography>
+        <div className={localStyles.headerWithIcon}>
+          <div className={localStyles.iconWrapper}>
+            <PieChart size={22} />
+          </div>
+          <div>
+            <Typography variant="h5" component="h2" className={styles.cardTitle}>
+              Spend by Category
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+              {label}
+            </Typography>
+          </div>
         </div>
         <span className={styles.cardBadge}>{filteredCategorySummary.length} items</span>
       </header>
@@ -99,7 +105,8 @@ export default function SpendByCategory({
                       onChange={(event) => handleCategoryFilterChange('total', event.target.value)}
                     />
                     {categoryFiltersApplied && (
-                      <button type="button" className={styles.clearButton} onClick={clearCategoryFilters}>
+                      <button type="button" className={styles.clearButton} onClick={clearCategoryFilters} title="Clear filters">
+                        <X size={14} />
                         Clear
                       </button>
                     )}

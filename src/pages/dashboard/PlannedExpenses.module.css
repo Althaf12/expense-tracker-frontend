@@ -11,7 +11,51 @@
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(135deg, #34d399, #059669);
-  transition: width 0.2s ease;
+  transition: width 0.4s ease;
+}
+
+.headerWithIcon {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.iconWrapper {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.resetButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--secondary-button-border);
+  background: transparent;
+  color: var(--secondary-button-text);
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.resetButton:hover:not(:disabled) {
+  background: var(--secondary-button-hover);
+  transform: translateY(-1px);
+}
+
+.resetButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* Container - columns are equal width (two columns) across all sizes */
@@ -52,6 +96,11 @@
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--surface-table-border);
   cursor: grab;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.plannedRow:hover {
+  background: var(--surface-table-hover);
 }
 
 .plannedRow:active {
@@ -76,6 +125,12 @@
   letter-spacing: 0.3rem;
   color: var(--color-text-muted);
   flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.plannedRow:hover .dragHandle {
+  opacity: 1;
 }
 
 .plannedCategoryMeta {
@@ -193,4 +248,48 @@
 .plannedFooterAmount {
   font-weight: 700;
   color: var(--color-text-strong);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .headerWithIcon {
+    gap: 0.5rem;
+  }
+
+  .iconWrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .plannedRow {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .gridHeader {
+    display: none;
+  }
+
+  .plannedCategoryCell {
+    padding: 0.5rem 1rem;
+    background: var(--surface-table-head);
+    border-radius: 0.5rem;
+  }
+
+  .plannedExpenseListCell {
+    padding: 0 1rem;
+  }
+
+  .plannedFooter {
+    padding: 0.75rem 1rem;
+    flex-direction: column;
+    gap: 0.35rem;
+    text-align: center;
+  }
+
+  .resetButton {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+  }
 }

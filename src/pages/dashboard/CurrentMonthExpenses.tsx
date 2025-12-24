@@ -1,6 +1,7 @@
 import { Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { ReactElement } from 'react'
+import { Receipt, Plus, X } from 'lucide-react'
 import type { Expense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './CurrentMonthExpenses.module.css'
@@ -58,17 +59,23 @@ export default function CurrentMonthExpenses({
   return (
     <section className={styles.card} aria-busy={loading}>
       <header className={styles.cardHeader}>
-        <div>
-          <Typography variant="h5" component="h2" className={styles.cardTitle}>
-            Current Month Expenses
-          </Typography>
-          <Typography variant="body2" component="p" className={styles.cardSubtitle}>
-            {label}
-          </Typography>
+        <div className={localStyles.headerWithIcon}>
+          <div className={localStyles.iconWrapper}>
+            <Receipt size={22} />
+          </div>
+          <div>
+            <Typography variant="h5" component="h2" className={styles.cardTitle}>
+              Current Month Expenses
+            </Typography>
+            <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+              {label}
+            </Typography>
+          </div>
         </div>
         <div className={styles.headerActions}>
           <span className={styles.cardBadge}>{filteredMonthlyExpenses.length} items</span>
           <Link to="/operations/expenses" className={styles.addButton} aria-label="Add expense">
+            <Plus size={16} />
             Add Expense
           </Link>
         </div>

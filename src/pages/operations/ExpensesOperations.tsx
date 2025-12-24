@@ -1,6 +1,18 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
+import { 
+  Receipt, 
+  Search, 
+  Plus, 
+  Trash2, 
+  Pencil, 
+  Check, 
+  X, 
+  Calendar, 
+  Filter,
+  ChevronDown 
+} from 'lucide-react'
 import {
   addExpense,
   deleteExpense,
@@ -184,7 +196,7 @@ export default function ExpensesOperations(): ReactElement {
       setStatus({ type: 'loading', message: 'Fetching expenses...' })
       try {
         const response = await fetchExpensesByMonth({
-          username: session.username,
+          userId: session.userId,
           month: defaultMonth,
           year: defaultYear,
           page: 0,
@@ -446,7 +458,7 @@ export default function ExpensesOperations(): ReactElement {
     setStatus({ type: 'loading', message: 'Adding expense...' })
     try {
       await addExpense({
-        username: session.username,
+        userId: session.userId,
         userExpenseCategoryId: categoryIdToUse,
         expenseAmount: numericAmount,
         expenseDate: inlineAddDraft.expenseDate,
@@ -491,7 +503,7 @@ export default function ExpensesOperations(): ReactElement {
 
   const loadExpenses = async (mode: ViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
     if (!session) return
-    const username = session.username
+    const userId = session.userId
     setLoading(true)
     setStatus({ type: 'loading', message: 'Fetching expenses...' })
 
@@ -501,7 +513,7 @@ export default function ExpensesOperations(): ReactElement {
         const monthPayload = payload as { month: number; year: number } | undefined
         const month = monthPayload?.month ?? selectedMonth
         const year = monthPayload?.year ?? selectedYear
-        response = await fetchExpensesByMonth({ username, month, year, page, size })
+        response = await fetchExpensesByMonth({ userId, month, year, page, size })
         setLastQuery({ mode, payload: { month, year } })
       } else if (mode === 'range') {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -523,13 +535,13 @@ export default function ExpensesOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        response = await fetchExpensesByRange({ username, start, end, page, size })
+        response = await fetchExpensesByRange({ userId, start, end, page, size })
         setLastQuery({ mode, payload: { start, end } })
       } else {
         // The backend will remove the 'fetch all' endpoint. Use month API as a safe default.
         const month = selectedMonth
         const year = selectedYear
-        response = await fetchExpensesByMonth({ username, month, year, page, size })
+        response = await fetchExpensesByMonth({ userId, month, year, page, size })
         setLastQuery({ mode: 'month', payload: { month, year } })
       }
       setResults(response.content)
@@ -567,7 +579,7 @@ export default function ExpensesOperations(): ReactElement {
 
   const refreshAfterMutation = async () => {
     if (!session) return
-    await reloadExpensesCache(session.username)
+    await reloadExpensesCache(session.userId)
     if (lastQuery) {
       await loadExpenses(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
     }
@@ -714,7 +726,7 @@ export default function ExpensesOperations(): ReactElement {
     try {
       await updateExpense({
         expensesId,
-        username: session.username,
+        userId: session.userId,
         expenseAmount: numericAmount,
         expenseName: editingRowDraft.expenseName,
         expenseDate: editingRowDraft.expenseDate,
@@ -741,7 +753,7 @@ export default function ExpensesOperations(): ReactElement {
 
     setStatus({ type: 'loading', message: 'Deleting expense...' })
     try {
-      await deleteExpense({ username: session.username, expensesId })
+      await deleteExpense({ userId: session.userId, expensesId })
       setStatus({ type: 'success', message: 'Expense deleted.' })
       if (editingRowId === ensureId(expense)) {
         cancelInlineEdit()
@@ -779,7 +791,7 @@ export default function ExpensesOperations(): ReactElement {
     setStatus({ type: 'loading', message: 'Adding expense...' })
     try {
       await addExpense({
-        username: session.username,
+        userId: session.userId,
         userExpenseCategoryId: expenseCategoryId,
         expenseAmount: numericAmount,
         expenseDate,
@@ -812,13 +824,18 @@ export default function ExpensesOperations(): ReactElement {
       <Grid size={{ xs: 12, xl: 8 }}>
         <section className={styles.card}>
           <header className={styles.cardHeader}>
-            <div>
-              <Typography variant="h5" component="h2" className={styles.title}>
-                Expense Explorer
-              </Typography>
-              <Typography variant="body2" component="p" className={styles.subtitle}>
-                Review and manage expense entries.
-              </Typography>
+            <div className={styles.headerWithIcon}>
+              <div className={styles.iconWrapper}>
+                <Receipt size={22} />
+              </div>
+              <div>
+                <Typography variant="h5" component="h2" className={styles.title}>
+                  Expense Explorer
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.subtitle}>
+                  Review and manage expense entries.
+                </Typography>
+              </div>
             </div>
             <span className={styles.badge}>{filteredResults.length} records</span>
           </header>
@@ -894,6 +911,7 @@ export default function ExpensesOperations(): ReactElement {
             )}
 
             <button className={styles.primaryButton} type="submit" disabled={loading}>
+              <Search size={16} />
               {loading ? 'Loading…' : 'Load Expenses'}
             </button>
           </form>
@@ -1224,13 +1242,18 @@ export default function ExpensesOperations(): ReactElement {
       <Grid size={{ xs: 12, xl: 4 }}>
         <section className={styles.card}>
           <header className={styles.cardHeader}>
-            <div>
-              <Typography variant="h5" component="h2" className={styles.title}>
-                Add Expense
-              </Typography>
-              <Typography variant="body2" component="p" className={styles.subtitle}>
-                Record a new expense entry.
-              </Typography>
+            <div className={styles.headerWithIcon}>
+              <div className={styles.iconWrapperGreen}>
+                <Plus size={22} />
+              </div>
+              <div>
+                <Typography variant="h5" component="h2" className={styles.title}>
+                  Add Expense
+                </Typography>
+                <Typography variant="body2" component="p" className={styles.subtitle}>
+                  Record a new expense entry.
+                </Typography>
+              </div>
             </div>
           </header>
 

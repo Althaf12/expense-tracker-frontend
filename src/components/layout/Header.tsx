@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { User, LogOut, Menu } from 'lucide-react'
 import type { SessionData } from '../../types/app'
 import { useTheme } from '../../context/ThemeContext'
 import ThemeToggle from './ThemeToggle'
@@ -14,7 +15,7 @@ type HeaderProps = {
 }
 
 const getInitial = (session: SessionData | null): string => {
-  const source = session?.identifier ?? session?.username ?? ''
+  const source = session?.username ?? session?.userId ?? ''
   return source.charAt(0).toUpperCase() || 'U'
 }
 
@@ -97,10 +98,12 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
 
             <div className={styles.menu} role="menu">
               <button type="button" className={styles.menuItem} onClick={goToProfile}>
-                Profile
+                <User size={16} />
+                <span>Profile</span>
               </button>
               <button type="button" className={styles.menuItem} onClick={handleLogout}>
-                Logout
+                <LogOut size={16} />
+                <span>Logout</span>
               </button>
             </div>
           </div>

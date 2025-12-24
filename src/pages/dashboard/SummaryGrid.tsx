@@ -1,5 +1,6 @@
 import { Typography } from '@mui/material'
 import type { ReactElement } from 'react'
+import { Wallet, CalendarCheck, TrendingUp, Receipt } from 'lucide-react'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './SummaryGrid.module.css'
 import type { TrendSummary } from './types'
@@ -115,6 +116,9 @@ export default function SummaryGrid({
   return (
     <div className={styles.summaryGrid}>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+        <div className={localStyles.iconWrapper} style={{ background: 'linear-gradient(135deg, #60a5fa, #3b82f6)' }}>
+          <Wallet size={24} color="#fff" />
+        </div>
         <div className={localStyles.summaryHeader}>
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total Balance
@@ -131,6 +135,9 @@ export default function SummaryGrid({
         </div>
       </section>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+        <div className={localStyles.iconWrapper} style={{ background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)' }}>
+          <CalendarCheck size={24} color="#fff" />
+        </div>
         <div className={localStyles.summaryHeader}>
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total After Due Balance
@@ -147,6 +154,9 @@ export default function SummaryGrid({
         </div>
       </section>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+        <div className={localStyles.iconWrapper} style={{ background: 'linear-gradient(135deg, #34d399, #10b981)' }}>
+          <TrendingUp size={24} color="#fff" />
+        </div>
         <div className={localStyles.summaryHeader}>
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total Income
@@ -164,6 +174,9 @@ export default function SummaryGrid({
         </div>
       </section>
       <section className={`${styles.card} ${localStyles.summaryCard}`} aria-live="polite">
+        <div className={localStyles.iconWrapper} style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}>
+          <Receipt size={24} color="#fff" />
+        </div>
         <div className={localStyles.summaryHeader}>
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total Expenses

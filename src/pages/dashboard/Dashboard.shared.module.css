@@ -14,11 +14,16 @@
 .card {
   background: var(--surface-card);
   height: -webkit-fill-available;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   box-shadow: 0 8px 24px rgba(2,6,23,0.55);
   padding: 1.5rem;
   border: 1px solid rgba(255,255,255,0.03);
   backdrop-filter: blur(6px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 12px 32px rgba(2,6,23,0.65);
 }
 
 .cardHeader {
@@ -97,11 +102,19 @@
   font-weight: 700;
   text-decoration: none;
   box-shadow: 0 12px 28px rgba(37, 99, 235, 0.18);
-  transition: transform 0.12s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .addButton:hover {
   transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.25);
+}
+
+@media (max-width: 600px) {
+  .addButton {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+  }
 }
 
 .placeholder {
@@ -193,6 +206,7 @@
 
 .table tbody tr:hover {
   background: var(--surface-table-hover);
+  transition: background 0.15s ease;
 }
 
 .emptyRow td {
@@ -296,4 +310,52 @@
 
 .trendNeutral {
   color: var(--color-text-muted);
+}
+
+/* Additional mobile-friendly improvements */
+@media (max-width: 600px) {
+  .card {
+    padding: 1rem;
+    border-radius: 0.5rem;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .headerActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cardTitle {
+    font-size: 1.2rem;
+  }
+
+  .cardSubtitle {
+    font-size: 0.85rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .tableFilterInput {
+    height: 1.9rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .templatesRow {
+    gap: 0.75rem;
+  }
 }

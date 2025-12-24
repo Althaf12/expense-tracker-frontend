@@ -35,12 +35,13 @@
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .pageButton:hover:not(:disabled) {
   background: var(--badge-soft-background);
   border-color: var(--badge-soft-border);
+  transform: translateY(-1px);
 }
 
 .pageButton:disabled {
@@ -49,10 +50,11 @@
 }
 
 .pageButton.active {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
   color: #fff;
-  border-color: var(--color-primary);
+  border-color: transparent;
   font-weight: 600;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
 .navButton {
@@ -66,13 +68,14 @@
   color: var(--color-text-muted);
   border-radius: 0.5rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .navButton:hover:not(:disabled) {
   background: var(--badge-soft-background);
   border-color: var(--badge-soft-border);
   color: var(--color-text-primary);
+  transform: translateY(-1px);
 }
 
 .navButton:disabled {
@@ -116,4 +119,31 @@
   font-size: 0.875rem;
   color: var(--color-text-muted);
   margin-right: 1rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .pagination {
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .pageButton,
+  .navButton {
+    min-width: 2rem;
+    height: 2rem;
+    font-size: 0.8rem;
+  }
+
+  .summary {
+    width: 100%;
+    text-align: center;
+    margin-right: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .sizeSelector {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
 }

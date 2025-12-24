@@ -166,10 +166,15 @@
   border-radius: 0.5rem;
   cursor: pointer;
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .menuItem:hover {
   background: var(--menu-item-hover);
+  transform: translateX(2px);
 }
 
 .headerThemeToggle {

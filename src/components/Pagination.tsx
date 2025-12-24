@@ -1,4 +1,5 @@
 import { useMemo, type ReactElement } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './Pagination.module.css'
 
 type PaginationProps = {
@@ -112,7 +113,7 @@ export default function Pagination({
           disabled={currentPage === 0 || loading}
           aria-label="Previous page"
         >
-          ‹
+          <ChevronLeft size={18} />
         </button>
 
         {pageNumbers.map((page, index) =>
@@ -141,7 +142,7 @@ export default function Pagination({
           disabled={currentPage >= totalPages - 1 || loading}
           aria-label="Next page"
         >
-          ›
+          <ChevronRight size={18} />
         </button>
       </div>
 

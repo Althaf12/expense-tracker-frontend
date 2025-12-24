@@ -1,4 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import {
+  User,
+  Mail,
+  CreditCard,
+  Settings,
+  Palette,
+  Tag,
+  Wallet,
+  ChevronRight,
+  Plus,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  RefreshCw,
+  Moon,
+  Sun,
+  Crown,
+} from 'lucide-react'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -6,7 +25,6 @@ import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyC
 import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS } from '../../types/app'
 import {
   copyUserExpenseCategoriesFromMaster,
-  /* new helper */
   copyUserExpensesFromMaster,
   createUserExpenseCategory,
   deleteUserExpenseCategory,
@@ -22,13 +40,7 @@ import { friendlyErrorMessage } from '../../utils/format'
 
 type ProfileProps = {
   session: SessionData | null
-  onRequestReset?: (username: string) => void
 }
-
-const getString = (value: unknown): string => (typeof value === 'string' ? value : '')
-
-const asRecord = (value: unknown): Record<string, unknown> | null =>
-  typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null
 
 type CategoryDraft = {
   name: string
@@ -68,13 +80,12 @@ const parseAmount = (input: string): number | null => {
   return numeric
 }
 
-export default function Profile({ session, onRequestReset }: ProfileProps): ReactElement {
-  const sessionRecord = asRecord(session)
-  const user = asRecord(sessionRecord?.user) ?? {}
-  const sessionIdentifier = getString(sessionRecord?.identifier) || (session?.username ?? '')
-  const displayUsername = getString(user.username) || getString(user.userName) || sessionIdentifier
-  const email = getString(user.email)
-  const loginUsername = session?.username ?? ''
+export default function Profile({ session }: ProfileProps): ReactElement {
+  // Get user details from session (populated from cookies)
+  const userId = session?.userId ?? ''
+  const displayUsername = session?.username ?? userId
+  const email = session?.email ?? ''
+  const subscription = session?.subscription
 
   const {
     setStatus,
@@ -94,8 +105,6 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const { theme, setTheme } = useTheme()
 
-  // handler state for resetting expenses (restore defaults)
-
   // Preference tab state
   const [activeTab, setActiveTab] = useState<PreferenceTab | null>(null)
 
@@ -106,6 +115,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   const [categoryDraft, setCategoryDraft] = useState<CategoryDraft | null>(null)
   const [addingCategory, setAddingCategory] = useState(false)
   const [categoryAddDraft, setCategoryAddDraft] = useState<CategoryDraft>({ name: '', status: 'A' })
+  
   const [expenses, setExpenses] = useState<UserExpense[]>([])
   const [loadingExpenses, setLoadingExpenses] = useState(false)
   const [expenseActionInFlight, setExpenseActionInFlight] = useState(false)
@@ -119,8 +129,8 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     amount: '',
   })
 
-  const canManageCategories = Boolean(loginUsername)
-  const canManageExpenses = Boolean(loginUsername)
+  const canManageCategories = Boolean(userId)
+  const canManageExpenses = Boolean(userId)
 
   const formatAmountDisplay = useCallback(
     (value: number | string | undefined): string => {
@@ -135,8 +145,6 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
 
   const categoryLookup = useMemo(() => {
     const map = new Map<string, UserExpenseCategory>()
-    // Use active categories for lookup in the planned-expense dropdown
-    // so the dropdown lists only active categories when adding/editing expenses.
     activeCategories.forEach((category) => {
       const key = String(category.userExpenseCategoryId)
       if (key) {
@@ -179,20 +187,20 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   const expenseLimitReached = expenses.length >= MAX_USER_EXPENSES
 
   const syncActiveCategories = useCallback(async () => {
-    if (!loginUsername) return
+    if (!userId) return
     try {
       await ensureExpenseCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading categories') })
     }
-  }, [ensureExpenseCategories, loginUsername, setStatus])
+  }, [ensureExpenseCategories, userId, setStatus])
 
   const refreshUserCategories = useCallback(async () => {
-    if (!loginUsername) return
+    if (!userId) return
     setLoadingCategories(true)
     try {
-      const allCategories = await fetchUserExpenseCategories(loginUsername)
+      const allCategories = await fetchUserExpenseCategories(userId)
       setCategories(allCategories)
       await syncActiveCategories()
     } catch (error) {
@@ -201,20 +209,20 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     } finally {
       setLoadingCategories(false)
     }
-  }, [loginUsername, setStatus, syncActiveCategories])
+  }, [userId, setStatus, syncActiveCategories])
 
   const syncActiveExpenses = useCallback(async () => {
-    if (!loginUsername) return
+    if (!userId) return
     try {
       await ensureActiveUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading planned expenses') })
     }
-  }, [ensureActiveUserExpenses, loginUsername, setStatus])
+  }, [ensureActiveUserExpenses, userId, setStatus])
 
   const refreshUserExpenses = useCallback(async () => {
-    if (!loginUsername) return
+    if (!userId) return
     setLoadingExpenses(true)
     try {
       const allExpenses = await ensureUserExpenses()
@@ -226,10 +234,32 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     } finally {
       setLoadingExpenses(false)
     }
-  }, [ensureUserExpenses, loginUsername, setStatus, syncActiveExpenses])
+  }, [ensureUserExpenses, userId, setStatus, syncActiveExpenses])
+
+  const handleResetCategories = async () => {
+    if (!userId) return
+    const confirmed = window.confirm(
+      'All current categories will be replaced with the default templates. This action cannot be undone. Continue?',
+    )
+    if (!confirmed) return
+    setCategoryActionInFlight(true)
+    setStatus({ type: 'loading', message: 'Resetting categories…' })
+    try {
+      await copyUserExpenseCategoriesFromMaster(userId)
+      setStatus({ type: 'success', message: 'Categories reset to defaults.' })
+      cancelEdit()
+      cancelAddCategory()
+      await refreshUserCategories()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting categories') })
+    } finally {
+      setCategoryActionInFlight(false)
+    }
+  }
 
   const handleResetExpenses = async () => {
-    if (!loginUsername) return
+    if (!userId) return
     const confirmed = window.confirm(
       'All current planned expenses will be replaced with the default templates. This action cannot be undone. Continue?',
     )
@@ -237,7 +267,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     setExpenseActionInFlight(true)
     setStatus({ type: 'loading', message: 'Resetting planned expenses…' })
     try {
-      await copyUserExpensesFromMaster(loginUsername)
+      await copyUserExpensesFromMaster(userId)
       setStatus({ type: 'success', message: 'Planned expenses reset to defaults.' })
       cancelExpenseEdit()
       cancelAddExpense()
@@ -251,40 +281,32 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   useEffect(() => {
-    // Always refresh the user's categories when the profile loads so the
-    // profile page shows the full set (not only the active ones).
-    if (loginUsername) {
+    if (userId) {
       void refreshUserCategories()
     }
-  }, [loginUsername, refreshUserCategories])
+  }, [userId, refreshUserCategories])
 
   useEffect(() => {
-    // Refresh whenever the categories tab is opened so edits elsewhere stay in sync.
-    if (activeTab === 'categories' && loginUsername) {
+    if (activeTab === 'categories' && userId) {
       void refreshUserCategories()
     }
-  }, [activeTab, loginUsername, refreshUserCategories])
+  }, [activeTab, userId, refreshUserCategories])
 
   useEffect(() => {
-    if (activeTab === 'expenses' && loginUsername) {
+    if (activeTab === 'expenses' && userId) {
       void refreshUserExpenses()
     }
-  }, [activeTab, loginUsername, refreshUserExpenses])
+  }, [activeTab, userId, refreshUserExpenses])
 
   useEffect(() => {
-    if (!loginUsername) {
+    if (!userId) {
       setActiveTab(null)
       setCategories([])
       setExpenses([])
     }
-  }, [loginUsername])
+  }, [userId])
 
-  const handleResetPassword = () => {
-    if (displayUsername) {
-      onRequestReset?.(displayUsername)
-    }
-  }
-
+  // Category management
   const startEdit = (category: UserExpenseCategory) => {
     setEditingCategoryId(category.userExpenseCategoryId)
     setCategoryDraft({ name: category.userExpenseCategoryName, status: category.status })
@@ -306,7 +328,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const handleUpdateCategory = async (category: UserExpenseCategory) => {
-    if (!loginUsername || !categoryDraft) return
+    if (!userId || !categoryDraft) return
     const trimmedName = categoryDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Category name is required.' })
@@ -316,7 +338,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     setStatus({ type: 'loading', message: 'Updating category…' })
     try {
       await updateUserExpenseCategory({
-        username: loginUsername,
+        userId,
         id: category.userExpenseCategoryId,
         userExpenseCategoryName: trimmedName,
         status: categoryDraft.status,
@@ -333,13 +355,13 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const handleDeleteCategory = async (category: UserExpenseCategory) => {
-    if (!loginUsername) return
+    if (!userId) return
     const confirmDelete = window.confirm(`Delete the category "${category.userExpenseCategoryName}"?`)
     if (!confirmDelete) return
     setCategoryActionInFlight(true)
     setStatus({ type: 'loading', message: 'Deleting category…' })
     try {
-      await deleteUserExpenseCategory({ username: loginUsername, id: category.userExpenseCategoryId })
+      await deleteUserExpenseCategory({ userId, id: category.userExpenseCategoryId })
       setStatus({ type: 'success', message: 'Category deleted.' })
       await refreshUserCategories()
     } catch (error) {
@@ -351,7 +373,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const handleAddCategory = async () => {
-    if (!loginUsername) return
+    if (!userId) return
     const trimmedName = categoryAddDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Category name is required.' })
@@ -361,7 +383,7 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     setStatus({ type: 'loading', message: 'Adding category…' })
     try {
       await createUserExpenseCategory({
-        username: loginUsername,
+        userId,
         userExpenseCategoryName: trimmedName,
         status: categoryAddDraft.status,
       })
@@ -376,65 +398,13 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     }
   }
 
-  const handleResetDefaults = async () => {
-    if (!loginUsername) return
-    const confirmed = window.confirm(
-      'All current categories will be replaced with the default categories. This action cannot be undone. Continue?',
-    )
-    if (!confirmed) return
-    setCategoryActionInFlight(true)
-    setStatus({ type: 'loading', message: 'Resetting categories…' })
-    try {
-      await copyUserExpenseCategoriesFromMaster(loginUsername)
-      setStatus({ type: 'success', message: 'Categories reset to defaults.' })
-      cancelEdit()
-      cancelAddCategory()
-      await refreshUserCategories()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting categories') })
-    } finally {
-      setCategoryActionInFlight(false)
-    }
-  }
-
-  const handleFontSizeChange = async (size: FontSize) => {
-    await setFontSize(size)
-    const label = FONT_SIZE_OPTIONS.find(o => o.code === size)?.label || size
-    setStatus({ type: 'success', message: `Font size changed to ${label}` })
-  }
-
-  const handleCurrencyChange = async (code: CurrencyCode) => {
-    await setCurrencyCode(code)
-    const option = CURRENCY_OPTIONS.find(o => o.code === code)
-    setStatus({ type: 'success', message: `Currency changed to ${option?.name || code} (${option?.symbol})` })
-  }
-
-  const handleThemeChange = (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme)
-    setStatus({ type: 'success', message: `Theme changed to ${newTheme === 'light' ? 'Light' : 'Dark'}` })
-  }
-
+  // Expense management
   const startExpenseEdit = (expense: UserExpense) => {
     setEditingExpenseId(expense.userExpensesId)
-    // Preserve the currently assigned category when entering edit mode.
-    // If the expense record doesn't include a category id, try to resolve one
-    // by matching the category name against the loaded categories list.
-    const explicitCategoryId = expense.userExpenseCategoryId
-    let resolvedCategoryId: string = ''
-    if (explicitCategoryId !== undefined && explicitCategoryId !== null) {
-      resolvedCategoryId = String(explicitCategoryId)
-    } else if (expense.userExpenseCategoryName) {
-      const match = categories.find(
-        (c) => c.userExpenseCategoryName.trim().toLowerCase() === expense.userExpenseCategoryName!.trim().toLowerCase(),
-      )
-      if (match) resolvedCategoryId = String(match.userExpenseCategoryId)
-    }
-
     setExpenseDraft({
       name: expense.userExpenseName,
       status: expense.status,
-      categoryId: resolvedCategoryId,
+      categoryId: String(expense.userExpenseCategoryId ?? ''),
       amount: toAmountString(expense.amount),
     })
   }
@@ -455,35 +425,26 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const handleUpdateExpense = async (expense: UserExpense) => {
-    if (!loginUsername || !expenseDraft) return
+    if (!userId || !expenseDraft) return
     const trimmedName = expenseDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Expense name is required.' })
       return
     }
-    if (!expenseDraft.categoryId) {
-      setStatus({ type: 'error', message: 'Select a category for the expense.' })
-      return
-    }
-    const selectedCategory = categoryLookup.get(expenseDraft.categoryId)
-    if (!selectedCategory) {
-      setStatus({ type: 'error', message: 'Selected category is not available.' })
-      return
-    }
-    const amountValue = parseAmount(expenseDraft.amount)
-    if (amountValue === null || amountValue <= 0) {
-      setStatus({ type: 'error', message: 'Enter a valid amount greater than zero.' })
+    const amount = parseAmount(expenseDraft.amount)
+    if (amount === null) {
+      setStatus({ type: 'error', message: 'Valid amount is required.' })
       return
     }
     setExpenseActionInFlight(true)
     setStatus({ type: 'loading', message: 'Updating planned expense…' })
     try {
       await updateUserExpense({
-        username: loginUsername,
+        userId,
         id: expense.userExpensesId,
         userExpenseName: trimmedName,
-        userExpenseCategoryId: selectedCategory.userExpenseCategoryId,
-        amount: amountValue,
+        userExpenseCategoryId: expenseDraft.categoryId || expense.userExpenseCategoryId,
+        amount,
         status: expenseDraft.status,
       })
       setStatus({ type: 'success', message: 'Planned expense updated.' })
@@ -498,13 +459,13 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const handleDeleteExpense = async (expense: UserExpense) => {
-    if (!loginUsername) return
-    const confirmed = window.confirm(`Delete the planned expense "${expense.userExpenseName}"?`)
-    if (!confirmed) return
+    if (!userId) return
+    const confirmDelete = window.confirm(`Delete the planned expense "${expense.userExpenseName}"?`)
+    if (!confirmDelete) return
     setExpenseActionInFlight(true)
     setStatus({ type: 'loading', message: 'Deleting planned expense…' })
     try {
-      await deleteUserExpense({ username: loginUsername, id: expense.userExpensesId })
+      await deleteUserExpense({ userId, id: expense.userExpensesId })
       setStatus({ type: 'success', message: 'Planned expense deleted.' })
       await refreshUserExpenses()
     } catch (error) {
@@ -516,36 +477,30 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
   }
 
   const handleAddExpense = async () => {
-    if (!loginUsername) return
+    if (!userId) return
     const trimmedName = expenseAddDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Expense name is required.' })
       return
     }
     if (!expenseAddDraft.categoryId) {
-      setStatus({ type: 'error', message: 'Select a category for the expense.' })
+      setStatus({ type: 'error', message: 'Category is required.' })
       return
     }
-    const selectedCategory = categoryLookup.get(expenseAddDraft.categoryId)
-    if (!selectedCategory || selectedCategory.status !== 'A') {
-      setStatus({ type: 'error', message: 'Select an active category before saving.' })
-      return
-    }
-    const amountValue = parseAmount(expenseAddDraft.amount)
-    if (amountValue === null || amountValue <= 0) {
-      setStatus({ type: 'error', message: 'Enter a valid amount greater than zero.' })
+    const amount = parseAmount(expenseAddDraft.amount)
+    if (amount === null) {
+      setStatus({ type: 'error', message: 'Valid amount is required.' })
       return
     }
     setExpenseActionInFlight(true)
     setStatus({ type: 'loading', message: 'Adding planned expense…' })
     try {
       await createUserExpense({
-        username: loginUsername,
+        userId,
         userExpenseName: trimmedName,
-        userExpenseCategoryId: selectedCategory.userExpenseCategoryId,
-        amount: amountValue,
+        userExpenseCategoryId: expenseAddDraft.categoryId,
+        amount,
         status: expenseAddDraft.status,
-        paid: 'N',
       })
       setStatus({ type: 'success', message: 'Planned expense added.' })
       cancelAddExpense()
@@ -558,665 +513,407 @@ export default function Profile({ session, onRequestReset }: ProfileProps): Reac
     }
   }
 
-  const renderStatusToggle = (status: 'A' | 'I', onChange: (next: 'A' | 'I') => void, disabled?: boolean) => (
-    <label className={styles.toggle}>
-      <input
-        type="checkbox"
-        checked={status === 'A'}
-        onChange={(event) => onChange(event.target.checked ? 'A' : 'I')}
-        disabled={disabled}
-      />
-      <span className={styles.toggleTrack}>
-        <span className={styles.toggleThumb} />
-      </span>
-      <span className={styles.toggleLabel}>{status === 'A' ? 'Active' : 'Inactive'}</span>
-    </label>
-  )
-
-  function CategoryDropdown({
-    value,
-    onChange,
-    disabled,
-  }: {
-    value: string
-    onChange: (next: string) => void
-    disabled?: boolean
-  }) {
-    const wrapperRef = useRef<HTMLDivElement | null>(null)
-    const [open, setOpen] = useState(false)
-    const [query, setQuery] = useState('')
-
-    useEffect(() => {
-      // reflect externally controlled value into the visible query
-      const match = categoryOptions.find((o) => o.id === value)
-      setQuery(match ? match.label : '')
-    }, [value])
-
-    useEffect(() => {
-      if (!open) return
-      const handleClickAway = (event: MouseEvent) => {
-        if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-          setOpen(false)
-        }
-      }
-      document.addEventListener('mousedown', handleClickAway)
-      return () => document.removeEventListener('mousedown', handleClickAway)
-    }, [open])
-
-    const suggestions = useMemo(() => {
-      const q = (query || '').trim().toLowerCase()
-      if (!q) return categoryOptions
-      return categoryOptions.filter((c) => c.label.toLowerCase().includes(q))
-    }, [query, categoryOptions])
-
-    return (
-      <div className={styles.dropdownField} ref={wrapperRef}>
-        <input
-          className={styles.selectInput}
-          type="text"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Select category"
-          autoComplete="off"
-          disabled={disabled || categoryOptions.length === 0}
-        />
-        {open && (
-          <ul className={styles.dropdownList} role="listbox">
-            {suggestions.length === 0 ? (
-              <li className={styles.dropdownEmpty}>No categories found</li>
-            ) : (
-              suggestions.map((option) => (
-                <li
-                  key={option.id}
-                  className={styles.dropdownItem}
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    onChange(option.id)
-                    setOpen(false)
-                  }}
-                >
-                  {option.label}
-                  {option.status !== 'A' ? ' (inactive)' : ''}
-                </li>
-              ))
-            )}
-          </ul>
-        )}
-      </div>
-    )
-  }
-
-  const renderCategorySelect = (value: string, onChange: (next: string) => void, disabled?: boolean) => (
-    <CategoryDropdown value={value} onChange={onChange} disabled={disabled} />
-  )
-
-  const preferenceButtons: { key: PreferenceTab; label: string; icon: string }[] = [
-    { key: 'categories', label: 'Expense Categories', icon: '📂' },
-    { key: 'expenses', label: 'Planned Expenses', icon: '💰' },
-    { key: 'display', label: 'Font Size & Theme', icon: '🎨' },
-    { key: 'currency', label: 'Currency', icon: '💱' },
-  ]
-
   return (
-    <section className={styles.wrapper}>
-      <h2 className={styles.title}>Profile</h2>
-      <dl className={styles.details}>
-        <div className={styles.row}>
-          <dt>Username</dt>
-          <dd>{displayUsername || '-'}</dd>
-        </div>
-        <div className={styles.row}>
-          <dt>Email</dt>
-          <dd>{email || '-'}</dd>
-        </div>
-      </dl>
-
-      <div className={styles.primaryActions}>
-        <button
-          type="button"
-          className={styles.resetButton}
-          onClick={handleResetPassword}
-          disabled={!displayUsername}
-        >
-          Reset password
-        </button>
-      </div>
-
-      {/* Your Preferences Section */}
-      <section className={styles.preferencesSection}>
-        <h3 className={styles.sectionTitle}>Your Preferences</h3>
-        <p className={styles.sectionSubtitle}>Customize your experience by managing expense categories, planned expenses, and display settings.</p>
-
-        <div className={styles.preferenceTabs}>
-          {preferenceButtons.map(({ key, label, icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={`${styles.preferenceTab} ${activeTab === key ? styles.preferenceTabActive : ''}`}
-              onClick={() => setActiveTab(activeTab === key ? null : key)}
-              disabled={!loginUsername}
-            >
-              <span className={styles.preferenceTabIcon}>{icon}</span>
-              <span className={styles.preferenceTabLabel}>{label}</span>
-              <span className={styles.preferenceTabArrow}>{activeTab === key ? '▲' : '▼'}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Categories Panel */}
-        {activeTab === 'categories' && (
-          <div className={styles.preferencePanel}>
-            <header className={styles.panelHeader}>
-              <div>
-                <h4 className={styles.panelTitle}>Your Categories</h4>
-                <p className={styles.panelSubtitle}>
-                  {categories.length} / {MAX_USER_CATEGORIES} categories
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.cardActionButton}
-                onClick={handleResetDefaults}
-                disabled={categoryActionInFlight || !canManageCategories}
-              >
-                Reset default
-              </button>
-            </header>
-
-            {loadingCategories ? (
-              <div style={{padding:12}}>
-                {[0,1,2].map((i) => (
-                  <div key={i} style={{display:'flex',gap:12,alignItems:'center',marginBottom:10}}>
-                    <div style={{width:40}}><Skeleton /></div>
-                    <div style={{flex:1}}><Skeleton /></div>
-                    <div style={{width:120}}><Skeleton /></div>
-                  </div>
-                ))}
-              </div>
-            ) : categories.length === 0 && !addingCategory ? (
-              <p className={styles.placeholder}>No categories yet. Add your first category below.</p>
-            ) : (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th scope="col">#</th>
-                      <th scope="col">Category</th>
-                      <th scope="col" className={styles.statusCol}>Status</th>
-                      <th scope="col" className={styles.actionsCol}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {categoriesWithSerial.map((category) => {
-                      const isEditing = editingCategoryId === category.userExpenseCategoryId
-                      const draft = isEditing ? categoryDraft : null
-                      return (
-                        <tr key={category.userExpenseCategoryId}>
-                          <td>{category.serial}</td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className={styles.inlineInput}
-                                value={draft?.name ?? ''}
-                                onChange={(event) =>
-                                  setCategoryDraft((previous) =>
-                                    previous ? { ...previous, name: event.target.value } : previous,
-                                  )
-                                }
-                                placeholder="Category name"
-                                maxLength={60}
-                                disabled={categoryActionInFlight}
-                              />
-                            ) : (
-                              category.userExpenseCategoryName
-                            )}
-                          </td>
-                          <td>
-                            {isEditing
-                              ? renderStatusToggle(
-                                  draft?.status ?? 'A',
-                                  (next) =>
-                                    setCategoryDraft((previous) =>
-                                      previous ? { ...previous, status: next } : previous,
-                                    ),
-                                  categoryActionInFlight,
-                                )
-                              : renderStatusToggle(category.status, () => undefined, true)}
-                          </td>
-                          <td className={styles.actionsCell}>
-                            {isEditing ? (
-                              <div className={styles.inlineActions}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateCategory(category)}
-                                  disabled={categoryActionInFlight}
-                                >
-                                  Save
-                                </button>
-                                <button type="button" onClick={cancelEdit} disabled={categoryActionInFlight}>
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div className={styles.inlineActions}>
-                                <button
-                                  type="button"
-                                  onClick={() => startEdit(category)}
-                                  disabled={categoryActionInFlight}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteCategory(category)}
-                                  disabled={categoryActionInFlight}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-
-                    {addingCategory && (
-                      <tr>
-                        <td>{categories.length + 1}</td>
-                        <td>
-                          <input
-                            className={styles.inlineInput}
-                            value={categoryAddDraft.name}
-                            onChange={(event) =>
-                              setCategoryAddDraft((previous) => ({ ...previous, name: event.target.value }))
-                            }
-                            placeholder="Category name"
-                            maxLength={60}
-                            disabled={categoryActionInFlight}
-                            autoFocus
-                          />
-                        </td>
-                        <td>
-                          {renderStatusToggle(
-                            categoryAddDraft.status,
-                            (next) => setCategoryAddDraft((prev) => ({ ...prev, status: next })),
-                            categoryActionInFlight,
-                          )}
-                        </td>
-                        <td className={styles.actionsCell}>
-                          <div className={styles.inlineActions}>
-                            <button type="button" onClick={handleAddCategory} disabled={categoryActionInFlight}>
-                              Save
-                            </button>
-                            <button type="button" onClick={cancelAddCategory} disabled={categoryActionInFlight}>
-                              Cancel
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+    <div className={styles.profilePage}>
+      {/* User Info Card */}
+      <section className={styles.userCard}>
+        <div className={styles.avatarSection}>
+          <div className={styles.avatar}>
+            <User size={40} />
+          </div>
+          <div className={styles.userInfo}>
+            <h1 className={styles.userName}>{displayUsername}</h1>
+            {email && (
+              <div className={styles.userDetail}>
+                <Mail size={14} />
+                <span>{email}</span>
               </div>
             )}
-
-            {!categoryLimitReached && !addingCategory && (
-              <button
-                type="button"
-                className={styles.addButton}
-                onClick={beginAddCategory}
-                disabled={categoryActionInFlight}
-              >
-                Add category
-              </button>
-            )}
-
-            {categoryLimitReached && !addingCategory && (
-              <p className={styles.limitNote}>Maximum of {MAX_USER_CATEGORIES} categories reached.</p>
+            {subscription && (
+              <div className={styles.subscriptionBadge}>
+                <Crown size={14} />
+                <span>{subscription.plan || 'Free'}</span>
+                {subscription.status && (
+                  <span className={`${styles.statusDot} ${styles[subscription.status]}`} />
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* Expenses Panel */}
-        {activeTab === 'expenses' && (
-          <div className={styles.preferencePanel}>
-            <header className={styles.panelHeader}>
-              <div>
-                <h4 className={styles.panelTitle}>Planned Expenses</h4>
-                <p className={styles.panelSubtitle}>
-                  {expenses.length} / {MAX_USER_EXPENSES} templates
-                </p>
-              </div>
-              <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                <span className={styles.headerHint}>Active categories: {activeCategories.length}</span>
-                <button
-                  type="button"
-                  className={styles.cardActionButton}
-                  onClick={handleResetExpenses}
-                  disabled={expenseActionInFlight || !canManageExpenses}
-                >
-                  Reset default
-                </button>
-              </div>
-            </header>
+      {/* Settings Sections */}
+      <section className={styles.settingsSection}>
+        <h2 className={styles.sectionTitle}>
+          <Settings size={20} />
+          <span>Settings</span>
+        </h2>
 
-            {!hasActiveCategory && expenses.length === 0 && (
-              <p className={styles.helperNote}>
-                Activate at least one category before adding planned expenses.
-              </p>
-            )}
-
-            {loadingExpenses ? (
-              <div style={{padding:12}}>
-                {[0,1,2].map((i) => (
-                  <div key={i} style={{display:'flex',gap:12,alignItems:'center',marginBottom:10}}>
-                    <div style={{width:40}}><Skeleton /></div>
-                    <div style={{flex:1}}><Skeleton /></div>
-                    <div style={{width:120}}><Skeleton /></div>
-                    <div style={{width:80}}><Skeleton /></div>
-                  </div>
-                ))}
-              </div>
-            ) : expenses.length === 0 && !addingExpense ? (
-              <p className={styles.placeholder}>No planned expenses yet. Add your first planned expense below.</p>
-            ) : (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th scope="col">#</th>
-                      <th scope="col">Expense</th>
-                      <th scope="col">Category</th>
-                      <th scope="col" className={styles.amountCol}>Amount</th>
-                      <th scope="col" className={styles.statusCol}>Status</th>
-                      <th scope="col" className={styles.actionsCol}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expensesWithSerial.map((expense) => {
-                      const isEditing = editingExpenseId === expense.userExpensesId
-                      const draft = isEditing ? expenseDraft : null
-                      return (
-                        <tr key={expense.userExpensesId}>
-                          <td>{expense.serial}</td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className={styles.inlineInput}
-                                value={draft?.name ?? ''}
-                                onChange={(event) =>
-                                  setExpenseDraft((previous) =>
-                                    previous ? { ...previous, name: event.target.value } : previous,
-                                  )
-                                }
-                                placeholder="Expense name"
-                                maxLength={80}
-                                disabled={expenseActionInFlight}
-                              />
-                            ) : (
-                              expense.userExpenseName
-                            )}
-                          </td>
-                          <td>
-                            {isEditing
-                              ? renderCategorySelect(
-                                  draft?.categoryId ?? '',
-                                  (next) =>
-                                    setExpenseDraft((previous) =>
-                                      previous ? { ...previous, categoryId: next } : previous,
-                                    ),
-                                  expenseActionInFlight,
-                                )
-                              : expense.userExpenseCategoryName || '-'}
-                          </td>
-                          <td className={styles.numericCell}>
-                            {isEditing ? (
-                              <input
-                                className={styles.numberInput}
-                                type="number"
-                                inputMode="decimal"
-                                min="0"
-                                step="0.01"
-                                value={draft?.amount ?? ''}
-                                onChange={(event) =>
-                                  setExpenseDraft((previous) =>
-                                    previous ? { ...previous, amount: event.target.value } : previous,
-                                  )
-                                }
-                                placeholder="0.00"
-                                disabled={expenseActionInFlight}
-                              />
-                            ) : (
-                              formatAmountDisplay(expense.amount)
-                            )}
-                          </td>
-                          <td>
-                            {isEditing
-                              ? renderStatusToggle(
-                                  draft?.status ?? 'A',
-                                  (next) =>
-                                    setExpenseDraft((previous) =>
-                                      previous ? { ...previous, status: next } : previous,
-                                    ),
-                                  expenseActionInFlight,
-                                )
-                              : renderStatusToggle(expense.status, () => undefined, true)}
-                          </td>
-                          <td className={styles.actionsCell}>
-                            {isEditing ? (
-                              <div className={styles.inlineActions}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateExpense(expense)}
-                                  disabled={expenseActionInFlight}
-                                >
-                                  Save
-                                </button>
-                                <button type="button" onClick={cancelExpenseEdit} disabled={expenseActionInFlight}>
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div className={styles.inlineActions}>
-                                <button
-                                  type="button"
-                                  onClick={() => startExpenseEdit(expense)}
-                                  disabled={expenseActionInFlight}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteExpense(expense)}
-                                  disabled={expenseActionInFlight}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-
-                    {addingExpense && (
-                      <tr>
-                        <td>{expenses.length + 1}</td>
-                        <td>
-                          <input
-                            className={styles.inlineInput}
-                            value={expenseAddDraft.name}
-                            onChange={(event) =>
-                              setExpenseAddDraft((previous) => ({ ...previous, name: event.target.value }))
-                            }
-                            placeholder="Expense name"
-                            maxLength={80}
-                            disabled={expenseActionInFlight}
-                            autoFocus
-                          />
-                        </td>
-                        <td>
-                          {renderCategorySelect(
-                            expenseAddDraft.categoryId,
-                            (next) => setExpenseAddDraft((previous) => ({ ...previous, categoryId: next })),
-                            expenseActionInFlight,
-                          )}
-                        </td>
-                        <td className={styles.numericCell}>
-                          <input
-                            className={styles.numberInput}
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="0.01"
-                            value={expenseAddDraft.amount}
-                            onChange={(event) =>
-                              setExpenseAddDraft((previous) => ({ ...previous, amount: event.target.value }))
-                            }
-                            placeholder="0.00"
-                            disabled={expenseActionInFlight}
-                          />
-                        </td>
-                        <td>
-                          {renderStatusToggle(
-                            expenseAddDraft.status,
-                            (next) => setExpenseAddDraft((prev) => ({ ...prev, status: next })),
-                            expenseActionInFlight,
-                          )}
-                        </td>
-                        <td className={styles.actionsCell}>
-                          <div className={styles.inlineActions}>
-                            <button
-                              type="button"
-                              onClick={handleAddExpense}
-                              disabled={expenseActionInFlight || !hasActiveCategory}
-                            >
-                              Save
-                            </button>
-                            <button type="button" onClick={cancelAddExpense} disabled={expenseActionInFlight}>
-                              Cancel
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {!expenseLimitReached && !addingExpense && (
+        <div className={styles.settingsGrid}>
+          {/* Theme Toggle */}
+          <div className={styles.settingCard}>
+            <div className={styles.settingHeader}>
+              <Palette size={20} />
+              <span>Theme</span>
+            </div>
+            <div className={styles.themeToggle}>
               <button
                 type="button"
-                className={styles.addButton}
-                onClick={beginAddExpense}
-                disabled={expenseActionInFlight || !hasActiveCategory}
+                className={`${styles.themeButton} ${theme === 'light' ? styles.active : ''}`}
+                onClick={() => setTheme('light')}
               >
-                Add planned expense
+                <Sun size={16} />
+                <span>Light</span>
               </button>
-            )}
-
-            {expenseLimitReached && !addingExpense && (
-              <p className={styles.limitNote}>Maximum of {MAX_USER_EXPENSES} planned expenses reached.</p>
-            )}
-
-            {!hasActiveCategory && expenses.length > 0 && (
-              <p className={styles.helperNote}>Activate a category to add new planned expenses.</p>
-            )}
-          </div>
-        )}
-
-        {/* Display Settings Panel */}
-        {activeTab === 'display' && (
-          <div className={styles.preferencePanel}>
-            <header className={styles.panelHeader}>
-              <div>
-                <h4 className={styles.panelTitle}>Display Settings</h4>
-                <p className={styles.panelSubtitle}>Customize font size and theme appearance</p>
-              </div>
-            </header>
-
-            <div className={styles.settingsGrid}>
-              {/* Font Size Setting */}
-              <div className={styles.settingItem}>
-                <label className={styles.settingLabel}>Font Size</label>
-                <p className={styles.settingDescription}>Adjust the text size across the application</p>
-                <div className={styles.optionGroup}>
-                  {FONT_SIZE_OPTIONS.map((option) => (
-                    <button
-                      key={option.code}
-                      type="button"
-                      className={`${styles.optionButton} ${fontSize === option.code ? styles.optionButtonActive : ''}`}
-                      onClick={() => handleFontSizeChange(option.code)}
-                    >
-                      <span className={styles.optionLabel}>{option.label}</span>
-                      {fontSize === option.code && <span className={styles.checkmark}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Theme Setting */}
-              <div className={styles.settingItem}>
-                <label className={styles.settingLabel}>Theme</label>
-                <p className={styles.settingDescription}>Switch between light and dark mode</p>
-                <div className={styles.themeToggleContainer}>
-                  <button
-                    type="button"
-                    className={`${styles.themeButton} ${theme === 'light' ? styles.themeButtonActive : ''}`}
-                    onClick={() => theme !== 'light' && handleThemeChange('light')}
-                  >
-                    <span className={styles.themeIcon}>☀️</span>
-                    <span>Light</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.themeButton} ${theme === 'dark' ? styles.themeButtonActive : ''}`}
-                    onClick={() => theme !== 'dark' && handleThemeChange('dark')}
-                  >
-                    <span className={styles.themeIcon}>🌙</span>
-                    <span>Dark</span>
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                className={`${styles.themeButton} ${theme === 'dark' ? styles.active : ''}`}
+                onClick={() => setTheme('dark')}
+              >
+                <Moon size={16} />
+                <span>Dark</span>
+              </button>
             </div>
           </div>
-        )}
 
-        {/* Currency Panel */}
-        {activeTab === 'currency' && (
-          <div className={styles.preferencePanel}>
-            <header className={styles.panelHeader}>
-              <div>
-                <h4 className={styles.panelTitle}>Currency Settings</h4>
-                <p className={styles.panelSubtitle}>Choose your preferred currency for displaying amounts</p>
-              </div>
-            </header>
-
-            <div className={styles.currencyGrid}>
-              {CURRENCY_OPTIONS.map((option) => (
+          {/* Font Size */}
+          <div className={styles.settingCard}>
+            <div className={styles.settingHeader}>
+              <span className={styles.textIcon}>Aa</span>
+              <span>Font Size</span>
+            </div>
+            <div className={styles.fontSizeOptions}>
+              {FONT_SIZE_OPTIONS.map((option) => (
                 <button
                   key={option.code}
                   type="button"
-                  className={`${styles.currencyOption} ${currencyCode === option.code ? styles.currencyOptionActive : ''}`}
-                  onClick={() => handleCurrencyChange(option.code)}
+                  className={`${styles.fontSizeButton} ${fontSize === option.code ? styles.active : ''}`}
+                  onClick={() => setFontSize(option.code)}
                 >
-                  <span className={styles.currencySymbol}>{option.symbol}</span>
-                  <div className={styles.currencyInfo}>
-                    <span className={styles.currencyCode}>{option.code}</span>
-                    <span className={styles.currencyName}>{option.name}</span>
-                  </div>
-                  {currencyCode === option.code && <span className={styles.currencyCheck}>✓</span>}
+                  {option.label}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Currency */}
+          <div className={styles.settingCard}>
+            <div className={styles.settingHeader}>
+              <CreditCard size={20} />
+              <span>Currency</span>
+            </div>
+            <select
+              className={styles.currencySelect}
+              value={currencyCode}
+              onChange={(e) => setCurrencyCode(e.target.value as CurrencyCode)}
+            >
+              {CURRENCY_OPTIONS.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.symbol} - {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* Expense Categories Section */}
+      <section className={styles.managementSection}>
+        <button
+          type="button"
+          className={`${styles.sectionHeader} ${activeTab === 'categories' ? styles.expanded : ''}`}
+          onClick={() => setActiveTab(activeTab === 'categories' ? null : 'categories')}
+        >
+          <div className={styles.sectionHeaderContent}>
+            <Tag size={20} />
+            <span>Expense Categories</span>
+            <span className={styles.badge}>{categories.length}</span>
+          </div>
+          <ChevronRight size={20} className={styles.chevron} />
+        </button>
+
+        {activeTab === 'categories' && (
+          <div className={styles.sectionContent}>
+            <div className={styles.actionBar}>
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={beginAddCategory}
+                disabled={!canManageCategories || categoryLimitReached || categoryActionInFlight}
+              >
+                <Plus size={16} />
+                <span>Add Category</span>
+              </button>
+              <button
+                type="button"
+                className={styles.resetButton}
+                onClick={handleResetCategories}
+                disabled={!canManageCategories || categoryActionInFlight}
+              >
+                <RefreshCw size={16} />
+                <span>Reset to Defaults</span>
+              </button>
+            </div>
+
+            {addingCategory && (
+              <div className={styles.addForm}>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="Category name"
+                  value={categoryAddDraft.name}
+                  onChange={(e) => setCategoryAddDraft({ ...categoryAddDraft, name: e.target.value })}
+                />
+                <select
+                  className={styles.select}
+                  value={categoryAddDraft.status}
+                  onChange={(e) => setCategoryAddDraft({ ...categoryAddDraft, status: e.target.value as 'A' | 'I' })}
+                >
+                  <option value="A">Active</option>
+                  <option value="I">Inactive</option>
+                </select>
+                <div className={styles.formActions}>
+                  <button type="button" className={styles.saveButton} onClick={handleAddCategory} disabled={categoryActionInFlight}>
+                    <Check size={16} />
+                  </button>
+                  <button type="button" className={styles.cancelButton} onClick={cancelAddCategory}>
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {loadingCategories ? (
+              <div className={styles.loadingList}>
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} size="large" />
+                ))}
+              </div>
+            ) : (
+              <div className={styles.itemList}>
+                {categoriesWithSerial.map((category) => (
+                  <div key={category.userExpenseCategoryId} className={styles.item}>
+                    {editingCategoryId === category.userExpenseCategoryId ? (
+                      <>
+                        <input
+                          type="text"
+                          className={styles.input}
+                          value={categoryDraft?.name ?? ''}
+                          onChange={(e) => setCategoryDraft({ ...categoryDraft!, name: e.target.value })}
+                        />
+                        <select
+                          className={styles.select}
+                          value={categoryDraft?.status ?? 'A'}
+                          onChange={(e) => setCategoryDraft({ ...categoryDraft!, status: e.target.value as 'A' | 'I' })}
+                        >
+                          <option value="A">Active</option>
+                          <option value="I">Inactive</option>
+                        </select>
+                        <div className={styles.itemActions}>
+                          <button type="button" className={styles.saveButton} onClick={() => handleUpdateCategory(category)} disabled={categoryActionInFlight}>
+                            <Check size={16} />
+                          </button>
+                          <button type="button" className={styles.cancelButton} onClick={cancelEdit}>
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.itemName}>{category.userExpenseCategoryName}</span>
+                        <span className={`${styles.statusBadge} ${category.status === 'A' ? styles.active : styles.inactive}`}>
+                          {category.status === 'A' ? 'Active' : 'Inactive'}
+                        </span>
+                        <div className={styles.itemActions}>
+                          <button type="button" className={styles.editButton} onClick={() => startEdit(category)} disabled={categoryActionInFlight}>
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" className={styles.deleteButton} onClick={() => handleDeleteCategory(category)} disabled={categoryActionInFlight}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {categoriesWithSerial.length === 0 && !loadingCategories && (
+                  <p className={styles.emptyText}>No categories found. Add one or reset to defaults.</p>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </section>
-    </section>
+
+      {/* Planned Expenses Section */}
+      <section className={styles.managementSection}>
+        <button
+          type="button"
+          className={`${styles.sectionHeader} ${activeTab === 'expenses' ? styles.expanded : ''}`}
+          onClick={() => setActiveTab(activeTab === 'expenses' ? null : 'expenses')}
+        >
+          <div className={styles.sectionHeaderContent}>
+            <Wallet size={20} />
+            <span>Planned Expenses</span>
+            <span className={styles.badge}>{expenses.length}</span>
+          </div>
+          <ChevronRight size={20} className={styles.chevron} />
+        </button>
+
+        {activeTab === 'expenses' && (
+          <div className={styles.sectionContent}>
+            <div className={styles.actionBar}>
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={beginAddExpense}
+                disabled={!canManageExpenses || expenseLimitReached || expenseActionInFlight || !hasActiveCategory}
+              >
+                <Plus size={16} />
+                <span>Add Expense</span>
+              </button>
+              <button
+                type="button"
+                className={styles.resetButton}
+                onClick={handleResetExpenses}
+                disabled={!canManageExpenses || expenseActionInFlight}
+              >
+                <RefreshCw size={16} />
+                <span>Reset to Defaults</span>
+              </button>
+            </div>
+
+            {!hasActiveCategory && (
+              <p className={styles.warningText}>Create at least one active category before adding expenses.</p>
+            )}
+
+            {addingExpense && hasActiveCategory && (
+              <div className={styles.addForm}>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="Expense name"
+                  value={expenseAddDraft.name}
+                  onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, name: e.target.value })}
+                />
+                <select
+                  className={styles.select}
+                  value={expenseAddDraft.categoryId}
+                  onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, categoryId: e.target.value })}
+                >
+                  <option value="">Select category</option>
+                  {categoryOptions.filter(o => o.status === 'A').map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  className={styles.input}
+                  placeholder="Amount"
+                  value={expenseAddDraft.amount}
+                  onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, amount: e.target.value })}
+                />
+                <select
+                  className={styles.select}
+                  value={expenseAddDraft.status}
+                  onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, status: e.target.value as 'A' | 'I' })}
+                >
+                  <option value="A">Active</option>
+                  <option value="I">Inactive</option>
+                </select>
+                <div className={styles.formActions}>
+                  <button type="button" className={styles.saveButton} onClick={handleAddExpense} disabled={expenseActionInFlight}>
+                    <Check size={16} />
+                  </button>
+                  <button type="button" className={styles.cancelButton} onClick={cancelAddExpense}>
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {loadingExpenses ? (
+              <div className={styles.loadingList}>
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} size="large" />
+                ))}
+              </div>
+            ) : (
+              <div className={styles.itemList}>
+                {expensesWithSerial.map((expense) => (
+                  <div key={expense.userExpensesId} className={styles.item}>
+                    {editingExpenseId === expense.userExpensesId ? (
+                      <>
+                        <input
+                          type="text"
+                          className={styles.input}
+                          value={expenseDraft?.name ?? ''}
+                          onChange={(e) => setExpenseDraft({ ...expenseDraft!, name: e.target.value })}
+                        />
+                        <select
+                          className={styles.select}
+                          value={expenseDraft?.categoryId ?? ''}
+                          onChange={(e) => setExpenseDraft({ ...expenseDraft!, categoryId: e.target.value })}
+                        >
+                          {categoryOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          className={styles.input}
+                          value={expenseDraft?.amount ?? ''}
+                          onChange={(e) => setExpenseDraft({ ...expenseDraft!, amount: e.target.value })}
+                        />
+                        <select
+                          className={styles.select}
+                          value={expenseDraft?.status ?? 'A'}
+                          onChange={(e) => setExpenseDraft({ ...expenseDraft!, status: e.target.value as 'A' | 'I' })}
+                        >
+                          <option value="A">Active</option>
+                          <option value="I">Inactive</option>
+                        </select>
+                        <div className={styles.itemActions}>
+                          <button type="button" className={styles.saveButton} onClick={() => handleUpdateExpense(expense)} disabled={expenseActionInFlight}>
+                            <Check size={16} />
+                          </button>
+                          <button type="button" className={styles.cancelButton} onClick={cancelExpenseEdit}>
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.itemName}>{expense.userExpenseName}</span>
+                        <span className={styles.categoryName}>{expense.userExpenseCategoryName}</span>
+                        <span className={styles.amount}>{formatAmountDisplay(expense.amount)}</span>
+                        <span className={`${styles.statusBadge} ${expense.status === 'A' ? styles.active : styles.inactive}`}>
+                          {expense.status === 'A' ? 'Active' : 'Inactive'}
+                        </span>
+                        <div className={styles.itemActions}>
+                          <button type="button" className={styles.editButton} onClick={() => startExpenseEdit(expense)} disabled={expenseActionInFlight}>
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" className={styles.deleteButton} onClick={() => handleDeleteExpense(expense)} disabled={expenseActionInFlight}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {expensesWithSerial.length === 0 && !loadingExpenses && (
+                  <p className={styles.emptyText}>No planned expenses found. Add one or reset to defaults.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
   )
 }

@@ -1,7 +1,13 @@
 export type SessionData = {
-  username: string
-  identifier?: string
-  user?: Record<string, unknown>
+  userId: string
+  username?: string
+  email?: string
+  token?: string
+  subscription?: {
+    plan?: string
+    status?: string
+    expiresAt?: string
+  }
   // other session properties may exist
 }
 
@@ -31,12 +37,12 @@ export type UserExpenseCategory = {
   userExpenseCategoryName: string
   status: 'A' | 'I'
   lastUpdateTmstp?: string
-  username?: string
+  userId?: string
 }
 
 export type UserExpense = {
   userExpensesId: string | number
-  username: string
+  userId: string
   userExpenseName: string
   userExpenseCategoryName: string
   userExpenseCategoryId?: string | number
@@ -61,7 +67,7 @@ export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'SGD'
 
 export type UserPreferences = {
   userPreferencesId?: number
-  username: string
+  userId: string
   fontSize: FontSize
   currencyCode: CurrencyCode
   theme: ThemeCode
