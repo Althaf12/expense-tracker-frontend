@@ -163,6 +163,14 @@
   color: var(--table-text-primary);
 }
 
+/* Allow cells to truncate visually so the table width is determined by content length
+   before the container scrolls horizontally */
+.table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .table tbody tr {
   transition: background 0.15s ease;
 }
@@ -212,6 +220,13 @@
   background: var(--input-background);
   color: var(--color-text-primary);
   padding: 0 0.6rem;
+}
+
+/* Keep filter inputs from expanding table columns too wide on small screens */
+@media (max-width: 820px) {
+  .tableFilterInput {
+    max-width: 12ch;
+  }
 }
 
 .table tbody tr:hover {
@@ -394,6 +409,9 @@
 
 @media (max-width: 1200px) {
   /* allow table to keep intrinsic width and enable horizontal scrolling on narrow viewports */
+  .tableContainer {
+    max-width: 100%;
+  }
   .table {
     width: auto;
     min-width: max-content;
@@ -420,7 +438,7 @@
   }
 
   /* Make the primary action (Load Expenses) flow to its own row and use full width */
-  .primaryButton {
+  .filterRow .primaryButton {
     width: 100%;
     justify-self: stretch;
     padding: 0.7rem 1rem;
@@ -431,6 +449,15 @@
   .modeOption {
     min-width: 0;
   }
+}
+
+/* Make form actions layout sensible: primary action grows, secondary stays compact */
+.formActions .primaryButton {
+  flex: 1 1 0;
+}
+.formActions > button:not(.primaryButton) {
+  flex: 0 0 auto;
+  min-width: 3.5rem;
 }
 
 /* Medium breakpoint: ensure the Load button drops below the inputs on tablet/narrow desktops */
