@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material'
 import type { ReactElement } from 'react'
-import { ClipboardList, GripVertical, Check, RefreshCw } from 'lucide-react'
+import { GripVertical, RefreshCw } from 'lucide-react'
 import type { UserExpense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './PlannedExpenses.module.css'
@@ -78,9 +78,7 @@ export default function PlannedExpenses({
     <section className={styles.card} aria-live="polite">
       <header className={styles.cardHeader}>
         <div className={localStyles.headerWithIcon}>
-          <div className={localStyles.iconWrapper}>
-            <ClipboardList size={22} />
-          </div>
+          <span className={localStyles.emojiIcon}>📋</span>
           <div>
             <Typography variant="h5" component="h2" className={styles.cardTitle}>
               Planned Expenses

@@ -285,8 +285,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   useEffect(() => {
     if (userId) {
       void refreshUserCategories()
+      // Also load expenses on mount so the badge count is accurate
+      void refreshUserExpenses()
     }
-  }, [userId, refreshUserCategories])
+  }, [userId, refreshUserCategories, refreshUserExpenses])
 
   useEffect(() => {
     if (activeTab === 'categories' && userId) {
@@ -552,8 +554,9 @@ export default function Profile({ session }: ProfileProps): ReactElement {
         </h2>
 
         <div className={styles.settingsGrid}>
-          {/* Theme Toggle */}
-          <div className={styles.settingCard}>
+          <div className={styles.rowTwo}>
+            {/* Theme Toggle */}
+            <div className={styles.settingCard}>
             <div className={styles.settingHeader}>
               <Palette size={20} />
               <span>Theme</span>
@@ -578,8 +581,8 @@ export default function Profile({ session }: ProfileProps): ReactElement {
             </div>
           </div>
 
-          {/* Font Size */}
-          <div className={styles.settingCard}>
+            {/* Font Size */}
+            <div className={styles.settingCard}>
             <div className={styles.settingHeader}>
               <span className={styles.textIcon}>Aa</span>
               <span>Font Size</span>
@@ -598,23 +601,26 @@ export default function Profile({ session }: ProfileProps): ReactElement {
             </div>
           </div>
 
+          </div>
           {/* Currency */}
-          <div className={styles.settingCard}>
+          <div className={`${styles.settingCard} ${styles.currencyCard}`}>
             <div className={styles.settingHeader}>
               <CreditCard size={20} />
               <span>Currency</span>
             </div>
-            <select
-              className={styles.currencySelect}
-              value={currencyCode}
-              onChange={(e) => setCurrencyCode(e.target.value as CurrencyCode)}
-            >
+            <div className={styles.currencyGrid}>
               {CURRENCY_OPTIONS.map((option) => (
-                <option key={option.code} value={option.code}>
-                  {option.symbol} - {option.name}
-                </option>
+                <button
+                  key={option.code}
+                  type="button"
+                  className={`${styles.currencyBlock} ${currencyCode === option.code ? styles.active : ''}`}
+                  onClick={() => setCurrencyCode(option.code)}
+                >
+                  <span className={styles.currencySymbol}>{option.symbol}</span>
+                  <span className={styles.currencyName}>{option.name}</span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
         </div>
       </section>

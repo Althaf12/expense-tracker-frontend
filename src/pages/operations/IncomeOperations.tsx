@@ -3,7 +3,6 @@ import { Typography } from '@mui/material'
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react'
 import { useRef } from 'react'
 import { 
-  Wallet, 
   Search, 
   Plus, 
   Trash2, 
@@ -459,9 +458,7 @@ export default function IncomeOperations(): ReactElement {
         <section className={styles.card}>
           <header className={styles.cardHeader}>
             <div className={styles.headerWithIcon}>
-              <div className={styles.iconWrapper}>
-                <Wallet size={22} />
-              </div>
+              <span className={styles.emojiIcon}>💰</span>
               <div>
                 <Typography variant="h5" component="h2" className={styles.title}>
                   Income Overview
@@ -804,9 +801,7 @@ export default function IncomeOperations(): ReactElement {
         <section className={styles.card}>
           <header className={styles.cardHeader}>
             <div className={styles.headerWithIcon}>
-              <div className={styles.iconWrapperGreen}>
-                <Plus size={22} />
-              </div>
+              <span className={styles.emojiIcon}>➕</span>
               <div>
                 <Typography variant="h5" component="h2" className={styles.title}>
                   Add Income

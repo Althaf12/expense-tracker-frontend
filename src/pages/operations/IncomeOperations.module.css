@@ -26,30 +26,10 @@
   gap: 0.75rem;
 }
 
-.iconWrapper {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #60a5fa, #3b82f6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
+.emojiIcon {
+  font-size: 1.75rem;
+  line-height: 1;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.iconWrapperGreen {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #34d399, #10b981);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .title {
@@ -402,11 +382,8 @@
     gap: 0.5rem;
   }
 
-  .iconWrapper,
-  .iconWrapperGreen {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+  .emojiIcon {
+    font-size: 1.5rem;
   }
 
   .title {

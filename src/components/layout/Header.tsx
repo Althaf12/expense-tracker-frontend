@@ -87,6 +87,11 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
 
       <nav className={styles.actions}>
         <ThemeToggle theme={theme} onToggle={setTheme} className={styles.headerThemeToggle} />
+        {isGuest && (
+          <button type="button" className={styles.signInButton} onClick={handleLogin}>
+            🔐 Sign In
+          </button>
+        )}
         {!session ? (
           <Link to="/" className={styles.authLink}>
             Login
@@ -111,12 +116,7 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
                 <User size={16} />
                 <span>Profile</span>
               </button>
-              {isGuest ? (
-                <button type="button" className={styles.menuItem} onClick={handleLogin}>
-                  <LogIn size={16} />
-                  <span>Login</span>
-                </button>
-              ) : (
+              {!isGuest && (
                 <button type="button" className={styles.menuItem} onClick={handleLogout}>
                   <LogOut size={16} />
                   <span>Logout</span>

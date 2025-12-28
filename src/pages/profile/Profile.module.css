@@ -132,9 +132,18 @@
 }
 
 .settingsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
+}
+
+.rowTwo {
+  display: flex;
+  gap: 1rem;
+}
+
+.rowTwo .settingCard {
+  flex: 1 1 0;
 }
 
 .settingCard {
@@ -234,12 +243,93 @@
   font-size: 0.95rem;
   cursor: pointer;
   transition: border-color 0.2s ease;
+  margin-bottom: 1rem;
 }
 
 .currencySelect:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--input-focus-outline);
+}
+
+.currencyGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.currencyBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--surface-card-border);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  /* Light mode: blue gradient */
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(59, 130, 246, 0.08));
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+/* Dark mode: blue gradient */
+[data-theme="dark"] .currencyBlock {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(59, 130, 246, 0.1));
+  border-color: rgba(96, 165, 250, 0.2);
+  color: var(--color-text-primary);
+}
+
+.currencyBlock:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-primary-border);
+}
+
+[data-theme="dark"] .currencyBlock:hover {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.25), rgba(59, 130, 246, 0.2));
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.currencyBlock.active {
+  border-color: var(--accent-primary);
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(59, 130, 246, 0.15));
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .currencyBlock.active {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.3), rgba(59, 130, 246, 0.25));
+  border-color: var(--accent-primary);
+}
+
+.currencyBlock.active::after {
+  content: '✓';
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--accent-primary);
+}
+
+.currencySymbol {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text-strong);
+}
+
+.currencyName {
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-top: 0.35rem;
+  text-align: center;
+  color: var(--color-text-muted);
 }
 
 /* Management Sections */

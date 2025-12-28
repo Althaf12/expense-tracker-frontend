@@ -2,7 +2,6 @@ import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { 
-  Receipt, 
   Search, 
   Plus, 
   Trash2, 
@@ -825,9 +824,7 @@ export default function ExpensesOperations(): ReactElement {
         <section className={styles.card}>
           <header className={styles.cardHeader}>
             <div className={styles.headerWithIcon}>
-              <div className={styles.iconWrapper}>
-                <Receipt size={22} />
-              </div>
+              <span className={styles.emojiIcon}>💸</span>
               <div>
                 <Typography variant="h5" component="h2" className={styles.title}>
                   Expense Explorer
@@ -1243,9 +1240,7 @@ export default function ExpensesOperations(): ReactElement {
         <section className={styles.card}>
           <header className={styles.cardHeader}>
             <div className={styles.headerWithIcon}>
-              <div className={styles.iconWrapperGreen}>
-                <Plus size={22} />
-              </div>
+              <span className={styles.emojiIcon}>➕</span>
               <div>
                 <Typography variant="h5" component="h2" className={styles.title}>
                   Add Expense

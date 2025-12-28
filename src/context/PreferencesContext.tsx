@@ -60,11 +60,11 @@ const storePreferences = (prefs: Partial<UserPreferences>, isGuest: boolean) => 
 
 const applyFontSize = (size: FontSize) => {
   if (typeof document === 'undefined') return
-  // Base font sizes: S = 58.59% (original small), M = 64.45% (current), L = 70.31% (larger)
+  // Base font sizes: S = 70.31% (was Large), M = 76.5%, L = 82.5%
   const fontSizeMap: Record<FontSize, string> = {
-    S: '58.59375%',
-    M: '64.453125%',
-    L: '70.3125%',
+    S: '70.3125%',
+    M: '76.5%',
+    L: '82.5%',
   }
   document.documentElement.style.fontSize = fontSizeMap[size]
   document.documentElement.setAttribute('data-font-size', size)

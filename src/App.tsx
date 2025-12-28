@@ -23,6 +23,7 @@ import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
 import { getAuthFromCookies, clearAuthCookies } from './utils/cookies'
 import { guestStore } from './utils/guestStore'
+import GuestWelcomeModal from './components/GuestWelcomeModal'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
@@ -345,6 +346,7 @@ export default function App(): ReactElement {
           <NotificationsProvider>
             <div className={styles.appShell}>
               <Notifications />
+              <GuestWelcomeModal isGuest={isGuestSession} />
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
