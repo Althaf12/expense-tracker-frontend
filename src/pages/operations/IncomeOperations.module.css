@@ -174,7 +174,8 @@
 
 .tableContainer {
   border-radius: 0.5rem;
-  overflow: scroll;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--surface-table-border);
 }
 
@@ -300,8 +301,11 @@
 }
 
 @media (max-width: 1200px) {
+  /* allow table to keep intrinsic width and enable horizontal scrolling on narrow viewports */
   .table {
-    min-width: 100%;
+    width: auto;
+    min-width: max-content;
+    table-layout: auto;
   }
 }
 

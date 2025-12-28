@@ -80,7 +80,8 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
             <img src="/logo.png" alt="Eternivity logo" className={styles.logo} />
           </Link>
           <Link to="/dashboard" className={styles.brandLink}>
-            Expense Tracker Powered by Eternivity<span className={styles.tm}>TM</span>
+            <span className={styles.brandTitle}>Expense Tracker</span>
+            <span className={styles.brandSubtitle}>Powered by Eternivity</span>
           </Link>
         </div>
       </div>

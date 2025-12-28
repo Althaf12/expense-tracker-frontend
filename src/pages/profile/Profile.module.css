@@ -140,10 +140,19 @@
 .rowTwo {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
+  align-items: stretch;
 }
 
 .rowTwo .settingCard {
   flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .rowTwo {
+    flex-direction: column;
+  }
 }
 
 .settingCard {
