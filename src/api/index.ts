@@ -1,8 +1,12 @@
 import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse } from '../types/app'
+import { guestStore } from '../utils/guestStore'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
 const API_BASE: string = ((import.meta as any)?.env?.VITE_API_BASE as string) || 'http://localhost:8081/api'
+
+// Helper to check if a userId belongs to guest
+const isGuestUserId = (userId: string | undefined | null): boolean => guestStore.isGuestUser(userId)
 
 type ApiRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
@@ -68,6 +72,8 @@ const _prevMonthlyBalanceCache = new Map<string, MonthlyBalance | null>()
  * Check if user exists, if not create the user
  */
 export async function ensureUserExists(userId: string): Promise<void> {
+  if (isGuestUserId(userId)) return // Guest user doesn't need backend check
+  
   const safeUserId = ensureUserId(userId)
   try {
     // Try to get user first
@@ -88,6 +94,10 @@ export async function ensureUserExists(userId: string): Promise<void> {
  * User logout - calls backend logout API
  */
 export async function logoutUser(userId: string): Promise<void> {
+  if (isGuestUserId(userId)) {
+    guestStore.clearAll()
+    return
+  }
   await request('/user/logout', { 
     method: 'POST',
     body: { userId } 
@@ -98,6 +108,9 @@ export async function logoutUser(userId: string): Promise<void> {
  * Get user details by userId
  */
 export async function getUserDetails(userId: string): Promise<Record<string, unknown> | null> {
+  if (isGuestUserId(userId)) {
+    return { userId: guestStore.GUEST_USER_ID, username: guestStore.GUEST_USERNAME }
+  }
   const safeUserId = ensureUserId(userId)
   try {
     const result = await request(`/user/${safeUserId}`, { method: 'GET' })
@@ -112,12 +125,18 @@ export async function getUserDetails(userId: string): Promise<Record<string, unk
 // ============================================================================
 
 export async function fetchUserExpenseCategories(userId: string): Promise<UserExpenseCategory[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getCategories()
+  }
   const safeUserId = ensureUserId(userId)
   const result = await request(`/user-expense-category/${safeUserId}`, { method: 'GET' })
   return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
 }
 
 export async function fetchUserExpenseCategoriesActive(userId: string): Promise<UserExpenseCategory[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getActiveCategories()
+  }
   const safeUserId = ensureUserId(userId)
   const result = await request(`/user-expense-category/${safeUserId}/active`, { method: 'GET' })
   return Array.isArray(result) ? (result as UserExpenseCategory[]) : []
@@ -128,6 +147,10 @@ export async function createUserExpenseCategory(payload: {
   userExpenseCategoryName: string
   status?: 'A' | 'I'
 }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.createCategory(payload.userExpenseCategoryName, payload.status ?? 'A')
+    return
+  }
   const safeUserId = ensureUserId(payload.userId)
   const body = {
     userExpenseCategoryName: payload.userExpenseCategoryName,
@@ -142,6 +165,10 @@ export async function updateUserExpenseCategory(payload: {
   userExpenseCategoryName: string
   status: 'A' | 'I'
 }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateCategory(payload.id, payload.userExpenseCategoryName, payload.status)
+    return
+  }
   const safeUserId = ensureUserId(payload.userId)
   const safeId = encodeURIComponent(String(payload.id))
   const body = {
@@ -152,17 +179,32 @@ export async function updateUserExpenseCategory(payload: {
 }
 
 export async function deleteUserExpenseCategory(payload: { userId: string; id: string | number }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    const result = guestStore.deleteCategory(payload.id)
+    if (!result.success) {
+      throw new Error(result.error ?? 'Cannot delete category')
+    }
+    return
+  }
   const safeUserId = ensureUserId(payload.userId)
   const safeId = encodeURIComponent(String(payload.id))
   await request(`/user-expense-category/${safeUserId}/${safeId}`, { method: 'DELETE' })
 }
 
 export async function deleteAllUserExpenseCategories(userId: string): Promise<void> {
+  if (isGuestUserId(userId)) {
+    guestStore.resetCategoriesToDefault()
+    return
+  }
   const safeUserId = ensureUserId(userId)
   await request(`/user-expense-category/${safeUserId}`, { method: 'DELETE' })
 }
 
 export async function copyUserExpenseCategoriesFromMaster(userId: string): Promise<void> {
+  if (isGuestUserId(userId)) {
+    guestStore.resetCategoriesToDefault()
+    return
+  }
   const safeUserId = ensureUserId(userId)
   await request(`/user-expense-category/${safeUserId}/copy-master`, { method: 'POST' })
 }
@@ -171,6 +213,12 @@ export async function resolveUserExpenseCategoryId(payload: {
   userId: string
   userExpenseCategoryName: string
 }): Promise<string | number | null> {
+  if (isGuestUserId(payload.userId)) {
+    const categories = guestStore.getCategories()
+    const searchName = payload.userExpenseCategoryName.toLowerCase().trim()
+    const cat = categories.find((c) => c.userExpenseCategoryName.toLowerCase().trim() === searchName)
+    return cat?.userExpenseCategoryId ?? null
+  }
   const safeUserId = ensureUserId(payload.userId)
   const name = String(payload.userExpenseCategoryName ?? '').trim()
   if (!name) {
@@ -207,12 +255,18 @@ export async function resolveUserExpenseCategoryId(payload: {
 // ============================================================================
 
 export async function fetchUserExpenses(userId: string): Promise<UserExpense[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getUserExpenses()
+  }
   const safeUserId = ensureUserId(userId)
   const result = await request(`/user-expenses/${safeUserId}`, { method: 'GET' })
   return Array.isArray(result) ? (result as UserExpense[]) : []
 }
 
 export async function fetchUserExpensesActive(userId: string): Promise<UserExpense[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getActiveUserExpenses()
+  }
   const safeUserId = ensureUserId(userId)
   const result = await request(`/user-expenses/${safeUserId}/active`, { method: 'GET' })
   return Array.isArray(result) ? (result as UserExpense[]) : []
@@ -226,6 +280,16 @@ export async function createUserExpense(payload: {
   status?: 'A' | 'I'
   paid?: 'Y' | 'N'
 }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.createUserExpense({
+      userExpenseName: payload.userExpenseName,
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+      amount: payload.amount,
+      status: payload.status,
+      paid: payload.paid,
+    })
+    return
+  }
   const safeUserId = ensureUserId(payload.userId)
   const body = {
     userExpenseName: payload.userExpenseName,
@@ -246,6 +310,16 @@ export async function updateUserExpense(payload: {
   status?: 'A' | 'I'
   paid?: 'Y' | 'N'
 }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateUserExpense(payload.id, {
+      userExpenseName: payload.userExpenseName,
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+      amount: payload.amount,
+      status: payload.status,
+      paid: payload.paid,
+    })
+    return
+  }
   const safeUserId = ensureUserId(payload.userId)
   const safeId = encodeURIComponent(String(payload.id))
   const body: Record<string, unknown> = {}
@@ -258,12 +332,20 @@ export async function updateUserExpense(payload: {
 }
 
 export async function deleteUserExpense(payload: { userId: string; id: string | number }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.deleteUserExpense(payload.id)
+    return
+  }
   const safeUserId = ensureUserId(payload.userId)
   const safeId = encodeURIComponent(String(payload.id))
   await request(`/user-expenses/${safeUserId}/${safeId}`, { method: 'DELETE' })
 }
 
 export async function copyUserExpensesFromMaster(userId: string): Promise<void> {
+  if (isGuestUserId(userId)) {
+    guestStore.resetUserExpensesToDefault()
+    return
+  }
   const safeUserId = ensureUserId(userId)
   await request(`/planned-expenses/${safeUserId}/copyMaster`, { method: 'POST' })
 }
@@ -273,6 +355,9 @@ export async function copyUserExpensesFromMaster(userId: string): Promise<void> 
 // ============================================================================
 
 export async function fetchExpenses(userId: string): Promise<Expense[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getExpenses()
+  }
   const safeUserId = ensureUserId(userId)
   const result = await request('/expense/all', { body: { userId: safeUserId } })
   if (Array.isArray(result)) {
@@ -282,6 +367,9 @@ export async function fetchExpenses(userId: string): Promise<Expense[]> {
 }
 
 export async function fetchExpensesByRange(payload: { userId: string; start: string; end: string; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.getExpensesByRange(payload.start, payload.end)
+  }
   const body: Record<string, unknown> = { userId: payload.userId, start: payload.start, end: payload.end }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
@@ -294,6 +382,9 @@ export async function fetchExpensesByRange(payload: { userId: string; start: str
 }
 
 export async function fetchExpensesByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.getExpensesByMonth(payload.month, payload.year)
+  }
   const body: Record<string, unknown> = { userId: payload.userId, month: payload.month, year: payload.year }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
@@ -306,6 +397,12 @@ export async function fetchExpensesByMonth(payload: { userId: string; month: num
 }
 
 export async function fetchExpensesByYear(payload: { userId: string; year: number }): Promise<Expense[]> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.getExpenses().filter((e) => {
+      if (!e.expenseDate) return false
+      return new Date(e.expenseDate).getFullYear() === payload.year
+    })
+  }
   const result = await request('/expense/year', { body: payload })
   return Array.isArray(result) ? (result as Expense[]) : []
 }
@@ -317,10 +414,22 @@ export async function addExpense(payload: {
   expenseDate: string
   expenseName?: string
 }): Promise<unknown> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.addExpense({
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+      expenseAmount: payload.expenseAmount,
+      expenseDate: payload.expenseDate,
+      expenseName: payload.expenseName,
+    })
+  }
   return await request('/expense/add', { body: payload })
 }
 
 export async function deleteExpense(payload: { userId: string; expensesId: string | number }): Promise<unknown> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.deleteExpense(payload.expensesId)
+    return null
+  }
   return await request('/expense/delete', { body: payload })
 }
 
@@ -332,6 +441,16 @@ export async function updateExpense(payload: {
   expenseDate?: string
   userExpenseCategoryId?: string | number
 }): Promise<unknown> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateExpense(payload.expensesId, {
+      amount: payload.expenseAmount,
+      expenseAmount: payload.expenseAmount,
+      expenseName: payload.expenseName,
+      expenseDate: payload.expenseDate,
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+    })
+    return null
+  }
   return await request('/expense/update', { method: 'PUT', body: payload })
 }
 
@@ -347,10 +466,23 @@ export async function addIncome(payload: {
   month?: string | number
   year?: number
 }): Promise<unknown> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.addIncome({
+      source: payload.source,
+      amount: payload.amount,
+      receivedDate: payload.receivedDate,
+      month: payload.month,
+      year: payload.year,
+    })
+  }
   return await request('/income/add', { body: payload })
 }
 
 export async function deleteIncome(payload: { userId: string; incomeId: string | number }): Promise<unknown> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.deleteIncome(payload.incomeId)
+    return null
+  }
   return await request('/income/delete', { body: payload })
 }
 
@@ -363,6 +495,16 @@ export async function updateIncome(payload: {
   month?: string | number
   year?: number
 }): Promise<unknown> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateIncome(payload.incomeId, {
+      source: payload.source,
+      amount: payload.amount,
+      receivedDate: payload.receivedDate,
+      month: payload.month,
+      year: payload.year,
+    })
+    return null
+  }
   return await request('/income/update', { method: 'PUT', body: payload })
 }
 
@@ -375,6 +517,14 @@ export async function fetchIncomeByRange(payload: {
   page?: number
   size?: number
 }): Promise<PagedResponse<Income>> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.getIncomesByRange(
+      Number(payload.fromMonth),
+      Number(payload.fromYear),
+      Number(payload.toMonth),
+      Number(payload.toYear)
+    )
+  }
   const body: Record<string, unknown> = {
     userId: payload.userId,
     fromMonth: payload.fromMonth,
@@ -393,6 +543,9 @@ export async function fetchIncomeByRange(payload: {
 }
 
 export async function fetchIncomeByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Income>> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.getIncomesByMonth(payload.month, payload.year)
+  }
   const body: Record<string, unknown> = { userId: payload.userId, month: payload.month, year: payload.year }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
@@ -405,6 +558,10 @@ export async function fetchIncomeByMonth(payload: { userId: string; month: numbe
 }
 
 export async function fetchIncomeLastYear(userId: string, currentYear: number): Promise<Income[]> {
+  if (isGuestUserId(userId)) {
+    const fromYear = currentYear - 1
+    return guestStore.getIncomesByRange(1, fromYear, 12, fromYear).content
+  }
   const fromYear = currentYear - 1
   const result = await request('/income/range', {
     body: {
@@ -423,6 +580,11 @@ export async function fetchIncomeLastYear(userId: string, currentYear: number): 
 // ============================================================================
 
 export async function fetchPreviousMonthlyBalance(userId: string): Promise<MonthlyBalance | null> {
+  if (isGuestUserId(userId)) {
+    const now = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return guestStore.getMonthlyBalance(prev.getMonth() + 1, prev.getFullYear())
+  }
   const safeUserId = ensureUserId(userId)
 
   const now = new Date()
@@ -499,6 +661,9 @@ export async function fetchPreviousMonthlyBalance(userId: string): Promise<Month
 // ============================================================================
 
 export async function fetchUserPreferences(userId: string): Promise<UserPreferences | null> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getPreferences()
+  }
   const safeUserId = ensureUserId(userId)
   try {
     const result = await request(`/user/preferences/${safeUserId}`, { method: 'GET' })
@@ -517,6 +682,14 @@ export async function updateUserPreferences(payload: {
   currencyCode?: CurrencyCode
   theme?: ThemeCode
 }): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updatePreferences({
+      fontSize: payload.fontSize,
+      currencyCode: payload.currencyCode,
+      theme: payload.theme,
+    })
+    return
+  }
   const body: Record<string, unknown> = { userId: payload.userId }
   if (payload.fontSize !== undefined) body.fontSize = payload.fontSize
   if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode

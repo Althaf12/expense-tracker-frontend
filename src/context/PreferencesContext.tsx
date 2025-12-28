@@ -12,8 +12,10 @@ import type { FontSize, CurrencyCode, UserPreferences } from '../types/app'
 import { CURRENCY_SYMBOLS } from '../types/app'
 import { fetchUserPreferences, updateUserPreferences } from '../api'
 import { useTheme, type Theme } from './ThemeContext'
+import { guestStore } from '../utils/guestStore'
 
 const PREFERENCES_STORAGE_KEY = 'user-preferences'
+const GUEST_PREFERENCES_KEY = 'guest-preferences'
 
 type PreferencesContextValue = {
   fontSize: FontSize
@@ -28,10 +30,13 @@ type PreferencesContextValue = {
 
 const PreferencesContext = createContext<PreferencesContextValue | undefined>(undefined)
 
-const getStoredPreferences = (): Partial<UserPreferences> | null => {
+const getStoredPreferences = (isGuest: boolean): Partial<UserPreferences> | null => {
   if (typeof window === 'undefined') return null
   try {
-    const stored = window.localStorage.getItem(PREFERENCES_STORAGE_KEY)
+    // Use sessionStorage for guest, localStorage for real users
+    const storage = isGuest ? window.sessionStorage : window.localStorage
+    const key = isGuest ? GUEST_PREFERENCES_KEY : PREFERENCES_STORAGE_KEY
+    const stored = storage.getItem(key)
     if (stored) {
       return JSON.parse(stored)
     }
@@ -41,11 +46,13 @@ const getStoredPreferences = (): Partial<UserPreferences> | null => {
   return null
 }
 
-const storePreferences = (prefs: Partial<UserPreferences>) => {
+const storePreferences = (prefs: Partial<UserPreferences>, isGuest: boolean) => {
   if (typeof window === 'undefined') return
   try {
-    const existing = getStoredPreferences() || {}
-    window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify({ ...existing, ...prefs }))
+    const storage = isGuest ? window.sessionStorage : window.localStorage
+    const key = isGuest ? GUEST_PREFERENCES_KEY : PREFERENCES_STORAGE_KEY
+    const existing = getStoredPreferences(isGuest) || {}
+    storage.setItem(key, JSON.stringify({ ...existing, ...prefs }))
   } catch {
     /* ignore */
   }
@@ -68,16 +75,17 @@ export function PreferencesProvider({
   userId,
 }: PropsWithChildren<{ userId?: string | null }>): ReactElement {
   const { setTheme: setThemeContext } = useTheme()
+  const isGuest = guestStore.isGuestUser(userId)
 
   const [fontSize, setFontSizeState] = useState<FontSize>(() => {
-    const stored = getStoredPreferences()
+    const stored = getStoredPreferences(isGuest)
     const initial = (stored?.fontSize as FontSize) || 'S'
     applyFontSize(initial)
     return initial
   })
 
   const [currencyCode, setCurrencyCodeState] = useState<CurrencyCode>(() => {
-    const stored = getStoredPreferences()
+    const stored = getStoredPreferences(isGuest)
     return (stored?.currencyCode as CurrencyCode) || 'INR'
   })
 
@@ -87,6 +95,7 @@ export function PreferencesProvider({
   // Load preferences from API when userId changes
   const loadPreferences = useCallback(async (user: string) => {
     if (!user) return
+    const userIsGuest = guestStore.isGuestUser(user)
     setLoading(true)
     try {
       const prefs = await fetchUserPreferences(user)
@@ -104,7 +113,7 @@ export function PreferencesProvider({
           currencyCode: prefs.currencyCode,
           theme: prefs.theme,
           userId: user,
-        })
+        }, userIsGuest)
       }
       setCurrentUserId(user)
     } catch {
@@ -122,9 +131,10 @@ export function PreferencesProvider({
 
   const setFontSize = useCallback(
     async (size: FontSize) => {
+      const userIsGuest = guestStore.isGuestUser(currentUserId)
       setFontSizeState(size)
       applyFontSize(size)
-      storePreferences({ fontSize: size })
+      storePreferences({ fontSize: size }, userIsGuest)
       if (currentUserId) {
         try {
           await updateUserPreferences({ userId: currentUserId, fontSize: size })
@@ -138,8 +148,9 @@ export function PreferencesProvider({
 
   const setCurrencyCode = useCallback(
     async (code: CurrencyCode) => {
+      const userIsGuest = guestStore.isGuestUser(currentUserId)
       setCurrencyCodeState(code)
-      storePreferences({ currencyCode: code })
+      storePreferences({ currencyCode: code }, userIsGuest)
       if (currentUserId) {
         try {
           await updateUserPreferences({ userId: currentUserId, currencyCode: code })

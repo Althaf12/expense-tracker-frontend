@@ -12,11 +12,13 @@ import { CssBaseline } from '@mui/material'
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
 import { createAppTheme } from '../theme'
 import { updateUserPreferences } from '../api'
+import { guestStore } from '../utils/guestStore'
 
 export type Theme = 'light' | 'dark'
 
 const THEME_STORAGE_KEY = 'preferred-theme'
 const PREFERENCES_STORAGE_KEY = 'user-preferences'
+const GUEST_THEME_KEY = 'guest-theme'
 
 type ThemeContextValue = {
   theme: Theme
@@ -91,17 +93,23 @@ export function ThemeProvider({ children, userId }: ThemeProviderProps): ReactEl
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next)
     const themeCode = next === 'light' ? 'L' : 'D'
+    const isGuest = guestStore.isGuestUser(userId)
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, next)
-      // Also update the preferences storage for consistency
-      const prefsRaw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY)
-      const prefs = prefsRaw ? JSON.parse(prefsRaw) : {}
-      prefs.theme = themeCode
-      window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
+      if (isGuest) {
+        // Use sessionStorage for guest users
+        window.sessionStorage.setItem(GUEST_THEME_KEY, next)
+      } else {
+        window.localStorage.setItem(THEME_STORAGE_KEY, next)
+        // Also update the preferences storage for consistency
+        const prefsRaw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY)
+        const prefs = prefsRaw ? JSON.parse(prefsRaw) : {}
+        prefs.theme = themeCode
+        window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
+      }
     } catch {
       /* ignore storage write issues */
     }
-    // Call API to persist theme preference if user is logged in
+    // Call API to persist theme preference (handles guest mode internally)
     if (userId) {
       updateUserPreferences({ userId, theme: themeCode }).catch(() => {
         /* ignore API errors - local state is already updated */

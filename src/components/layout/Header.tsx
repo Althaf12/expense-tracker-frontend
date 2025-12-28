@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, LogOut, Menu } from 'lucide-react'
+import { User, LogOut, LogIn, Menu } from 'lucide-react'
 import type { SessionData } from '../../types/app'
 import { useTheme } from '../../context/ThemeContext'
 import ThemeToggle from './ThemeToggle'
 import styles from './Header.module.css'
+
+// Login redirect URL - uses env var or defaults based on environment
+const LOGIN_REDIRECT_URL = ((import.meta as any)?.env?.VITE_LOGIN_URL as string) || 
+  ((import.meta as any)?.env?.DEV ? 'http://localhost:5175' : 'https://eternivity.com')
 
 type HeaderProps = {
   session: SessionData | null
@@ -12,6 +16,7 @@ type HeaderProps = {
   onToggleSidebar?: () => void
   sidebarOpen?: boolean
   isMobile?: boolean
+  isGuest?: boolean
 }
 
 const getInitial = (session: SessionData | null): string => {
@@ -19,7 +24,7 @@ const getInitial = (session: SessionData | null): string => {
   return source.charAt(0).toUpperCase() || 'U'
 }
 
-export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen = false }: HeaderProps): ReactElement {
+export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen = false, isGuest = false }: HeaderProps): ReactElement {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
@@ -46,6 +51,11 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
   const handleLogout = () => {
     setOpen(false)
     onLogout?.()
+  }
+
+  const handleLogin = () => {
+    setOpen(false)
+    window.location.href = LOGIN_REDIRECT_URL
   }
 
   return (
@@ -101,10 +111,17 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
                 <User size={16} />
                 <span>Profile</span>
               </button>
-              <button type="button" className={styles.menuItem} onClick={handleLogout}>
-                <LogOut size={16} />
-                <span>Logout</span>
-              </button>
+              {isGuest ? (
+                <button type="button" className={styles.menuItem} onClick={handleLogin}>
+                  <LogIn size={16} />
+                  <span>Login</span>
+                </button>
+              ) : (
+                <button type="button" className={styles.menuItem} onClick={handleLogout}>
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              )}
             </div>
           </div>
         )}

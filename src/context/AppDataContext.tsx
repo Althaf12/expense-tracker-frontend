@@ -18,8 +18,10 @@ export type AppDataContextValue = {
   incomesCache: Income[];
   setIncomesCache: (incomes: Income[] | ((previous: Income[]) => Income[])) => void;
   ensureExpenseCategories: () => Promise<UserExpenseCategory[]>;
+  refreshExpenseCategories: () => Promise<UserExpenseCategory[]>;
   ensureUserExpenses: () => Promise<UserExpense[]>;
   ensureActiveUserExpenses: () => Promise<UserExpense[]>;
+  refreshActiveUserExpenses: () => Promise<UserExpense[]>;
   reloadExpensesCache: (username: string) => Promise<Expense[]>;
   reloadIncomesCache: (username: string) => Promise<Income[]>;
 };

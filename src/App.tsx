@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/layout/Layout'
-import LoginRequired from './components/LoginRequired'
 import Dashboard from './pages/dashboard/Dashboard'
 import ExpensesOperations from './pages/operations/ExpensesOperations'
 import IncomeOperations from './pages/operations/IncomeOperations'
@@ -23,11 +22,12 @@ import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
 import { getAuthFromCookies, clearAuthCookies } from './utils/cookies'
+import { guestStore } from './utils/guestStore'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
 
-const REDIRECT_URL = import.meta.env.VITE_MAIN_SITE_URL || 'https://eternivity.com'
+const REDIRECT_URL = ((import.meta as any)?.env?.VITE_MAIN_SITE_URL as string) || 'https://eternivity.com'
 
 export default function App(): ReactElement {
   const [session, setSession] = useState<SessionData | null>(null)
@@ -43,6 +43,9 @@ export default function App(): ReactElement {
   const updateStatus = useCallback((next: StatusState) => {
     setStatusState(next)
   }, [])
+
+  // Helper to check if current session is guest
+  const isGuestSession = session?.userId === guestStore.GUEST_USER_ID
 
   const handleLogout = useCallback(async () => {
     if (session?.userId) {
@@ -65,9 +68,16 @@ export default function App(): ReactElement {
     // Clear cookies
     clearAuthCookies()
     
-    // Redirect to main domain
+    // For guest users, just reload the page to start fresh guest session
+    if (isGuestSession) {
+      guestStore.clearAll()
+      window.location.reload()
+      return
+    }
+    
+    // Redirect to main domain for real users
     window.location.href = REDIRECT_URL
-  }, [session?.userId])
+  }, [session?.userId, isGuestSession])
 
   const ensureExpenseCategories = useCallback(async (): Promise<UserExpenseCategory[]> => {
     const userId = session?.userId
@@ -98,6 +108,31 @@ export default function App(): ReactElement {
   }, [session?.userId])
 
   const ensureActiveUserExpenses = useCallback(async (): Promise<UserExpense[]> => {
+    const userId = session?.userId
+    if (!userId) {
+      setActiveUserExpenses([])
+      return []
+    }
+    const expenses = await apiFetchUserExpensesActive(userId)
+    setActiveUserExpenses(expenses)
+    return expenses
+  }, [session?.userId])
+
+  // Force refresh functions that bypass any caching
+  const refreshExpenseCategories = useCallback(async (): Promise<UserExpenseCategory[]> => {
+    const userId = session?.userId
+    if (!userId) {
+      setExpenseCategories([])
+      expenseCategoriesRef.current = []
+      return []
+    }
+    const categories = await apiFetchUserExpenseCategoriesActive(userId)
+    expenseCategoriesRef.current = categories
+    setExpenseCategories(categories)
+    return categories
+  }, [session?.userId])
+
+  const refreshActiveUserExpenses = useCallback(async (): Promise<UserExpense[]> => {
     const userId = session?.userId
     if (!userId) {
       setActiveUserExpenses([])
@@ -155,6 +190,15 @@ export default function App(): ReactElement {
         }
         
         setSession(sessionData)
+      } else {
+        // No real user logged in - create guest session
+        const guestSession: SessionData = {
+          userId: guestStore.GUEST_USER_ID,
+          username: guestStore.GUEST_USERNAME,
+          email: undefined,
+          token: undefined,
+        }
+        setSession(guestSession)
       }
       
       setIsAuthChecked(true)
@@ -245,8 +289,10 @@ export default function App(): ReactElement {
       incomesCache,
       setIncomesCache,
       ensureExpenseCategories,
+      refreshExpenseCategories,
       ensureUserExpenses,
       ensureActiveUserExpenses,
+      refreshActiveUserExpenses,
       reloadExpensesCache,
       reloadIncomesCache,
     }),
@@ -259,8 +305,10 @@ export default function App(): ReactElement {
       expensesCache,
       incomesCache,
       ensureExpenseCategories,
+      refreshExpenseCategories,
       ensureUserExpenses,
       ensureActiveUserExpenses,
+      refreshActiveUserExpenses,
       reloadExpensesCache,
       reloadIncomesCache,
       updateStatus,
@@ -278,14 +326,15 @@ export default function App(): ReactElement {
     )
   }
 
-  // Show login required if no session
+  // Session should always be present (either real user or guest)
+  // But we keep a fallback just in case
   if (!session) {
     return (
-      <ThemeProvider userId={undefined}>
-        <div className={styles.appShell}>
-          <LoginRequired />
+      <div className={styles.appShell}>
+        <div className={styles.loadingScreen}>
+          <div className={styles.loadingSpinner} />
         </div>
-      </ThemeProvider>
+      </div>
     )
   }
 
@@ -299,7 +348,7 @@ export default function App(): ReactElement {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
-                <Route element={<Layout session={session} onLogout={handleLogout} />}>
+                <Route element={<Layout session={session} onLogout={handleLogout} isGuest={isGuestSession} />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/operations/expenses" element={<ExpensesOperations />} />
                   <Route path="/operations/income" element={<IncomeOperations />} />

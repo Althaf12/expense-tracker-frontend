@@ -91,8 +91,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     setStatus,
     expenseCategories: activeCategories,
     ensureExpenseCategories,
+    refreshExpenseCategories,
     ensureUserExpenses,
     ensureActiveUserExpenses,
+    refreshActiveUserExpenses,
   } = useAppDataContext()
 
   const {
@@ -189,12 +191,12 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   const syncActiveCategories = useCallback(async () => {
     if (!userId) return
     try {
-      await ensureExpenseCategories()
+      await refreshExpenseCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading categories') })
     }
-  }, [ensureExpenseCategories, userId, setStatus])
+  }, [refreshExpenseCategories, userId, setStatus])
 
   const refreshUserCategories = useCallback(async () => {
     if (!userId) return
@@ -214,12 +216,12 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   const syncActiveExpenses = useCallback(async () => {
     if (!userId) return
     try {
-      await ensureActiveUserExpenses()
+      await refreshActiveUserExpenses()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading planned expenses') })
     }
-  }, [ensureActiveUserExpenses, userId, setStatus])
+  }, [refreshActiveUserExpenses, userId, setStatus])
 
   const refreshUserExpenses = useCallback(async () => {
     if (!userId) return

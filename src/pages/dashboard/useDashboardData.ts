@@ -168,7 +168,10 @@ export default function useDashboardData() {
 
     const userId = session.userId
     const loadKey = `${userId}:${month}:${year}`
-    if (lastLoadKeyRef.current === loadKey || inflightLoadKeyRef.current === loadKey) {
+    // For guest users, always reload to pick up changes from other pages
+    // For regular users, use the caching mechanism
+    const isGuestUser = userId === 'guest-user'
+    if (!isGuestUser && (lastLoadKeyRef.current === loadKey || inflightLoadKeyRef.current === loadKey)) {
       return
     }
     inflightLoadKeyRef.current = loadKey
@@ -200,9 +203,36 @@ export default function useDashboardData() {
         setExpenseTotalPages(currentExpensesResponse.totalPages)
         setExpenseCurrentPage(currentExpensesResponse.page)
         setPreviousMonthExpenses(previousExpensesResponse.content)
-        setCurrentMonthIncome(currentIncomeResponse.content)
-        setPreviousMonthIncome(previousIncomeResponse.content)
-        setTwoMonthsAgoIncome(twoMonthsAgoIncomeResponse.content)
+
+        // For guest users only show previous month income (exclude earlier or current month incomes)
+        const isGuest = session.userId === 'guest-user'
+        if (isGuest) {
+          setCurrentMonthIncome([])
+          // Prefer matching by receivedDate (most reliable). Fallback to month/year fields.
+          const MONTH_NAMES = ['january','february','march','april','may','june','july','august','september','october','november','december']
+          const prevList = (previousIncomeResponse.content || []).filter((inc) => {
+            if (inc && typeof inc.receivedDate === 'string' && inc.receivedDate.trim()) {
+              const d = new Date(inc.receivedDate)
+              if (!Number.isNaN(d.getTime())) {
+                return d.getMonth() + 1 === previousContext.month && d.getFullYear() === previousContext.year
+              }
+            }
+            const im = (inc as any).month
+            let incomeMonthNum = NaN
+            if (typeof im === 'number') incomeMonthNum = im
+            else if (typeof im === 'string') {
+              const idx = MONTH_NAMES.indexOf(im.toLowerCase().trim())
+              if (idx >= 0) incomeMonthNum = idx + 1
+            }
+            return incomeMonthNum === previousContext.month && inc.year === previousContext.year
+          })
+          setPreviousMonthIncome(prevList)
+          setTwoMonthsAgoIncome([])
+        } else {
+          setCurrentMonthIncome(currentIncomeResponse.content)
+          setPreviousMonthIncome(previousIncomeResponse.content)
+          setTwoMonthsAgoIncome(twoMonthsAgoIncomeResponse.content)
+        }
 
         const mb = previousMonthBalance as (import('../../types/app').MonthlyBalance | null)
         const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0

@@ -2,7 +2,7 @@
 
 Summary
 - Stack: React 18 + TypeScript + Vite; Router: `react-router-dom` v6.
-- Purpose: UI is a thin frontend that talks to a backend API (default base `http://localhost:8081/api`). Many flows require a running backend.
+- Purpose: UI is a thin frontend that talks to a backend API (default base `http://localhost:8081/api`). Supports **guest mode** for visitors (no login required).
 
 Quick start (PowerShell)
 ```powershell
@@ -17,6 +17,7 @@ Key places to look
   - sets `Content-Type: application/json` when `body` exists and serializes non-string bodies,
   - parses JSON (or text) and throws on non-2xx with helpful messages.
   - many helpers validate `username` via `ensureUsername` and expect encoded path params.
+- `src/utils/guestStore.ts`: in-memory store for guest users. Uses `sessionStorage` so data clears when browser closes.
 - `src/types/app.ts`: central types (`SessionData`, `Expense`, `UserExpenseCategory`, etc.). Update types first when shapes change.
 - `src/context/AppDataContext.tsx`: global data provider — session, caches, and helpers like `ensureExpenseCategories` and `reloadExpensesCache`.
 - `src/App.tsx` / `src/main.tsx`: routing and app wiring. Pages live under `src/pages/*`; layout under `src/components/layout/*`.
