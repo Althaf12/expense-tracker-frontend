@@ -376,6 +376,13 @@
   color: var(--color-text-strong);
 }
 
+.limitInline {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
 .badge {
   background: var(--accent-primary-soft);
   color: var(--accent-primary);
@@ -395,7 +402,7 @@
 }
 
 .sectionContent {
-  padding: 0 1.5rem 1.5rem;
+  padding: 1rem 1.5rem 1.5rem;
   animation: expandIn 0.3s ease-out;
 }
 
@@ -415,6 +422,46 @@
   gap: 0.75rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.limitText {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+/* Dropdown styles (match operations dropdown styling) */
+.dropdownList {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--dropdown-background);
+  border: 1px solid var(--dropdown-border);
+  border-radius: 0.75rem;
+  padding: 0.35rem 0;
+  z-index: 9999;
+  box-shadow: var(--dropdown-shadow);
+}
+
+.dropdownItem {
+  padding: 0.55rem 0.9rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.dropdownItem:hover {
+  background: var(--dropdown-item-hover);
+}
+
+.dropdownEmpty {
+  padding: 0.65rem 0.9rem;
+  color: var(--placeholder-text);
 }
 
 .addButton,
@@ -485,6 +532,11 @@
   color: var(--color-text-primary);
   font-size: 0.9rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.inlineDropdownField {
+  position: relative;
+  width: 100%;
 }
 
 .input:focus,

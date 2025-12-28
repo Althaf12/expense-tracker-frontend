@@ -1104,7 +1104,7 @@ export default function ExpensesOperations(): ReactElement {
                                 placeholder="Expense"
                               />
                             ) : (
-                              expense.expenseName ?? expense.description ?? '-'
+                              <span className={styles.cellText}>{expense.expenseName ?? expense.description ?? '-'}</span>
                             )}
                           </td>
                           <td>
@@ -1155,7 +1155,7 @@ export default function ExpensesOperations(): ReactElement {
                                 )}
                               </div>
                             ) : (
-                              displayCategory
+                              <span className={styles.cellText}>{displayCategory}</span>
                             )}
                           </td>
                           <td className={styles.numeric}>
@@ -1169,7 +1169,7 @@ export default function ExpensesOperations(): ReactElement {
                                 onChange={(event) => updateInlineDraft('expenseAmount', event.target.value)}
                               />
                             ) : (
-                              formatCurrency(Number(expense.amount ?? expense.expenseAmount))
+                              <span className={styles.cellText}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</span>
                             )}
                           </td>
                           <td>
@@ -1181,7 +1181,7 @@ export default function ExpensesOperations(): ReactElement {
                                 onChange={(event) => updateInlineDraft('expenseDate', event.target.value)}
                               />
                             ) : (
-                              formatDate(expense.expenseDate)
+                              <span className={styles.cellText}>{formatDate(expense.expenseDate)}</span>
                             )}
                           </td>
                           <td className={styles.actions}>

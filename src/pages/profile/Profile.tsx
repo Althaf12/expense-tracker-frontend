@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import {
   User,
   Mail,
@@ -48,7 +48,7 @@ type CategoryDraft = {
 }
 
 const MAX_USER_CATEGORIES = 20
-const MAX_USER_EXPENSES = 100
+const MAX_USER_EXPENSES = 50
 
 type ExpenseDraft = {
   name: string
@@ -130,6 +130,15 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     categoryId: '',
     amount: '',
   })
+
+  // Inline dropdown state for category selectors in planned expenses (styled)
+  const [addCategoryDropdownOpen, setAddCategoryDropdownOpen] = useState(false)
+  const [addCategoryInput, setAddCategoryInput] = useState('')
+  const addCategoryFieldRef = useRef<HTMLDivElement | null>(null)
+
+  const [editingCategoryDropdownOpen, setEditingCategoryDropdownOpen] = useState(false)
+  const [editingCategoryInput, setEditingCategoryInput] = useState('')
+  const editingCategoryFieldRef = useRef<HTMLDivElement | null>(null)
 
   const canManageCategories = Boolean(userId)
   const canManageExpenses = Boolean(userId)
@@ -310,6 +319,38 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     }
   }, [userId])
 
+  // Close category dropdowns when clicking outside
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (addCategoryDropdownOpen && addCategoryFieldRef.current && !addCategoryFieldRef.current.contains(e.target as Node)) {
+        setAddCategoryDropdownOpen(false)
+      }
+      if (editingCategoryDropdownOpen && editingCategoryFieldRef.current && !editingCategoryFieldRef.current.contains(e.target as Node)) {
+        setEditingCategoryDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [addCategoryDropdownOpen, editingCategoryDropdownOpen])
+
+  useEffect(() => {
+    if (addingExpense) {
+      const label = categoryLookup.get(expenseAddDraft.categoryId ?? '')?.userExpenseCategoryName ?? ''
+      setAddCategoryInput(label)
+    } else {
+      setAddCategoryInput('')
+    }
+  }, [addingExpense, expenseAddDraft.categoryId, categoryLookup])
+
+  useEffect(() => {
+    if (editingExpenseId && expenseDraft) {
+      const label = categoryLookup.get(expenseDraft.categoryId ?? '')?.userExpenseCategoryName ?? ''
+      setEditingCategoryInput(label)
+    } else {
+      setEditingCategoryInput('')
+    }
+  }, [editingExpenseId, expenseDraft, categoryLookup])
+
   // Category management
   const startEdit = (category: UserExpenseCategory) => {
     setEditingCategoryId(category.userExpenseCategoryId)
@@ -322,6 +363,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   }
 
   const beginAddCategory = () => {
+    if (categoryLimitReached) {
+      setStatus({ type: 'error', message: `Category limit reached (${MAX_USER_CATEGORIES}).` })
+      return
+    }
     setAddingCategory(true)
     setCategoryAddDraft({ name: '', status: 'A' })
   }
@@ -378,6 +423,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
 
   const handleAddCategory = async () => {
     if (!userId) return
+    if (categoryLimitReached) {
+      setStatus({ type: 'error', message: `Category limit reached (${MAX_USER_CATEGORIES}).` })
+      return
+    }
     const trimmedName = categoryAddDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Category name is required.' })
@@ -419,6 +468,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   }
 
   const beginAddExpense = () => {
+    if (expenseLimitReached) {
+      setStatus({ type: 'error', message: `Planned expenses limit reached (${MAX_USER_EXPENSES}).` })
+      return
+    }
     setAddingExpense(true)
     setExpenseAddDraft({ name: '', status: 'A', categoryId: '', amount: '' })
   }
@@ -482,6 +535,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
 
   const handleAddExpense = async () => {
     if (!userId) return
+    if (expenseLimitReached) {
+      setStatus({ type: 'error', message: `Planned expenses limit reached (${MAX_USER_EXPENSES}).` })
+      return
+    }
     const trimmedName = expenseAddDraft.name.trim()
     if (!trimmedName) {
       setStatus({ type: 'error', message: 'Expense name is required.' })
@@ -634,8 +691,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
         >
           <div className={styles.sectionHeaderContent}>
             <Tag size={20} />
-            <span>Expense Categories</span>
-            <span className={styles.badge}>{categories.length}</span>
+            <span>
+              Expense Categories
+              <span className={styles.limitInline}> {categories.length}/{MAX_USER_CATEGORIES}</span>
+            </span>
           </div>
           <ChevronRight size={20} className={styles.chevron} />
         </button>
@@ -661,6 +720,7 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                 <RefreshCw size={16} />
                 <span>Reset to Defaults</span>
               </button>
+              <span className={styles.limitText}>{categories.length}/{MAX_USER_CATEGORIES}</span>
             </div>
 
             {addingCategory && (
@@ -762,8 +822,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
         >
           <div className={styles.sectionHeaderContent}>
             <Wallet size={20} />
-            <span>Planned Expenses</span>
-            <span className={styles.badge}>{expenses.length}</span>
+            <span>
+              Planned Expenses
+              <span className={styles.limitInline}> {expenses.length}/{MAX_USER_EXPENSES}</span>
+            </span>
           </div>
           <ChevronRight size={20} className={styles.chevron} />
         </button>
@@ -789,6 +851,7 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                 <RefreshCw size={16} />
                 <span>Reset to Defaults</span>
               </button>
+              <span className={styles.limitText}>{expenses.length}/{MAX_USER_EXPENSES}</span>
             </div>
 
             {!hasActiveCategory && (
@@ -804,18 +867,43 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                   value={expenseAddDraft.name}
                   onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, name: e.target.value })}
                 />
-                <select
-                  className={styles.select}
-                  value={expenseAddDraft.categoryId}
-                  onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, categoryId: e.target.value })}
-                >
-                  <option value="">Select category</option>
-                  {categoryOptions.filter(o => o.status === 'A').map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className={styles.inlineDropdownField} ref={addCategoryFieldRef}>
+                  <input
+                    className={styles.input}
+                    value={addCategoryInput}
+                    onChange={(e) => {
+                      setAddCategoryInput(e.target.value)
+                      setAddCategoryDropdownOpen(true)
+                    }}
+                    onFocus={() => setAddCategoryDropdownOpen(true)}
+                    placeholder="Category"
+                    autoComplete="off"
+                  />
+                  {addCategoryDropdownOpen && (
+                    <ul className={styles.dropdownList} role="listbox">
+                      {categoryOptions.filter(o => o.status === 'A' && o.label.toLowerCase().includes(addCategoryInput.toLowerCase())).length === 0 ? (
+                        <li className={styles.dropdownEmpty}>No categories found</li>
+                      ) : (
+                        categoryOptions
+                          .filter(o => o.status === 'A' && o.label.toLowerCase().includes(addCategoryInput.toLowerCase()))
+                          .map((option) => (
+                            <li
+                              key={option.id}
+                              className={styles.dropdownItem}
+                              onMouseDown={(ev) => {
+                                ev.preventDefault()
+                                setAddCategoryDropdownOpen(false)
+                                setExpenseAddDraft((prev) => ({ ...prev, categoryId: option.id }))
+                                setAddCategoryInput(option.label)
+                              }}
+                            >
+                              {option.label}
+                            </li>
+                          ))
+                      )}
+                    </ul>
+                  )}
+                </div>
                 <input
                   type="number"
                   className={styles.input}
@@ -860,17 +948,43 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                           value={expenseDraft?.name ?? ''}
                           onChange={(e) => setExpenseDraft({ ...expenseDraft!, name: e.target.value })}
                         />
-                        <select
-                          className={styles.select}
-                          value={expenseDraft?.categoryId ?? ''}
-                          onChange={(e) => setExpenseDraft({ ...expenseDraft!, categoryId: e.target.value })}
-                        >
-                          {categoryOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className={styles.inlineDropdownField} ref={editingCategoryFieldRef}>
+                          <input
+                            className={styles.input}
+                            value={editingCategoryInput}
+                            onChange={(e) => {
+                              setEditingCategoryInput(e.target.value)
+                              setEditingCategoryDropdownOpen(true)
+                            }}
+                            onFocus={() => setEditingCategoryDropdownOpen(true)}
+                            placeholder="Category"
+                            autoComplete="off"
+                          />
+                          {editingCategoryDropdownOpen && (
+                            <ul className={styles.dropdownList} role="listbox">
+                              {categoryOptions.filter(o => o.status === 'A' && o.label.toLowerCase().includes(editingCategoryInput.toLowerCase())).length === 0 ? (
+                                <li className={styles.dropdownEmpty}>No categories found</li>
+                              ) : (
+                                categoryOptions
+                                  .filter(o => o.status === 'A' && o.label.toLowerCase().includes(editingCategoryInput.toLowerCase()))
+                                  .map((option) => (
+                                    <li
+                                      key={option.id}
+                                      className={styles.dropdownItem}
+                                      onMouseDown={(ev) => {
+                                        ev.preventDefault()
+                                        setEditingCategoryDropdownOpen(false)
+                                        setExpenseDraft((prev) => ({ ...prev!, categoryId: option.id }))
+                                        setEditingCategoryInput(option.label)
+                                      }}
+                                    >
+                                      {option.label}
+                                    </li>
+                                  ))
+                              )}
+                            </ul>
+                          )}
+                        </div>
                         <input
                           type="number"
                           className={styles.input}
