@@ -1,5 +1,6 @@
 import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse } from '../types/app'
 import { guestStore } from '../utils/guestStore'
+import { authFetch } from '../auth'
 
 // Read API base from Vite environment variable `VITE_API_BASE`.
 // Falls back to the current localhost API for now.
@@ -14,42 +15,12 @@ type ApiRequestOptions = {
   headers?: Record<string, string>
 }
 
+/**
+ * Make API requests with automatic 401 handling (token refresh + retry)
+ * Uses authFetch which includes SSO interceptor
+ */
 async function request(path: string, options: ApiRequestOptions = {}): Promise<unknown> {
-  const { method, body, headers = {} } = options
-  const url = `${API_BASE}${path}`
-  try {
-    const isBodyPresent = body !== undefined && body !== null
-    const requestMethod = method ?? (isBodyPresent ? 'POST' : 'GET')
-    const fetchOptions: RequestInit = {
-      method: requestMethod,
-      headers: {
-        ...(isBodyPresent ? { 'Content-Type': 'application/json' } : {}),
-        ...headers,
-      },
-      credentials: 'include', // Include cookies for cross-origin requests
-    }
-
-    if (isBodyPresent) {
-      fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body)
-    }
-
-    const response = await fetch(url, fetchOptions)
-
-    const text = await response.text().catch(() => '')
-    if (!response.ok) {
-      throw new Error(`Request to ${url} failed: ${response.status} ${text || response.statusText}`)
-    }
-
-    if (!text) return null
-    try {
-      return JSON.parse(text)
-    } catch {
-      return text
-    }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    throw new Error(`API request error for ${url}: ${message}`)
-  }
+  return authFetch(path, options)
 }
 
 const ensureUserId = (userId: string): string => {

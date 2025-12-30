@@ -1,17 +1,14 @@
 import { useState, useEffect, type ReactElement } from 'react'
 import styles from './GuestWelcomeModal.module.css'
 
-// Login redirect URL - uses env var or defaults based on environment
-const LOGIN_REDIRECT_URL = ((import.meta as any)?.env?.VITE_LOGIN_URL as string) || 
-  ((import.meta as any)?.env?.DEV ? 'http://localhost:5175' : 'https://eternivity.com')
-
 const GUEST_WELCOME_SHOWN_KEY = 'guest-welcome-shown'
 
 type GuestWelcomeModalProps = {
   isGuest: boolean
+  onSignIn?: () => void
 }
 
-export default function GuestWelcomeModal({ isGuest }: GuestWelcomeModalProps): ReactElement | null {
+export default function GuestWelcomeModal({ isGuest, onSignIn }: GuestWelcomeModalProps): ReactElement | null {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
@@ -31,7 +28,9 @@ export default function GuestWelcomeModal({ isGuest }: GuestWelcomeModalProps): 
 
   const handleSignIn = () => {
     sessionStorage.setItem(GUEST_WELCOME_SHOWN_KEY, '1')
-    window.location.href = LOGIN_REDIRECT_URL
+    setShow(false)
+    // Open login modal
+    onSignIn?.()
   }
 
   if (!show) return null

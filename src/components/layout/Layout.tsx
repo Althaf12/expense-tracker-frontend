@@ -10,6 +10,7 @@ type LayoutProps = {
   session: SessionData | null
   onLogout?: () => void
   isGuest?: boolean
+  onSignIn?: () => void
 }
 
 const SIDEBAR_STATE_KEY = 'sidebar-collapsed'
@@ -25,7 +26,7 @@ const readCollapsedState = (): boolean => {
   }
 }
 
-export default function Layout({ session, onLogout, isGuest = false }: LayoutProps): ReactElement {
+export default function Layout({ session, onLogout, isGuest = false, onSignIn }: LayoutProps): ReactElement {
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsedState)
   const [isMobile, setIsMobile] = useState<boolean>(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false)
@@ -105,6 +106,7 @@ export default function Layout({ session, onLogout, isGuest = false }: LayoutPro
         sidebarOpen={isMobile ? mobileSidebarOpen : !collapsed}
         isMobile={isMobile}
         isGuest={isGuest}
+        onSignIn={onSignIn}
       />
       <div
         className={`${styles.body} ${collapsed && !isMobile ? styles.bodyCollapsed : ''} ${

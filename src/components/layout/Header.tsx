@@ -6,10 +6,6 @@ import { useTheme } from '../../context/ThemeContext'
 import ThemeToggle from './ThemeToggle'
 import styles from './Header.module.css'
 
-// Login redirect URL - uses env var or defaults based on environment
-const LOGIN_REDIRECT_URL = ((import.meta as any)?.env?.VITE_LOGIN_URL as string) || 
-  ((import.meta as any)?.env?.DEV ? 'http://localhost:5175' : 'https://eternivity.com')
-
 type HeaderProps = {
   session: SessionData | null
   onLogout?: () => void
@@ -17,6 +13,7 @@ type HeaderProps = {
   sidebarOpen?: boolean
   isMobile?: boolean
   isGuest?: boolean
+  onSignIn?: () => void
 }
 
 const getInitial = (session: SessionData | null): string => {
@@ -24,7 +21,7 @@ const getInitial = (session: SessionData | null): string => {
   return source.charAt(0).toUpperCase() || 'U'
 }
 
-export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen = false, isGuest = false }: HeaderProps): ReactElement {
+export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen = false, isGuest = false, onSignIn }: HeaderProps): ReactElement {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
@@ -55,7 +52,8 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
 
   const handleLogin = () => {
     setOpen(false)
-    window.location.href = LOGIN_REDIRECT_URL
+    // Open login modal
+    onSignIn?.()
   }
 
   return (

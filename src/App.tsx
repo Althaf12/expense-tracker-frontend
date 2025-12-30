@@ -13,7 +13,6 @@ import {
   fetchUserExpensesActive as apiFetchUserExpensesActive,
   fetchPreviousMonthlyBalance as apiFetchPreviousMonthlyBalance,
   ensureUserExists as apiEnsureUserExists,
-  logoutUser as apiLogoutUser,
 } from './api'
 import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
@@ -21,18 +20,18 @@ import { ThemeProvider } from './context/ThemeContext'
 import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
-import { getAuthFromCookies, clearAuthCookies } from './utils/cookies'
+import { checkAuth, logout as ssoLogout, toSessionData } from './auth'
 import { guestStore } from './utils/guestStore'
 import GuestWelcomeModal from './components/GuestWelcomeModal'
+import LoginModal from './components/LoginModal'
 import styles from './App.module.css'
 
 type StatusState = StatusMessage | null
 
-const REDIRECT_URL = ((import.meta as any)?.env?.VITE_MAIN_SITE_URL as string) || 'https://eternivity.com'
-
 export default function App(): ReactElement {
   const [session, setSession] = useState<SessionData | null>(null)
   const [isAuthChecked, setIsAuthChecked] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const [status, setStatusState] = useState<StatusState>(null)
   const [expenseCategories, setExpenseCategories] = useState<UserExpenseCategory[]>([])
   const expenseCategoriesRef = useRef<UserExpenseCategory[]>([])
@@ -48,16 +47,41 @@ export default function App(): ReactElement {
   // Helper to check if current session is guest
   const isGuestSession = session?.userId === guestStore.GUEST_USER_ID
 
-  const handleLogout = useCallback(async () => {
-    if (session?.userId) {
-      try {
-        await apiLogoutUser(session.userId)
-      } catch {
-        /* ignore logout API errors */
+  // Open login modal
+  const openLoginModal = useCallback(() => {
+    setShowLoginModal(true)
+  }, [])
+
+  // Close login modal
+  const closeLoginModal = useCallback(() => {
+    setShowLoginModal(false)
+  }, [])
+
+  // Handle successful login - refresh auth and set session
+  const handleLoginSuccess = useCallback(async () => {
+    setShowLoginModal(false)
+    try {
+      const authUser = await checkAuth()
+      if (authUser) {
+        const sessionData = toSessionData(authUser)
+        try {
+          await apiEnsureUserExists(authUser.userId)
+        } catch {
+          /* User might already exist, ignore */
+        }
+        setSession(sessionData)
       }
+    } catch (error) {
+      console.error('Error refreshing session after login:', error)
     }
-    
-    // Clear all state
+  }, [])
+
+  /**
+   * Handle logout - calls SSO logout endpoint and redirects
+   * For guest users, just clears local state and reloads
+   */
+  const handleLogout = useCallback(async () => {
+    // Clear all local state first
     setSession(null)
     setExpensesCache([])
     setExpenseCategories([])
@@ -66,9 +90,6 @@ export default function App(): ReactElement {
     setActiveUserExpenses([])
     setIncomesCache([])
     
-    // Clear cookies
-    clearAuthCookies()
-    
     // For guest users, just reload the page to start fresh guest session
     if (isGuestSession) {
       guestStore.clearAll()
@@ -76,9 +97,9 @@ export default function App(): ReactElement {
       return
     }
     
-    // Redirect to main domain for real users
-    window.location.href = REDIRECT_URL
-  }, [session?.userId, isGuestSession])
+    // For real users, call SSO logout (will redirect to login)
+    await ssoLogout()
+  }, [isGuestSession])
 
   const ensureExpenseCategories = useCallback(async (): Promise<UserExpenseCategory[]> => {
     const userId = session?.userId
@@ -168,31 +189,39 @@ export default function App(): ReactElement {
     return list
   }, [])
 
-  // Check for cookie-based authentication on mount
+  // Check for SSO authentication on mount via /api/auth/me
   useEffect(() => {
     const initAuth = async () => {
-      const authData = getAuthFromCookies()
-      
-      if (authData && authData.userId && authData.token) {
-        // Create session from cookie data
-        const sessionData: SessionData = {
-          userId: authData.userId,
-          username: authData.username,
-          email: authData.email,
-          token: authData.token,
-          subscription: authData.subscription,
-        }
+      try {
+        // Call SSO auth check endpoint
+        const authUser = await checkAuth()
         
-        // Ensure user exists in backend (first-time login check)
-        try {
-          await apiEnsureUserExists(authData.userId)
-        } catch {
-          /* User might already exist, ignore */
+        if (authUser) {
+          // User is authenticated via SSO
+          const sessionData = toSessionData(authUser)
+          
+          // Ensure user exists in backend (first-time login check)
+          try {
+            await apiEnsureUserExists(authUser.userId)
+          } catch {
+            /* User might already exist, ignore */
+          }
+          
+          setSession(sessionData)
+        } else {
+          // Not authenticated - create guest session for now
+          // (User can click "Sign In" to be redirected to SSO login)
+          const guestSession: SessionData = {
+            userId: guestStore.GUEST_USER_ID,
+            username: guestStore.GUEST_USERNAME,
+            email: undefined,
+            token: undefined,
+          }
+          setSession(guestSession)
         }
-        
-        setSession(sessionData)
-      } else {
-        // No real user logged in - create guest session
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+        // On error, fall back to guest session
         const guestSession: SessionData = {
           userId: guestStore.GUEST_USER_ID,
           username: guestStore.GUEST_USERNAME,
@@ -346,11 +375,16 @@ export default function App(): ReactElement {
           <NotificationsProvider>
             <div className={styles.appShell}>
               <Notifications />
-              <GuestWelcomeModal isGuest={isGuestSession} />
+              <GuestWelcomeModal isGuest={isGuestSession} onSignIn={openLoginModal} />
+              <LoginModal 
+                isOpen={showLoginModal} 
+                onClose={closeLoginModal} 
+                onLoginSuccess={handleLoginSuccess} 
+              />
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
-                <Route element={<Layout session={session} onLogout={handleLogout} isGuest={isGuestSession} />}>
+                <Route element={<Layout session={session} onLogout={handleLogout} isGuest={isGuestSession} onSignIn={openLoginModal} />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/operations/expenses" element={<ExpensesOperations />} />
                   <Route path="/operations/income" element={<IncomeOperations />} />
