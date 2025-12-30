@@ -188,6 +188,44 @@
   }
 }
 
+.registerSection {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--surface-card-border);
+  text-align: center;
+}
+
+.registerMessage {
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.registerButton {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #8b5cf6;
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: #8b5cf6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.registerButton:hover {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
 /* Mobile adjustments */
 @media (max-width: 480px) {
   .modal {

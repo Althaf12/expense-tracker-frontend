@@ -1,6 +1,6 @@
 import { useState, useCallback, type ReactElement, type FormEvent } from 'react'
 import styles from './LoginModal.module.css'
-import { login } from '../auth'
+import { login, MAIN_SITE_URL } from '../auth'
 
 type LoginModalProps = {
   isOpen: boolean
@@ -66,6 +66,10 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       handleClose()
     }
   }, [loading, handleClose])
+
+  const handleRegister = useCallback(() => {
+    window.open(MAIN_SITE_URL, '_blank', 'noopener,noreferrer')
+  }, [])
 
   if (!isOpen) return null
 
@@ -140,6 +144,15 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             </button>
           </div>
         </form>
+
+        <div className={styles.registerSection}>
+          <p className={styles.registerMessage}>
+            If you haven't registered, please register for Eternivity and avail all the services.
+          </p>
+          <button type="button" className={styles.registerButton} onClick={handleRegister}>
+            📝 Register for Eternivity
+          </button>
+        </div>
       </div>
     </div>
   )

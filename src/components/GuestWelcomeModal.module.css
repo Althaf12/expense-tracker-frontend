@@ -161,6 +161,46 @@
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
 }
 
+.registerMessage {
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(124, 58, 237, 0.05));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 0.75rem;
+}
+
+.registerSection {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--surface-card-border);
+}
+
+.registerButton {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #8b5cf6;
+  border-radius: 0.875rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: #8b5cf6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.registerButton:hover {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+}
+
 @media (max-width: 480px) {
   .modal {
     padding: 1.75rem;

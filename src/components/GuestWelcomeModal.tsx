@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactElement } from 'react'
 import styles from './GuestWelcomeModal.module.css'
+import { MAIN_SITE_URL } from '../auth'
 
 const GUEST_WELCOME_SHOWN_KEY = 'guest-welcome-shown'
 
@@ -33,6 +34,10 @@ export default function GuestWelcomeModal({ isGuest, onSignIn }: GuestWelcomeMod
     onSignIn?.()
   }
 
+  const handleRegister = () => {
+    window.open(MAIN_SITE_URL, '_blank', 'noopener,noreferrer')
+  }
+
   if (!show) return null
 
   return (
@@ -54,6 +59,10 @@ export default function GuestWelcomeModal({ isGuest, onSignIn }: GuestWelcomeMod
           <span className={styles.warningIcon}>⚠️</span>
           <em>Any modification done in guest mode will be reset after the browser is closed.</em>
         </p>
+
+        <p className={styles.registerMessage}>
+          If you haven't registered, please register for Eternivity and avail all the services.
+        </p>
         
         <div className={styles.actions}>
           <button type="button" className={styles.signInButton} onClick={handleSignIn}>
@@ -61,6 +70,12 @@ export default function GuestWelcomeModal({ isGuest, onSignIn }: GuestWelcomeMod
           </button>
           <button type="button" className={styles.continueButton} onClick={handleContinue}>
             🚀 Continue as Guest
+          </button>
+        </div>
+
+        <div className={styles.registerSection}>
+          <button type="button" className={styles.registerButton} onClick={handleRegister}>
+            📝 Register for Eternivity
           </button>
         </div>
       </div>

@@ -3,23 +3,21 @@
  * 
  * Centralized auth is handled by auth.eternivity.com (or localhost:8080 for local dev).
  * This subdomain app does NOT store tokens; it relies on HttpOnly cookies set by the auth domain.
+ * 
+ * All values MUST be set in environment files (.env.development, .env.production, etc.)
  */
 
-// Auth service base URL - use localhost:8080 for local development
-export const AUTH_BASE_URL: string =
-  ((import.meta as any)?.env?.VITE_AUTH_BASE_URL as string) || 'http://localhost:8080'
+// Auth service base URL
+export const AUTH_BASE_URL: string = (import.meta as any).env.VITE_AUTH_BASE_URL as string
 
-// Main site URL for redirects after logout
-export const MAIN_SITE_URL: string =
-  ((import.meta as any)?.env?.VITE_MAIN_SITE_URL as string) || 'https://eternivity.com'
+// Main site URL for registration and redirects
+export const MAIN_SITE_URL: string = (import.meta as any).env.VITE_MAIN_SITE_URL as string
 
 // App base URL - where this app is hosted (for logout redirects)
-export const APP_BASE_URL: string =
-  ((import.meta as any)?.env?.VITE_APP_BASE_URL as string) || 'http://localhost:5176'
+export const APP_BASE_URL: string = (import.meta as any).env.VITE_APP_BASE_URL as string
 
 // API base URL for this subdomain's backend
-export const API_BASE_URL: string =
-  ((import.meta as any)?.env?.VITE_API_BASE as string) || 'http://localhost:8081/api'
+export const API_BASE_URL: string = (import.meta as any).env.VITE_API_BASE as string
 
 /**
  * Build login URL with redirect back to current page
