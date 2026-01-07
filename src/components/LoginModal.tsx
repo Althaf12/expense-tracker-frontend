@@ -1,6 +1,6 @@
 import { useState, useCallback, type ReactElement, type FormEvent } from 'react'
 import styles from './LoginModal.module.css'
-import { login, MAIN_SITE_URL } from '../auth'
+import { login, getRegistrationUrl } from '../auth'
 
 type LoginModalProps = {
   isOpen: boolean
@@ -68,7 +68,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   }, [loading, handleClose])
 
   const handleRegister = useCallback(() => {
-    window.open(MAIN_SITE_URL, '_blank', 'noopener,noreferrer')
+    window.open(getRegistrationUrl(), '_blank', 'noopener,noreferrer')
   }, [])
 
   if (!isOpen) return null

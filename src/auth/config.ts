@@ -21,10 +21,18 @@ export const API_BASE_URL: string = (import.meta as any).env.VITE_API_BASE as st
 
 /**
  * Build login URL with redirect back to current page
+ * For SSO, we redirect to auth.eternivity.com/login (or localhost:8080/login in dev)
  */
 export function getLoginUrl(redirectUri?: string): string {
   const redirect = redirectUri || window.location.href
   return `${AUTH_BASE_URL}/login?redirect_uri=${encodeURIComponent(redirect)}`
+}
+
+/**
+ * Build registration URL - redirects to main eternivity.com for registration
+ */
+export function getRegistrationUrl(): string {
+  return `${MAIN_SITE_URL}/register`
 }
 
 /**
@@ -54,6 +62,7 @@ export default {
   APP_BASE_URL,
   API_BASE_URL,
   getLoginUrl,
+  getRegistrationUrl,
   getLogoutUrl,
   getAuthMeUrl,
   getRefreshUrl,

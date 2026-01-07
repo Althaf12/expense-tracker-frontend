@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactElement } from 'react'
 import styles from './GuestWelcomeModal.module.css'
-import { MAIN_SITE_URL } from '../auth'
+import { getRegistrationUrl } from '../auth'
 
 const GUEST_WELCOME_SHOWN_KEY = 'guest-welcome-shown'
 
@@ -35,7 +35,7 @@ export default function GuestWelcomeModal({ isGuest, onSignIn }: GuestWelcomeMod
   }
 
   const handleRegister = () => {
-    window.open(MAIN_SITE_URL, '_blank', 'noopener,noreferrer')
+    window.open(getRegistrationUrl(), '_blank', 'noopener,noreferrer')
   }
 
   if (!show) return null

@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { Lock, ExternalLink } from 'lucide-react'
+import { getLoginUrl } from '../auth'
 import styles from './LoginRequired.module.css'
 
-const REDIRECT_URL = import.meta.env.VITE_MAIN_SITE_URL || 'https://eternivity.com'
 const REDIRECT_DELAY_MS = 5000
 
 export default function LoginRequired(): ReactElement {
   const [countdown, setCountdown] = useState(5)
+  const loginUrl = getLoginUrl()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -20,14 +21,14 @@ export default function LoginRequired(): ReactElement {
     }, 1000)
 
     const timeout = setTimeout(() => {
-      window.location.href = REDIRECT_URL
+      window.location.href = loginUrl
     }, REDIRECT_DELAY_MS)
 
     return () => {
       clearInterval(interval)
       clearTimeout(timeout)
     }
-  }, [])
+  }, [loginUrl])
 
   return (
     <div className={styles.overlay}>
@@ -41,9 +42,9 @@ export default function LoginRequired(): ReactElement {
           You need to login first to access this site.
         </p>
         <p className={styles.countdown}>
-          Redirecting to eternivity.com in <span className={styles.timer}>{countdown}</span> seconds...
+          Redirecting to login in <span className={styles.timer}>{countdown}</span> seconds...
         </p>
-        <a href={REDIRECT_URL} className={styles.link}>
+        <a href={loginUrl} className={styles.link}>
           <ExternalLink size={16} />
           <span>Click here if not redirected automatically</span>
         </a>
