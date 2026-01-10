@@ -75,6 +75,51 @@ export async function login(username: string, password: string): Promise<LoginRe
 }
 
 /**
+ * Login with Google OAuth credential
+ * Sends the Google ID token to the backend for verification
+ */
+export async function loginWithGoogle(credential: string): Promise<LoginResult> {
+  try {
+    const response = await fetch(`${AUTH_BASE_URL}/api/auth/google`, {
+      method: 'POST',
+      credentials: 'include', // Required for cookies
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ credential }),
+    })
+
+    if (!response.ok) {
+      let errorMessage = 'Google login failed'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorData.error || `Google login failed (${response.status})`
+      } catch {
+        errorMessage = response.status === 401 
+          ? 'Google authentication failed' 
+          : `Google login failed (${response.status})`
+      }
+      return { success: false, error: errorMessage }
+    }
+
+    // Login succeeded - cookies are now set
+    // Fetch user info to get full user data
+    const user = await checkAuth()
+    
+    if (user) {
+      return { success: true, user }
+    } else {
+      return { success: false, error: 'Google login succeeded but failed to get user info' }
+    }
+  } catch (error) {
+    console.error('Google login error:', error)
+    const message = error instanceof Error ? error.message : 'Network error during Google login'
+    return { success: false, error: message }
+  }
+}
+
+/**
  * Check current authentication status by calling /api/auth/me
  * Returns user data if authenticated, null if not
  */
@@ -195,6 +240,7 @@ export function toSessionData(user: AuthUser): SessionData {
 
 export default {
   login,
+  loginWithGoogle,
   checkAuth,
   refreshAuth,
   redirectToLogin,

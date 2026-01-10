@@ -19,6 +19,9 @@ export const APP_BASE_URL: string = (import.meta as any).env.VITE_APP_BASE_URL a
 // API base URL for this subdomain's backend
 export const API_BASE_URL: string = (import.meta as any).env.VITE_API_BASE as string
 
+// Google OAuth Client ID
+export const GOOGLE_CLIENT_ID: string = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID as string
+
 /**
  * Build login URL with redirect back to current page
  * For SSO, we redirect to auth.eternivity.com/login (or localhost:8080/login in dev)
@@ -61,6 +64,7 @@ export default {
   MAIN_SITE_URL,
   APP_BASE_URL,
   API_BASE_URL,
+  GOOGLE_CLIENT_ID,
   getLoginUrl,
   getRegistrationUrl,
   getLogoutUrl,

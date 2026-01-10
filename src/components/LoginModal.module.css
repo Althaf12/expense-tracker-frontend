@@ -68,6 +68,52 @@
   margin: 0 0 1.5rem;
 }
 
+.googleSection {
+  margin-bottom: 1rem;
+}
+
+.googleButton {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  position: relative;
+}
+
+.googleButtonLoading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.googleLoadingOverlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--surface-card-border);
+}
+
+.dividerText {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .form {
   display: flex;
   flex-direction: column;

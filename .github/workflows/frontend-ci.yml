@@ -19,9 +19,11 @@ jobs:
           sudo -u expensetracker npm install
 
       - name: Build frontend
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: |
           cd /opt/expense-tracker-frontend
-          sudo -u expensetracker npm run build
+          sudo -u expensetracker VITE_GOOGLE_CLIENT_ID="$VITE_GOOGLE_CLIENT_ID" npm run build
 
       - name: Reload nginx
         run: |
