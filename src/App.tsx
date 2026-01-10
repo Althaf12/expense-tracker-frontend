@@ -12,7 +12,7 @@ import {
   fetchUserExpenses as apiFetchUserExpenses,
   fetchUserExpensesActive as apiFetchUserExpensesActive,
   fetchPreviousMonthlyBalance as apiFetchPreviousMonthlyBalance,
-  ensureUserExists as apiEnsureUserExists,
+  syncUser as apiSyncUser,
 } from './api'
 import type { Expense, UserExpenseCategory, Income, SessionData, StatusMessage, UserExpense } from './types/app'
 import { AppDataProvider } from './context/AppDataContext'
@@ -64,10 +64,11 @@ export default function App(): ReactElement {
       const authUser = await checkAuth()
       if (authUser) {
         const sessionData = toSessionData(authUser)
+        // Sync user with backend (creates if new, updates last seen)
         try {
-          await apiEnsureUserExists(authUser.userId)
+          await apiSyncUser(authUser.userId)
         } catch {
-          /* User might already exist, ignore */
+          /* Sync failed, continue anyway */
         }
         setSession(sessionData)
       }
@@ -200,11 +201,11 @@ export default function App(): ReactElement {
           // User is authenticated via SSO
           const sessionData = toSessionData(authUser)
           
-          // Ensure user exists in backend (first-time login check)
+          // Sync user with backend (creates if new, updates last seen)
           try {
-            await apiEnsureUserExists(authUser.userId)
+            await apiSyncUser(authUser.userId)
           } catch {
-            /* User might already exist, ignore */
+            /* Sync failed, continue anyway */
           }
           
           setSession(sessionData)

@@ -40,25 +40,24 @@ const _prevMonthlyBalanceCache = new Map<string, MonthlyBalance | null>()
 // ============================================================================
 
 /**
- * Check if user exists, if not create the user
+ * Sync user with backend - creates user if new, updates last seen if existing.
+ * Should be called on every authenticated session start (login, page load, return visit).
  */
-export async function ensureUserExists(userId: string): Promise<void> {
-  if (isGuestUserId(userId)) return // Guest user doesn't need backend check
+export async function syncUser(userId: string): Promise<void> {
+  if (isGuestUserId(userId)) return // Guest user doesn't need backend sync
   
-  const safeUserId = ensureUserId(userId)
-  try {
-    // Try to get user first
-    const result = await request(`/user/${safeUserId}`, { method: 'GET' })
-    if (result) return // User exists
-  } catch {
-    // User doesn't exist, create them
-  }
-  
-  // Create user with just userId
+  // Always call POST /api/user - backend handles create or update
   await request('/user', { 
     method: 'POST',
     body: { userId } 
   })
+}
+
+/**
+ * @deprecated Use syncUser instead
+ */
+export async function ensureUserExists(userId: string): Promise<void> {
+  return syncUser(userId)
 }
 
 /**
