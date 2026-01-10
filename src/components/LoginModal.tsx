@@ -114,7 +114,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
     const trimmedPassword = password.trim()
 
     if (!trimmedUsername) {
-      setError('Username or email is required')
+      setError('Username or Email is required')
       return
     }
     if (!trimmedPassword) {
@@ -198,9 +198,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.inputGroup}>
-            <label htmlFor="login-username" className={styles.label}>Username or Email</label>
+            <label htmlFor="login-identifier" className={styles.label}>Identifier</label>
             <input
-              id="login-username"
+              id="login-identifier"
               type="text"
               className={styles.input}
               placeholder="Enter your username or email"

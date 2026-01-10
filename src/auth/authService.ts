@@ -42,7 +42,8 @@ export async function login(username: string, password: string): Promise<LoginRe
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password }),
+      // backend now expects `identifier` (username or email)
+      body: JSON.stringify({ identifier: username, password }),
     })
 
     if (!response.ok) {
