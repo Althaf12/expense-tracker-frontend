@@ -580,7 +580,11 @@ export default function Profile({ session }: ProfileProps): ReactElement {
       <section className={styles.userCard}>
         <div className={styles.avatarSection}>
           <div className={styles.avatar}>
-            <User size={40} />
+            {session?.profileImageUrl ? (
+              <img src={session.profileImageUrl} alt={displayUsername} className={styles.avatarImg} />
+            ) : (
+              <User size={40} />
+            )}
           </div>
           <div className={styles.userInfo}>
             <h1 className={styles.userName}>{displayUsername}</h1>

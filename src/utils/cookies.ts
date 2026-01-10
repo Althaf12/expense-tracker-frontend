@@ -7,6 +7,7 @@ export type CookieAuthData = {
   token: string
   username?: string
   email?: string
+  profileImageUrl?: string
   subscription?: {
     plan?: string
     status?: string
@@ -75,12 +76,18 @@ const parseEternityAuthCookie = (raw: string): CookieAuthData | null => {
       if (token && userId) {
         const username = parsed.username ?? parsed.name
         const email = parsed.email
+        const profileImageUrl = (parsed as Record<string, unknown>).profileImageUrl as string
+          || (parsed as Record<string, unknown>).profile_image as string
+          || (parsed as Record<string, unknown>).avatar as string
+          || (parsed as Record<string, unknown>).picture as string
+          || undefined
         const subscription = (parsed as Record<string, unknown>).subscription as CookieAuthData['subscription'] | undefined
         return {
           userId: String(userId),
           token: String(token),
           username: username ? String(username) : undefined,
           email: email ? String(email) : undefined,
+          profileImageUrl,
           subscription,
         }
       }
@@ -135,6 +142,7 @@ export function getAuthFromCookies(): CookieAuthData | null {
     token,
     username: cookies['et_username'] || cookies['username'],
     email: cookies['et_email'] || cookies['email'],
+    profileImageUrl: cookies['et_profile_image'] || cookies['profileImageUrl'] || cookies['profile_image'] || cookies['avatar'] || undefined,
     subscription,
   }
 }

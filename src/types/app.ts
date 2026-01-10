@@ -2,6 +2,7 @@ export type SessionData = {
   userId: string
   username?: string
   email?: string
+  profileImageUrl?: string
   token?: string
   subscription?: {
     plan?: string

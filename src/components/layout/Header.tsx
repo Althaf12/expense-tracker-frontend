@@ -107,7 +107,11 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
               aria-expanded={open}
               onClick={() => setOpen((prev) => !prev)}
             >
-              {getInitial(session)}
+              {session?.profileImageUrl ? (
+                <img src={session.profileImageUrl} alt={session.username ?? session.userId} className={styles.avatarImg} />
+              ) : (
+                getInitial(session)
+              )}
             </button>
 
             <div className={styles.menu} role="menu">

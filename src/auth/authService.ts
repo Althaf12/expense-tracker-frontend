@@ -12,6 +12,7 @@ export type AuthUser = {
   userId: string
   username?: string
   email?: string
+  profileImageUrl?: string
   subscription?: {
     plan?: string
     status?: string
@@ -152,6 +153,7 @@ export async function checkAuth(): Promise<AuthUser | null> {
           userId: String(userId),
           username: data.username || data.name || data.displayName,
           email: data.email,
+          profileImageUrl: data.profileImageUrl || data.profile_image || data.avatar || data.picture,
           subscription: data.subscription,
         }
       }
@@ -233,6 +235,7 @@ export function toSessionData(user: AuthUser): SessionData {
     userId: user.userId,
     username: user.username,
     email: user.email,
+    profileImageUrl: user.profileImageUrl,
     token: undefined, // No token storage - using HttpOnly cookies
     subscription: user.subscription,
   }
