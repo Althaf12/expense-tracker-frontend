@@ -16,6 +16,8 @@ import type {
 const GUEST_USER_ID = 'guest-user'
 const GUEST_USERNAME = 'Guest User'
 const STORAGE_KEY = 'guest-store-data'
+// Bump this number when default/demo data changes to force reinitialization
+const GUEST_STORE_VERSION = 2
 
 // Default demo data for guest users
 const DEFAULT_CATEGORIES: UserExpenseCategory[] = [
@@ -79,35 +81,57 @@ function generateSampleExpenses(): Expense[] {
   return expenses
 }
 
-// Generate sample incomes with fixed months (October & November 2025)
-// Dashboard shows previous month income, so for December 2025 it shows November 2025
+// Format date as YYYY-MM-DD in local timezone (avoids UTC shift from toISOString)
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Generate sample incomes dynamically based on current date.
+// Previous month = one month before current, Older month = two months before current.
+// This ensures dashboard always shows correct previous-month income without future changes.
 function generateSampleIncomes(): Income[] {
+  const now = new Date()
+
+  // previousMonthDate -> first day of previous month
+  const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  // olderMonthDate -> first day of month before previous
+  const olderMonthDate = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+
+  const prevMonth = previousMonthDate.getMonth() + 1
+  const prevYear = previousMonthDate.getFullYear()
+  const olderMonth = olderMonthDate.getMonth() + 1
+  const olderYear = olderMonthDate.getFullYear()
+
   return [
-    // October 2025 - older month (not shown in dashboard when current is December)
+    // Older month (two months before current) - not shown as "previous" in dashboard
     {
       incomeId: generateId('inc'),
       source: 'Salary',
       amount: 45000,
-      receivedDate: '2025-10-01',
-      month: 10,
-      year: 2025,
+      receivedDate: formatLocalDate(olderMonthDate),
+      month: olderMonth,
+      year: olderYear,
     },
-    // November 2025 - previous month (shown in dashboard Total Income)
+    // Previous month (one month before current) - used by dashboard for Total Income
     {
       incomeId: generateId('inc'),
       source: 'Salary',
       amount: 50000,
-      receivedDate: '2025-11-01',
-      month: 11,
-      year: 2025,
+      receivedDate: formatLocalDate(previousMonthDate),
+      month: prevMonth,
+      year: prevYear,
     },
     {
       incomeId: generateId('inc'),
       source: 'Freelance',
       amount: 12000,
-      receivedDate: '2025-11-15',
-      month: 11,
-      year: 2025,
+      // Mid-month for variety
+      receivedDate: formatLocalDate(new Date(prevYear, prevMonth - 1, 15)),
+      month: prevMonth,
+      year: prevYear,
     },
   ]
 }
@@ -119,6 +143,7 @@ interface GuestStoreData {
   incomes: Income[]
   preferences: UserPreferences
   initialized: boolean
+  version?: number
 }
 
 // In-memory store (also backed by sessionStorage)
@@ -150,7 +175,9 @@ function getStore(): GuestStoreData {
   if (storeData) return storeData
   
   const fromSession = loadFromSession()
-  if (fromSession && fromSession.initialized) {
+  // If stored data exists and matches current version, reuse it.
+  // Otherwise reinitialize so generated incomes (previous/older months) stay current.
+  if (fromSession && fromSession.initialized && fromSession.version === GUEST_STORE_VERSION) {
     storeData = fromSession
     return storeData
   }
@@ -163,6 +190,7 @@ function getStore(): GuestStoreData {
     incomes: generateSampleIncomes(),
     preferences: { ...DEFAULT_PREFERENCES },
     initialized: true,
+    version: GUEST_STORE_VERSION,
   }
   saveToSession(storeData)
   return storeData
