@@ -1,0 +1,345 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-scrim);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-card-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--surface-card-shadow);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--surface-table-border);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.closeButton:hover:not(:disabled) {
+  background: var(--badge-soft-background);
+  color: var(--color-text-strong);
+}
+
+.closeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Mode Toggle (Download/Email) */
+.modeToggle {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  background: var(--badge-soft-background);
+  border-radius: 0.5rem;
+}
+
+.modeButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modeButton:hover:not(:disabled) {
+  color: var(--color-text-strong);
+}
+
+.modeButtonActive {
+  background: var(--surface-main);
+  color: var(--color-text-strong);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.modeButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Field */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-strong);
+}
+
+.input {
+  height: 2.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  background: var(--input-background);
+  color: var(--color-text-strong);
+  font-size: 0.9rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--input-focus-outline);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Radio Group */
+.radioGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.radioOption input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.radioOption input[type="radio"]:disabled {
+  cursor: not-allowed;
+}
+
+/* Format Toggle */
+.formatToggle {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.formatButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--input-border);
+  background: var(--input-background);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.formatButton:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--color-text-strong);
+}
+
+.formatButtonActive {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+}
+
+.formatButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Date Row */
+.dateRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Messages */
+.errorMessage {
+  padding: 0.75rem 1rem;
+  background: var(--status-error-background);
+  border: 1px solid var(--status-error-border);
+  border-radius: 0.5rem;
+  color: var(--status-error-text);
+  font-size: 0.875rem;
+}
+
+.successMessage {
+  padding: 0.75rem 1rem;
+  background: var(--status-success-background);
+  border: 1px solid var(--status-success-border);
+  border-radius: 0.5rem;
+  color: var(--status-success-text);
+  font-size: 0.875rem;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.cancelButton {
+  padding: 0.625rem 1.25rem;
+  border: 1px solid var(--secondary-button-border);
+  background: var(--secondary-button-background);
+  color: var(--secondary-button-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--secondary-button-hover);
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submitButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  border: none;
+  background: var(--accent-primary);
+  color: var(--color-text-inverse);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: var(--accent-primary-strong);
+}
+
+.submitButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.submitButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spinner animation */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .modal {
+    max-width: 100%;
+    margin: 0.5rem;
+  }
+
+  .header {
+    padding: 1rem;
+  }
+
+  .form {
+    padding: 1rem;
+  }
+
+  .dateRow {
+    grid-template-columns: 1fr;
+  }
+
+  .radioGroup {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .cancelButton,
+  .submitButton {
+    width: 100%;
+    justify-content: center;
+  }
+}

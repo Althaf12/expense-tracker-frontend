@@ -122,3 +122,29 @@ export type PagedResponse<T> = {
   page: number
   size: number
 }
+
+// ============================================================================
+// Export/Report Types
+// ============================================================================
+
+export type ExportType = 'EXPENSES' | 'INCOME' | 'BOTH'
+export type ExportFormat = 'EXCEL' | 'PDF'
+
+export type ExportRequest = {
+  userId: string
+  startDate: string
+  endDate: string
+  exportType?: ExportType
+  format?: ExportFormat
+}
+
+export type EmailExportRequest = ExportRequest & {
+  email: string
+}
+
+export type EmailExportResponse = {
+  success: boolean
+  message: string
+  fileName: string | null
+  totalRecords: number
+}

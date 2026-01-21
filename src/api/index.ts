@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse } from '../types/app'
+import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse, ExportType, ExportFormat, EmailExportResponse } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -668,6 +668,243 @@ export async function updateUserPreferences(payload: {
 }
 
 // ============================================================================
+// Export / Report APIs
+// ============================================================================
+
+/**
+ * Helper to trigger a file download from a blob response
+ */
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Extract filename from Content-Disposition header or generate a default
+ */
+function extractFilename(response: Response, defaultName: string): string {
+  const disposition = response.headers.get('Content-Disposition')
+  if (disposition) {
+    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+    if (match && match[1]) {
+      return match[1].replace(/['"]/g, '')
+    }
+  }
+  return defaultName
+}
+
+/**
+ * Download expenses report as Excel or PDF
+ */
+export async function downloadExpensesReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  format: ExportFormat
+}): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Export is not available for guest users. Please sign in to export data.')
+  }
+  const { userId, startDate, endDate, format } = payload
+  const endpoint = format === 'PDF' ? '/reports/expenses/pdf' : '/reports/expenses/excel'
+  const url = `${API_BASE}${endpoint}?userId=${encodeURIComponent(userId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+  
+  const response = await fetch(url, { method: 'GET', credentials: 'include' })
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || `Failed to download expenses report: ${response.status}`)
+  }
+  
+  const blob = await response.blob()
+  const ext = format === 'PDF' ? 'pdf' : 'xlsx'
+  const defaultFilename = `expenses_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.${ext}`
+  const filename = extractFilename(response, defaultFilename)
+  triggerDownload(blob, filename)
+}
+
+/**
+ * Download income report as Excel or PDF
+ */
+export async function downloadIncomeReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  format: ExportFormat
+}): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Export is not available for guest users. Please sign in to export data.')
+  }
+  const { userId, startDate, endDate, format } = payload
+  const endpoint = format === 'PDF' ? '/reports/income/pdf' : '/reports/income/excel'
+  const url = `${API_BASE}${endpoint}?userId=${encodeURIComponent(userId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+  
+  const response = await fetch(url, { method: 'GET', credentials: 'include' })
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || `Failed to download income report: ${response.status}`)
+  }
+  
+  const blob = await response.blob()
+  const ext = format === 'PDF' ? 'pdf' : 'xlsx'
+  const defaultFilename = `income_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.${ext}`
+  const filename = extractFilename(response, defaultFilename)
+  triggerDownload(blob, filename)
+}
+
+/**
+ * Download combined report (expenses + income) as Excel or PDF
+ */
+export async function downloadAllReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  format: ExportFormat
+}): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Export is not available for guest users. Please sign in to export data.')
+  }
+  const { userId, startDate, endDate, format } = payload
+  const endpoint = format === 'PDF' ? '/reports/all/pdf' : '/reports/all/excel'
+  const url = `${API_BASE}${endpoint}?userId=${encodeURIComponent(userId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+  
+  const response = await fetch(url, { method: 'GET', credentials: 'include' })
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || `Failed to download report: ${response.status}`)
+  }
+  
+  const blob = await response.blob()
+  const ext = format === 'PDF' ? 'pdf' : 'xlsx'
+  const defaultFilename = `financial_report_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.${ext}`
+  const filename = extractFilename(response, defaultFilename)
+  triggerDownload(blob, filename)
+}
+
+/**
+ * Generic export with custom options (POST endpoint)
+ */
+export async function downloadCustomReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  exportType?: ExportType
+  format?: ExportFormat
+}): Promise<void> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Export is not available for guest users. Please sign in to export data.')
+  }
+  const { userId, startDate, endDate, exportType = 'BOTH', format = 'EXCEL' } = payload
+  const url = `${API_BASE}/reports/export`
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, startDate, endDate, exportType, format }),
+  })
+  
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || `Failed to download report: ${response.status}`)
+  }
+  
+  const blob = await response.blob()
+  const ext = format === 'PDF' ? 'pdf' : 'xlsx'
+  const typePrefix = exportType === 'EXPENSES' ? 'expenses' : exportType === 'INCOME' ? 'income' : 'financial_report'
+  const defaultFilename = `${typePrefix}_${startDate.replace(/-/g, '')}_${endDate.replace(/-/g, '')}.${ext}`
+  const filename = extractFilename(response, defaultFilename)
+  triggerDownload(blob, filename)
+}
+
+/**
+ * Email expenses report
+ */
+export async function emailExpensesReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  format: ExportFormat
+  email: string
+}): Promise<EmailExportResponse> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Email export is not available for guest users. Please sign in to use this feature.')
+  }
+  const result = await request('/reports/expenses/email', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as EmailExportResponse
+}
+
+/**
+ * Email income report
+ */
+export async function emailIncomeReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  format: ExportFormat
+  email: string
+}): Promise<EmailExportResponse> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Email export is not available for guest users. Please sign in to use this feature.')
+  }
+  const result = await request('/reports/income/email', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as EmailExportResponse
+}
+
+/**
+ * Email combined report (expenses + income)
+ */
+export async function emailAllReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  format: ExportFormat
+  email: string
+}): Promise<EmailExportResponse> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Email export is not available for guest users. Please sign in to use this feature.')
+  }
+  const result = await request('/reports/all/email', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as EmailExportResponse
+}
+
+/**
+ * Generic email export with custom options
+ */
+export async function emailCustomReport(payload: {
+  userId: string
+  startDate: string
+  endDate: string
+  exportType?: ExportType
+  format?: ExportFormat
+  email: string
+}): Promise<EmailExportResponse> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Email export is not available for guest users. Please sign in to use this feature.')
+  }
+  const { exportType = 'BOTH', format = 'EXCEL', ...rest } = payload
+  const result = await request('/reports/email', {
+    method: 'POST',
+    body: { ...rest, exportType, format },
+  })
+  return result as EmailExportResponse
+}
+
+// ============================================================================
 // Health Check
 // ============================================================================
 
@@ -716,4 +953,13 @@ export default {
   getApiBase,
   fetchUserPreferences,
   updateUserPreferences,
+  // Export/Report APIs
+  downloadExpensesReport,
+  downloadIncomeReport,
+  downloadAllReport,
+  downloadCustomReport,
+  emailExpensesReport,
+  emailIncomeReport,
+  emailAllReport,
+  emailCustomReport,
 }

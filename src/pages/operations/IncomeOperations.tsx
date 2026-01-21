@@ -8,7 +8,8 @@ import {
   Trash2, 
   Pencil, 
   Check, 
-  X 
+  X,
+  Download
 } from 'lucide-react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
@@ -18,6 +19,7 @@ import { usePreferences } from '../../context/PreferencesContext'
 import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 import Pagination from '../../components/Pagination'
+import ExportModal from '../../components/ExportModal'
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -101,6 +103,8 @@ export default function IncomeOperations(): ReactElement {
   const [totalElements, setTotalElements] = useState<number>(0)
   const [totalPages, setTotalPages] = useState<number>(1)
   const initialLoadRef = useRef<boolean>(false)
+  // Export modal state
+  const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
 
   useEffect(() => {
     if (!session) return
@@ -468,7 +472,18 @@ export default function IncomeOperations(): ReactElement {
                 </Typography>
               </div>
             </div>
-            <span className={styles.badge}>{filteredResults.length} records</span>
+            <div className={styles.headerActions}>
+              <span className={styles.badge}>{filteredResults.length} records</span>
+              <button
+                type="button"
+                className={styles.exportButton}
+                onClick={() => setExportModalOpen(true)}
+                title="Export data"
+              >
+                <Download size={16} />
+                Export
+              </button>
+            </div>
           </header>
 
           <form
@@ -870,6 +885,13 @@ export default function IncomeOperations(): ReactElement {
           </form>
         </section>
       </Grid>
+
+      {/* Export Modal */}
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        defaultExportType="INCOME"
+      />
     </Grid>
   )
 }

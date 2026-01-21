@@ -78,6 +78,11 @@
   min-width: 6ch;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 
 .badge {
   padding: 0.4rem 0.85rem;
@@ -86,6 +91,31 @@
   color: var(--badge-text);
   font-weight: 600;
   font-size: 0.85rem;
+}
+
+.exportButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--surface-input-border);
+  border-radius: 0.5rem;
+  background: var(--surface-card);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.exportButton:hover {
+  background: var(--badge-soft-background);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.exportButton:active {
+  transform: scale(0.98);
 }
 
 .filterRow {
