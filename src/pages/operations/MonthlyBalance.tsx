@@ -49,7 +49,7 @@ const parseAmount = (input: string): number | null => {
 }
 
 const ensureBalanceId = (balance: MonthlyBalanceType): string =>
-  String(balance.id ?? balance.monthlyBalanceId ?? `${balance.month}-${balance.year}`)
+  String(balance.id ?? `${balance.month}-${balance.year}`)
 
 export default function MonthlyBalance(): ReactElement {
   const { session, setStatus } = useAppDataContext()
@@ -137,8 +137,12 @@ export default function MonthlyBalance(): ReactElement {
     setStatus({ type: 'loading', message: 'Updating balance…' })
 
     try {
+      if (typeof balance.month !== 'number' || typeof balance.year !== 'number') {
+        setStatus({ type: 'error', message: 'Month and year are required to update monthly balance.' })
+        setActionInFlight(false)
+        return
+      }
       await updateMonthlyBalance({
-        id: balance.id ?? balance.monthlyBalanceId,
         userId,
         month: balance.month,
         year: balance.year,
@@ -221,13 +225,13 @@ export default function MonthlyBalance(): ReactElement {
               {loading ? (
                 Array.from({ length: 5 }).map((_, idx) => (
                   <tr key={`skeleton-${idx}`}>
-                    <td><Skeleton width="1.5rem" /></td>
-                    <td><Skeleton width="6rem" /></td>
-                    <td><Skeleton width="3rem" /></td>
-                    <td><Skeleton width="5rem" /></td>
-                    <td><Skeleton width="5rem" /></td>
-                    <td><Skeleton width="4rem" /></td>
-                    <td><Skeleton width="3rem" /></td>
+                    <td><div style={{ width: '1.5rem' }}><Skeleton /></div></td>
+                    <td><div style={{ width: '6rem' }}><Skeleton /></div></td>
+                    <td><div style={{ width: '3rem' }}><Skeleton /></div></td>
+                    <td><div style={{ width: '5rem' }}><Skeleton /></div></td>
+                    <td><div style={{ width: '5rem' }}><Skeleton /></div></td>
+                    <td><div style={{ width: '4rem' }}><Skeleton /></div></td>
+                    <td><div style={{ width: '3rem' }}><Skeleton /></div></td>
                   </tr>
                 ))
               ) : balancesWithSerial.length === 0 ? (
@@ -245,7 +249,7 @@ export default function MonthlyBalance(): ReactElement {
                     <tr key={rowId} className={isEditing ? styles.editingRow : ''}>
                       <td className={styles.serialCell}>{balance.serial}</td>
                       <td className={styles.monthCell}>
-                        {MONTHS[balance.month - 1] ?? balance.month}
+                        {typeof balance.month === 'number' ? (MONTHS[balance.month - 1] ?? String(balance.month)) : String(balance.month ?? '-')}
                       </td>
                       <td className={styles.yearCell}>{balance.year}</td>
                       <td className={styles.amountCell}>
