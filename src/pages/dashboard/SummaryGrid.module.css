@@ -31,9 +31,22 @@
 }
 
 .emojiIcon {
-  font-size: 2.2rem;
+  position: absolute;
+  top: 0.75rem;
+  right: 1rem;
+  font-size: 6rem;
   line-height: 1;
-  margin-bottom: 0.25rem;
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+  transform: translate(6%, -6%);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
+}
+
+/* keep all main content above the background emoji */
+.summaryCard > :not(.emojiIcon) {
+  position: relative;
+  z-index: 1;
 }
 
 .summaryHeader {
@@ -82,9 +95,11 @@
   .summaryCard {
     padding: 1rem;
   }
-  
   .emojiIcon {
-    font-size: 1.8rem;
+    font-size: 3.2rem;
+    top: 0.5rem;
+    right: 0.75rem;
+    opacity: 0.45;
   }
 
   .metricValue {

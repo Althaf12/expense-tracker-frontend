@@ -47,9 +47,6 @@ export default function SummaryGrid({
             <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
               Total Balance
             </Typography>
-            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-              {label}
-            </Typography>
           </div>
           <div>
             <Skeleton size="large" />
@@ -63,9 +60,6 @@ export default function SummaryGrid({
           <div className={localStyles.summaryHeader}>
             <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
               Total After Due Balance
-            </Typography>
-            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-              {label}
             </Typography>
           </div>
           <div>
@@ -81,9 +75,6 @@ export default function SummaryGrid({
             <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
               Total Income
             </Typography>
-            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-              {incomeMonthLabel}
-            </Typography>
           </div>
           <div>
             <Skeleton size="large" />
@@ -97,9 +88,6 @@ export default function SummaryGrid({
           <div className={localStyles.summaryHeader}>
             <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
               Total Expenses
-            </Typography>
-            <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-              {label}
             </Typography>
           </div>
           <div>
@@ -120,9 +108,6 @@ export default function SummaryGrid({
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total Balance
           </Typography>
-          <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-            {label}
-          </Typography>
         </div>
         <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
           {formatCurrency(totalBalance)}
@@ -136,9 +121,6 @@ export default function SummaryGrid({
         <div className={localStyles.summaryHeader}>
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total After Due Balance
-          </Typography>
-          <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-            {label}
           </Typography>
         </div>
         <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
@@ -154,9 +136,6 @@ export default function SummaryGrid({
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total Income
           </Typography>
-          <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-            {incomeMonthLabel}
-          </Typography>
         </div>
         <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
           {formatCurrency(preferredIncomeTotal)}
@@ -171,9 +150,6 @@ export default function SummaryGrid({
         <div className={localStyles.summaryHeader}>
           <Typography variant="subtitle2" component="h3" className={localStyles.metricLabel}>
             Total Expenses
-          </Typography>
-          <Typography variant="body2" component="p" className={localStyles.metricSubtitle}>
-            {label}
           </Typography>
         </div>
         <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
