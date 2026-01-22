@@ -44,6 +44,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   fontSize: 'S',
   currencyCode: 'INR',
   theme: 'L',
+  incomeMonth: 'P',
 }
 
 // Generate sample expenses for current month

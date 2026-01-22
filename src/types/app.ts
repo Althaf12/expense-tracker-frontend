@@ -65,6 +65,7 @@ export type Income = {
 export type FontSize = 'S' | 'M' | 'L'
 export type ThemeCode = 'L' | 'D'
 export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'SGD' | 'AED' | 'JPY' | 'CNY'
+export type IncomeMonth = 'P' | 'C'
 
 export type UserPreferences = {
   userPreferencesId?: number
@@ -72,8 +73,14 @@ export type UserPreferences = {
   fontSize: FontSize
   currencyCode: CurrencyCode
   theme: ThemeCode
+  incomeMonth: IncomeMonth
   lastUpdateTmstp?: string
 }
+
+export const INCOME_MONTH_OPTIONS: { code: IncomeMonth; label: string; description: string }[] = [
+  { code: 'P', label: 'Previous Month', description: 'Use last month\'s income (recommended for salary)' },
+  { code: 'C', label: 'Current Month', description: 'Use this month\'s income' },
+]
 
 export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   INR: '₹',
@@ -108,10 +115,26 @@ export const FONT_SIZE_OPTIONS: { code: FontSize; label: string }[] = [
 ]
 
 export type MonthlyBalance = {
+  id?: number
+  userId?: string
   openingBalance?: number
   closingBalance?: number
   month?: number
   year?: number
+  createdTmstp?: string
+}
+
+export type MonthlyBalanceUpdateRequest = {
+  userId: string
+  year: number
+  month: number
+  openingBalance?: number
+  closingBalance?: number
+}
+
+export type MonthlyBalanceUpdateResponse = {
+  status: string
+  data: MonthlyBalance
 }
 
 /** Generic paginated API response type */

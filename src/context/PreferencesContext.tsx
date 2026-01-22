@@ -8,7 +8,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
 } from 'react'
-import type { FontSize, CurrencyCode, UserPreferences } from '../types/app'
+import type { FontSize, CurrencyCode, IncomeMonth, UserPreferences } from '../types/app'
 import { CURRENCY_SYMBOLS } from '../types/app'
 import { fetchUserPreferences, updateUserPreferences } from '../api'
 import { useTheme, type Theme } from './ThemeContext'
@@ -21,9 +21,11 @@ type PreferencesContextValue = {
   fontSize: FontSize
   currencyCode: CurrencyCode
   currencySymbol: string
+  incomeMonth: IncomeMonth
   loading: boolean
   setFontSize: (size: FontSize) => Promise<void>
   setCurrencyCode: (code: CurrencyCode) => Promise<void>
+  setIncomeMonth: (pref: IncomeMonth) => Promise<void>
   loadPreferences: (username: string) => Promise<void>
   formatCurrency: (amount: number) => string
 }
@@ -89,6 +91,11 @@ export function PreferencesProvider({
     return (stored?.currencyCode as CurrencyCode) || 'INR'
   })
 
+  const [incomeMonth, setIncomeMonthState] = useState<IncomeMonth>(() => {
+    const stored = getStoredPreferences(isGuest)
+    return (stored?.incomeMonth as IncomeMonth) || 'P'
+  })
+
   const [loading, setLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(userId || null)
 
@@ -102,6 +109,7 @@ export function PreferencesProvider({
       if (prefs) {
         setFontSizeState(prefs.fontSize || 'S')
         setCurrencyCodeState(prefs.currencyCode || 'INR')
+        setIncomeMonthState(prefs.incomeMonth || 'P')
         applyFontSize(prefs.fontSize || 'S')
         // Sync theme with ThemeContext
         if (prefs.theme) {
@@ -112,6 +120,7 @@ export function PreferencesProvider({
           fontSize: prefs.fontSize,
           currencyCode: prefs.currencyCode,
           theme: prefs.theme,
+          incomeMonth: prefs.incomeMonth,
           userId: user,
         }, userIsGuest)
       }
@@ -162,6 +171,22 @@ export function PreferencesProvider({
     [currentUserId]
   )
 
+  const setIncomeMonth = useCallback(
+    async (pref: IncomeMonth) => {
+      const userIsGuest = guestStore.isGuestUser(currentUserId)
+      setIncomeMonthState(pref)
+      storePreferences({ incomeMonth: pref }, userIsGuest)
+      if (currentUserId) {
+        try {
+          await updateUserPreferences({ userId: currentUserId, incomeMonth: pref })
+        } catch {
+          /* ignore API errors */
+        }
+      }
+    },
+    [currentUserId]
+  )
+
   const currencySymbol = useMemo(() => CURRENCY_SYMBOLS[currencyCode], [currencyCode])
 
   const numberFormatter = useMemo(() => {
@@ -192,13 +217,15 @@ export function PreferencesProvider({
       fontSize,
       currencyCode,
       currencySymbol,
+      incomeMonth,
       loading,
       setFontSize,
       setCurrencyCode,
+      setIncomeMonth,
       loadPreferences,
       formatCurrency,
     }),
-    [fontSize, currencyCode, currencySymbol, loading, setFontSize, setCurrencyCode, loadPreferences, formatCurrency]
+    [fontSize, currencyCode, currencySymbol, incomeMonth, loading, setFontSize, setCurrencyCode, setIncomeMonth, loadPreferences, formatCurrency]
   )
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>

@@ -82,6 +82,9 @@
   --status-loading-background: #dbeafe;
   --status-loading-border: #bfdbfe;
   --status-loading-text: #1d4ed8;
+  --accent-info: #38bdf8;
+  --accent-info-soft: rgba(56, 189, 248, 0.12);
+  --accent-info-border: rgba(56, 189, 248, 0.25);
   --auth-card-background: rgba(15, 23, 42, 0.55);
   --auth-card-border: rgba(255, 255, 255, 0.08);
   --auth-label: rgba(148, 163, 184, 0.8);
@@ -187,6 +190,9 @@ html[data-theme='light'] {
   --status-loading-background: #dbeafe;
   --status-loading-border: #bfdbfe;
   --status-loading-text: #1d4ed8;
+  --accent-info: #0284c7;
+  --accent-info-soft: rgba(2, 132, 199, 0.1);
+  --accent-info-border: rgba(2, 132, 199, 0.25);
   --auth-card-background: rgba(255, 255, 255, 0.9);
   --auth-card-border: rgba(148, 163, 184, 0.2);
   --auth-label: rgba(71, 85, 105, 0.8);

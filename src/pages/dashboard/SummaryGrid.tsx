@@ -11,7 +11,7 @@ type Props = {
   totalBalance: number
   totalAfterDueBalance: number
   unpaidPlannedExpensesTotal: number
-  previousMonthIncomeTotal: number
+  preferredIncomeTotal: number
   currentMonthExpenseTotal: number
   incomeMonthLabel: string
   balanceTrend: TrendSummary | null
@@ -27,7 +27,7 @@ export default function SummaryGrid({
   totalBalance,
   totalAfterDueBalance,
   unpaidPlannedExpensesTotal,
-  previousMonthIncomeTotal,
+  preferredIncomeTotal,
   currentMonthExpenseTotal,
   incomeMonthLabel,
   balanceTrend,
@@ -159,7 +159,7 @@ export default function SummaryGrid({
           </Typography>
         </div>
         <Typography variant="h4" component="p" className={localStyles.metricValue} sx={{ fontSize: { xs: '1.8rem', md: '1.8rem' } }}>
-          {formatCurrency(previousMonthIncomeTotal)}
+          {formatCurrency(preferredIncomeTotal)}
         </Typography>
         <div className={localStyles.metricFooter}>
           {renderTrend(incomeTrend)}

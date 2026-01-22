@@ -181,6 +181,7 @@ export default function Dashboard(): ReactElement {
     currentMonthIncomeTotal,
     previousMonthIncomeTotal,
     twoMonthsAgoIncomeTotal,
+    preferredIncomeTotal,
     totalBalance,
     previousBalance,
     balanceTrend,
@@ -258,7 +259,7 @@ export default function Dashboard(): ReactElement {
         totalBalance={totalBalance}
         totalAfterDueBalance={totalAfterDueBalance}
         unpaidPlannedExpensesTotal={unpaidPlannedExpensesTotal}
-        previousMonthIncomeTotal={previousMonthIncomeTotal}
+        preferredIncomeTotal={preferredIncomeTotal}
         currentMonthExpenseTotal={currentMonthExpenseTotal}
         incomeMonthLabel={incomeMonthLabel}
         balanceTrend={balanceTrend}

@@ -4,6 +4,7 @@ import Layout from './components/layout/Layout'
 import Dashboard from './pages/dashboard/Dashboard'
 import ExpensesOperations from './pages/operations/ExpensesOperations'
 import IncomeOperations from './pages/operations/IncomeOperations'
+import MonthlyBalance from './pages/operations/MonthlyBalance'
 import Analytics from './pages/operations/Analytics'
 import Profile from './pages/profile/Profile'
 import {
@@ -390,6 +391,7 @@ export default function App(): ReactElement {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/operations/expenses" element={<ExpensesOperations />} />
                   <Route path="/operations/income" element={<IncomeOperations />} />
+                  <Route path="/operations/monthly-balance" element={<MonthlyBalance />} />
                   <Route path="/operations/analytics" element={<Analytics />} />
                   <Route path="/profile" element={<Profile session={session} />} />
                 </Route>

@@ -123,7 +123,7 @@ export default function useDashboardData() {
     activeUserExpenses,
   } = useAppDataContext()
 
-  const { formatCurrency: preferencesFormatCurrency } = usePreferences()
+  const { formatCurrency: preferencesFormatCurrency, incomeMonth } = usePreferences()
 
   const [monthlyExpenses, setMonthlyExpenses] = useState<Expense[]>([])
   const [previousMonthExpenses, setPreviousMonthExpenses] = useState<Expense[]>([])
@@ -476,16 +476,28 @@ export default function useDashboardData() {
 
   const twoMonthsAgoIncomeTotal = useMemo(() => twoMonthsAgoIncome.reduce((sum, income) => sum + amountFromIncome(income), 0), [twoMonthsAgoIncome])
 
-  const totalBalance = useMemo(
-    () => (monthlyBalanceBase ?? 0) + previousMonthIncomeTotal - currentMonthExpenseTotal,
-    [monthlyBalanceBase, previousMonthIncomeTotal, currentMonthExpenseTotal],
+  // Preferred income based on user preference
+  const preferredIncomeTotal = useMemo(
+    () => (incomeMonth === 'C' ? currentMonthIncomeTotal : previousMonthIncomeTotal),
+    [incomeMonth, currentMonthIncomeTotal, previousMonthIncomeTotal]
   )
 
-  const previousBalance = useMemo(() => previousMonthIncomeTotal - previousMonthExpenseTotal, [previousMonthIncomeTotal, previousMonthExpenseTotal])
+  // For income trend comparison: compare preferred month with the previous month relative to the preference
+  const preferredPreviousIncomeTotal = useMemo(
+    () => (incomeMonth === 'C' ? previousMonthIncomeTotal : twoMonthsAgoIncomeTotal),
+    [incomeMonth, previousMonthIncomeTotal, twoMonthsAgoIncomeTotal]
+  )
+
+  const totalBalance = useMemo(
+    () => (monthlyBalanceBase ?? 0) + preferredIncomeTotal - currentMonthExpenseTotal,
+    [monthlyBalanceBase, preferredIncomeTotal, currentMonthExpenseTotal],
+  )
+
+  const previousBalance = useMemo(() => preferredPreviousIncomeTotal - previousMonthExpenseTotal, [preferredPreviousIncomeTotal, previousMonthExpenseTotal])
 
   const balanceTrend = useMemo(() => calculateTrend(totalBalance, previousBalance, true), [totalBalance, previousBalance])
 
-  const incomeTrend = useMemo(() => calculateTrend(previousMonthIncomeTotal, twoMonthsAgoIncomeTotal, true), [previousMonthIncomeTotal, twoMonthsAgoIncomeTotal])
+  const incomeTrend = useMemo(() => calculateTrend(preferredIncomeTotal, preferredPreviousIncomeTotal, true), [preferredIncomeTotal, preferredPreviousIncomeTotal])
 
   const expenseTrend = useMemo(() => calculateTrend(currentMonthExpenseTotal, previousMonthExpenseTotal, false), [currentMonthExpenseTotal, previousMonthExpenseTotal])
 
@@ -496,8 +508,11 @@ export default function useDashboardData() {
 
   const incomeMonthLabel = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
+    if (incomeMonth === 'C') {
+      return formatter.format(new Date(year, month - 1))
+    }
     return formatter.format(new Date(previousContext.year, previousContext.month - 1))
-  }, [previousContext.month, previousContext.year])
+  }, [incomeMonth, month, year, previousContext.month, previousContext.year])
 
   const getTrendHint = (trend: TrendSummary | null) => (trend && trend.percentage !== null ? 'vs previous month' : 'Insufficient data')
 
@@ -765,6 +780,7 @@ export default function useDashboardData() {
     currentMonthIncomeTotal,
     previousMonthIncomeTotal,
     twoMonthsAgoIncomeTotal,
+    preferredIncomeTotal,
     totalBalance,
     previousBalance,
     balanceTrend,

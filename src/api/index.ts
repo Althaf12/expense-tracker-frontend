@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -651,12 +651,14 @@ export async function updateUserPreferences(payload: {
   fontSize?: FontSize
   currencyCode?: CurrencyCode
   theme?: ThemeCode
+  incomeMonth?: IncomeMonth
 }): Promise<void> {
   if (isGuestUserId(payload.userId)) {
     guestStore.updatePreferences({
       fontSize: payload.fontSize,
       currencyCode: payload.currencyCode,
       theme: payload.theme,
+      incomeMonth: payload.incomeMonth,
     })
     return
   }
@@ -664,7 +666,56 @@ export async function updateUserPreferences(payload: {
   if (payload.fontSize !== undefined) body.fontSize = payload.fontSize
   if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode
   if (payload.theme !== undefined) body.theme = payload.theme
+  if (payload.incomeMonth !== undefined) body.incomeMonth = payload.incomeMonth
   await request('/user/preferences', { method: 'POST', body })
+}
+
+// ============================================================================
+// Monthly Balance APIs
+// ============================================================================
+
+/**
+ * Get all monthly balances for a user (paginated)
+ */
+export async function fetchAllMonthlyBalances(payload: {
+  userId: string
+  page?: number
+  size?: number
+}): Promise<PagedResponse<MonthlyBalance>> {
+  if (isGuestUserId(payload.userId)) {
+    // Return empty for guest users
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      page: 0,
+      size: payload.size ?? 10,
+    }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const page = payload.page ?? 0
+  const size = payload.size ?? 10
+  const result = await request(`/monthly-balance/all?userId=${safeUserId}&page=${page}&size=${size}`, { method: 'GET' })
+  return result as PagedResponse<MonthlyBalance>
+}
+
+/**
+ * Update monthly balance (opening or closing balance)
+ */
+export async function updateMonthlyBalance(payload: MonthlyBalanceUpdateRequest): Promise<MonthlyBalanceUpdateResponse> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Monthly balance update is not available for guest users.')
+  }
+  const body: Record<string, unknown> = {
+    userId: payload.userId,
+    year: payload.year,
+    month: payload.month,
+  }
+  if (payload.openingBalance !== undefined) body.openingBalance = payload.openingBalance
+  if (payload.closingBalance !== undefined) body.closingBalance = payload.closingBalance
+  
+  const result = await request('/monthly-balance/update', { method: 'PUT', body })
+  return result as MonthlyBalanceUpdateResponse
 }
 
 // ============================================================================
@@ -1298,6 +1349,9 @@ export default {
   getApiBase,
   fetchUserPreferences,
   updateUserPreferences,
+  // Monthly Balance APIs
+  fetchAllMonthlyBalances,
+  updateMonthlyBalance,
   // Export/Report APIs
   downloadExpensesReport,
   downloadIncomeReport,

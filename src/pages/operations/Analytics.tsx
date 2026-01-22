@@ -529,7 +529,7 @@ function LoadingPlaceholder({ height = 120 }: { height?: number }): ReactElement
 
 export default function Analytics(): ReactElement {
   const { session, setStatus } = useAppDataContext()
-  const { formatCurrency } = usePreferences()
+  const { formatCurrency, incomeMonth } = usePreferences()
 
   const [loading, setLoading] = useState<boolean>(true)
   const [timeRange, setTimeRange] = useState<TimeRange>('thisMonth')
@@ -539,12 +539,14 @@ export default function Analytics(): ReactElement {
   // Analytics summary data from new API
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [prevMonthSummary, setPrevMonthSummary] = useState<AnalyticsSummary | null>(null)
+  // Income summary for when incomeMonth preference is 'P' (previous month)
+  const [incomeSummary, setIncomeSummary] = useState<AnalyticsSummary | null>(null)
   
   // Chart type states
   const [expenseChartType, setExpenseChartType] = useState<ChartType>('donut')
   const [incomeChartType, setIncomeChartType] = useState<ChartType>('bar')
   const [trendChartType, setTrendChartType] = useState<'line' | 'bar' | 'point'>('line')
-  const [showPrevMonthIncome, setShowPrevMonthIncome] = useState<boolean>(true)
+  const [showPrevMonthIncome, setShowPrevMonthIncome] = useState(false)
 
   // Load data based on time range using new Analytics API
   useEffect(() => {
@@ -569,13 +571,14 @@ export default function Analytics(): ReactElement {
         const startStr = formatDateForApi(start)
         const endStr = formatDateForApi(end)
 
-        // Get previous month dates for income comparison
+        // Get previous month dates for comparison and income (when incomeMonth is 'P')
         const prevMonthDates = getPreviousMonthDates(start)
         const prevStartStr = formatDateForApi(prevMonthDates.start)
         const prevEndStr = formatDateForApi(prevMonthDates.end)
 
-        // Fetch current range summary and previous month summary in parallel
-        const [currentSummary, prevSummary] = await Promise.all([
+        // Fetch summaries in parallel
+        // When incomeMonth is 'P', we fetch income from the previous month relative to the current range
+        const [currentSummary, prevSummary, incomeMonthSummary] = await Promise.all([
           fetchAnalyticsSummaryByRange({
             userId: session.userId,
             start: startStr,
@@ -586,10 +589,21 @@ export default function Analytics(): ReactElement {
             start: prevStartStr,
             end: prevEndStr,
           }),
+          // For income, if preference is 'P' (previous month), fetch prev month income
+          // This handles cases like "thisMonth" where we need last month's income
+          incomeMonth === 'P' 
+            ? fetchAnalyticsSummaryByRange({
+                userId: session.userId,
+                start: prevStartStr,
+                end: prevEndStr,
+              })
+            : Promise.resolve(null),
         ])
 
         setSummary(currentSummary)
         setPrevMonthSummary(prevSummary)
+        // Store income summary - use prev month summary if incomeMonth is 'P', otherwise use current
+        setIncomeSummary(incomeMonth === 'P' ? incomeMonthSummary : currentSummary)
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -600,30 +614,13 @@ export default function Analytics(): ReactElement {
     }
 
     void loadData()
-  }, [session, timeRange, customStart, customEnd, setStatus])
+  }, [session, timeRange, customStart, customEnd, setStatus, incomeMonth])
 
   // Process expense data by category from summary
   const expenseCategoryData = useMemo((): CategoryData[] => {
     if (!summary?.expensesByCategory) return []
     
     const entries = Object.entries(summary.expensesByCategory)
-    const total = entries.reduce((sum, [, amount]) => sum + amount, 0)
-    
-    return entries
-      .map(([name, amount], index) => ({
-        name,
-        amount,
-        color: CHART_COLORS[index % CHART_COLORS.length],
-        percentage: total > 0 ? (amount / total) * 100 : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount)
-  }, [summary])
-
-  // Process income data by source from summary
-  const incomeSourceData = useMemo((): CategoryData[] => {
-    if (!summary?.incomesBySource) return []
-    
-    const entries = Object.entries(summary.incomesBySource)
     const total = entries.reduce((sum, [, amount]) => sum + amount, 0)
     
     return entries
@@ -677,18 +674,36 @@ export default function Analytics(): ReactElement {
   }, [summary, prevMonthSummary])
 
   // Summary metrics from API
+  // Use incomeSummary for income metrics (respects incomeMonth preference)
   const totalExpenses = summary?.totalExpenses ?? 0
-  const totalIncome = summary?.totalIncome ?? 0
-  const netSavings = summary?.netBalance ?? (totalIncome - totalExpenses)
+  const totalIncome = incomeSummary?.totalIncome ?? 0
+  const netSavings = totalIncome - totalExpenses
   const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0
   const totalExpenseCount = summary?.totalExpenseCount ?? 0
-  const totalIncomeCount = summary?.totalIncomeCount ?? 0
+  const totalIncomeCount = incomeSummary?.totalIncomeCount ?? 0
 
-  // Previous month comparison
+  // Previous month comparison - compare against the month before incomeSummary
   const prevMonthIncome = prevMonthSummary?.totalIncome ?? 0
   const incomeChangeFromPrev = prevMonthIncome > 0 
     ? ((totalIncome - prevMonthIncome) / prevMonthIncome) * 100 
     : 0
+
+  // Income source data should also use incomeSummary
+  const incomeSourceData = useMemo((): CategoryData[] => {
+    if (!incomeSummary?.incomesBySource) return []
+    
+    const entries = Object.entries(incomeSummary.incomesBySource)
+    const total = entries.reduce((sum, [, amount]) => sum + amount, 0)
+    
+    return entries
+      .map(([name, amount], index) => ({
+        name,
+        amount,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+        percentage: total > 0 ? (amount / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [incomeSummary])
 
   // Top items
   const topExpenseCategory = expenseCategoryData[0]

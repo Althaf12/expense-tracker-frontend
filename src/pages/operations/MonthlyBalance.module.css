@@ -1,0 +1,318 @@
+.pageContainer {
+  width: min(100%, 1000px);
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.pageHeader {
+  background: var(--surface-card);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--surface-card-border);
+  box-shadow: var(--surface-card-shadow);
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.headerIcon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: var(--accent-primary-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.pageSubtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.tableContainer {
+  background: var(--surface-card);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--surface-card-border);
+  box-shadow: var(--surface-card-shadow);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--surface-table-inner-border);
+}
+
+.table th {
+  background: var(--surface-table-head);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.table th svg {
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+.table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.table tbody tr:hover {
+  background: var(--surface-table-hover);
+}
+
+.editingRow {
+  background: var(--accent-primary-soft) !important;
+}
+
+.serialCol {
+  width: 3rem;
+  text-align: center;
+}
+
+.monthCol {
+  width: 8rem;
+}
+
+.yearCol {
+  width: 5rem;
+  text-align: center;
+}
+
+.amountCol {
+  width: 9rem;
+  text-align: right;
+}
+
+.changeCol {
+  width: 8rem;
+  text-align: right;
+}
+
+.actionsCol {
+  width: 6rem;
+  text-align: center;
+}
+
+.serialCell {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.monthCell {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.yearCell {
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.amountCell {
+  text-align: right;
+  font-family: 'Inter', monospace;
+  font-weight: 500;
+}
+
+.changeCell {
+  text-align: right;
+  font-family: 'Inter', monospace;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.actionsCell {
+  text-align: center;
+}
+
+.positive {
+  color: #22c55e;
+}
+
+.negative {
+  color: #ef4444;
+}
+
+.editInput {
+  width: 100%;
+  max-width: 7rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  background: var(--input-background);
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-family: 'Inter', monospace;
+  text-align: right;
+  transition: border-color 0.15s ease;
+}
+
+.editInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--input-focus-outline);
+}
+
+.editInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.editButton,
+.saveButton,
+.cancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.editButton {
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+}
+
+.editButton:hover:not(:disabled) {
+  background: var(--accent-primary-soft-strong);
+}
+
+.editButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.saveButton {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emptyRow {
+  text-align: center;
+  padding: 2rem 1rem !important;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .pageContainer {
+    padding: 0 0.5rem;
+    gap: 1rem;
+  }
+
+  .pageHeader {
+    padding: 1rem;
+  }
+
+  .headerIcon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .pageTitle {
+    font-size: 1.15rem;
+  }
+
+  .tableContainer {
+    padding: 1rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .serialCol,
+  .changeCol {
+    display: none;
+  }
+
+  .serialCell,
+  .changeCell {
+    display: none;
+  }
+
+  .amountCol {
+    width: auto;
+  }
+}

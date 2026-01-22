@@ -17,12 +17,15 @@ import {
   Moon,
   Sun,
   Crown,
+  CalendarArrowUp,
+  CalendarArrowDown,
+  Info,
 } from 'lucide-react'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import { useTheme } from '../../context/ThemeContext'
-import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyCode } from '../../types/app'
-import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS } from '../../types/app'
+import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyCode, IncomeMonth } from '../../types/app'
+import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS, INCOME_MONTH_OPTIONS } from '../../types/app'
 import {
   copyUserExpenseCategoriesFromMaster,
   copyUserExpensesFromMaster,
@@ -100,8 +103,10 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   const {
     fontSize,
     currencyCode,
+    incomeMonth,
     setFontSize,
     setCurrencyCode,
+    setIncomeMonth,
     formatCurrency,
   } = usePreferences()
 
@@ -681,6 +686,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                   <span className={styles.currencyName}>{option.name}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Income Preference */}
+          <div className={`${styles.settingCard} ${styles.incomePreferenceCard}`}>
+            <div className={styles.settingHeader}>
+              <Wallet size={20} />
+              <span>Income Preference</span>
+            </div>
+            <div className={styles.incomePreferenceToggle}>
+              {INCOME_MONTH_OPTIONS.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  className={`${styles.incomePreferenceButton} ${incomeMonth === option.code ? styles.active : ''}`}
+                  onClick={() => setIncomeMonth(option.code)}
+                >
+                  {option.code === 'P' ? <CalendarArrowUp size={16} /> : <CalendarArrowDown size={16} />}
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className={styles.incomePreferenceInfo}>
+              <Info size={14} />
+              <span>
+                Choose previous income if you receive salary. Otherwise, if you want to track income from your current month, choose current income option. Monthly Balance sheet will be updated accordingly.
+              </span>
             </div>
           </div>
         </div>
