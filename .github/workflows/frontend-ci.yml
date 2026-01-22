@@ -11,7 +11,9 @@ jobs:
     steps:
       - name: Update frontend code
         run: |
-          sudo -u expensetracker git -C /opt/expense-tracker-frontend pull origin main
+          sudo -u expensetracker git -C /opt/expense-tracker-frontend fetch origin
+          sudo -u expensetracker git -C /opt/expense-tracker-frontend reset --hard origin/main
+          sudo -u expensetracker git -C /opt/expense-tracker-frontend clean -fd
 
       - name: Install dependencies
         run: |
