@@ -148,3 +148,45 @@ export type EmailExportResponse = {
   fileName: string | null
   totalRecords: number
 }
+
+// ============================================================================
+// Analytics Types
+// ============================================================================
+
+export type AnalyticsExpenseRecord = {
+  expensesId: number
+  userId: string
+  expenseName: string
+  expenseAmount: number
+  userExpenseCategoryName: string
+  lastUpdateTmstp: string
+  expenseDate: string
+}
+
+export type AnalyticsIncomeRecord = {
+  incomeId: number
+  userId: string
+  source: string
+  amount: number
+  receivedDate: string
+  month: number
+  year: number
+}
+
+export type AnalyticsDataResponse<T> = {
+  data: T[]
+  totalRecords: number
+  maxRecordsLimit: number
+}
+
+export type AnalyticsSummary = {
+  totalExpenses: number
+  totalIncome: number
+  netBalance: number
+  totalExpenseCount: number
+  totalIncomeCount: number
+  expensesByCategory: Record<string, number>
+  incomesBySource: Record<string, number>
+  monthlyExpenseTrend: Record<string, number>
+  monthlyIncomeTrend: Record<string, number>
+}

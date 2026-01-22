@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse, ExportType, ExportFormat, EmailExportResponse } from '../types/app'
+import type { Expense, Income, MonthlyBalance, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -905,6 +905,351 @@ export async function emailCustomReport(payload: {
 }
 
 // ============================================================================
+// Analytics API (No Pagination - up to 10,000 records)
+// ============================================================================
+
+/**
+ * Get expenses by date range for analytics
+ */
+export async function fetchAnalyticsExpensesByRange(payload: {
+  userId: string
+  start: string // YYYY-MM-DD
+  end: string   // YYYY-MM-DD
+}): Promise<AnalyticsDataResponse<AnalyticsExpenseRecord>> {
+  if (isGuestUserId(payload.userId)) {
+    // Return guest store data in analytics format
+    const guestExpenses = guestStore.getExpenses()
+    const startDate = new Date(payload.start)
+    const endDate = new Date(payload.end)
+    const filtered = guestExpenses.filter((e) => {
+      if (!e.expenseDate) return false
+      const d = new Date(e.expenseDate)
+      return d >= startDate && d <= endDate
+    })
+    return {
+      data: filtered.map((e) => ({
+        expensesId: Number(e.expensesId ?? e.expenseId ?? 0),
+        userId: guestStore.GUEST_USER_ID,
+        expenseName: e.expenseName ?? '',
+        expenseAmount: Number(e.expenseAmount ?? e.amount ?? 0),
+        userExpenseCategoryName: e.expenseCategoryName ?? '',
+        lastUpdateTmstp: new Date().toISOString(),
+        expenseDate: e.expenseDate ?? '',
+      })),
+      totalRecords: filtered.length,
+      maxRecordsLimit: 10000,
+    }
+  }
+  const result = await request('/analytics/expenses/range', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsDataResponse<AnalyticsExpenseRecord>
+}
+
+/**
+ * Get expenses for a specific month for analytics
+ */
+export async function fetchAnalyticsExpensesByMonth(payload: {
+  userId: string
+  year: number
+  month: number
+}): Promise<AnalyticsDataResponse<AnalyticsExpenseRecord>> {
+  if (isGuestUserId(payload.userId)) {
+    const guestExpenses = guestStore.getExpenses()
+    const filtered = guestExpenses.filter((e) => {
+      if (!e.expenseDate) return false
+      const d = new Date(e.expenseDate)
+      return d.getFullYear() === payload.year && d.getMonth() + 1 === payload.month
+    })
+    return {
+      data: filtered.map((e) => ({
+        expensesId: Number(e.expensesId ?? e.expenseId ?? 0),
+        userId: guestStore.GUEST_USER_ID,
+        expenseName: e.expenseName ?? '',
+        expenseAmount: Number(e.expenseAmount ?? e.amount ?? 0),
+        userExpenseCategoryName: e.expenseCategoryName ?? '',
+        lastUpdateTmstp: new Date().toISOString(),
+        expenseDate: e.expenseDate ?? '',
+      })),
+      totalRecords: filtered.length,
+      maxRecordsLimit: 10000,
+    }
+  }
+  const result = await request('/analytics/expenses/month', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsDataResponse<AnalyticsExpenseRecord>
+}
+
+/**
+ * Get expenses for a specific year for analytics
+ */
+export async function fetchAnalyticsExpensesByYear(payload: {
+  userId: string
+  year: number
+}): Promise<AnalyticsDataResponse<AnalyticsExpenseRecord>> {
+  if (isGuestUserId(payload.userId)) {
+    const guestExpenses = guestStore.getExpenses()
+    const filtered = guestExpenses.filter((e) => {
+      if (!e.expenseDate) return false
+      const d = new Date(e.expenseDate)
+      return d.getFullYear() === payload.year
+    })
+    return {
+      data: filtered.map((e) => ({
+        expensesId: Number(e.expensesId ?? e.expenseId ?? 0),
+        userId: guestStore.GUEST_USER_ID,
+        expenseName: e.expenseName ?? '',
+        expenseAmount: Number(e.expenseAmount ?? e.amount ?? 0),
+        userExpenseCategoryName: e.expenseCategoryName ?? '',
+        lastUpdateTmstp: new Date().toISOString(),
+        expenseDate: e.expenseDate ?? '',
+      })),
+      totalRecords: filtered.length,
+      maxRecordsLimit: 10000,
+    }
+  }
+  const result = await request('/analytics/expenses/year', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsDataResponse<AnalyticsExpenseRecord>
+}
+
+/**
+ * Get incomes by date range for analytics
+ */
+export async function fetchAnalyticsIncomesByRange(payload: {
+  userId: string
+  start: string // YYYY-MM-DD
+  end: string   // YYYY-MM-DD
+}): Promise<AnalyticsDataResponse<AnalyticsIncomeRecord>> {
+  if (isGuestUserId(payload.userId)) {
+    const guestIncomes = guestStore.getIncomes()
+    const startDate = new Date(payload.start)
+    const endDate = new Date(payload.end)
+    const filtered = guestIncomes.filter((i) => {
+      if (!i.receivedDate) return false
+      const d = new Date(i.receivedDate)
+      return d >= startDate && d <= endDate
+    })
+    return {
+      data: filtered.map((i) => ({
+        incomeId: Number(i.incomeId ?? 0),
+        userId: guestStore.GUEST_USER_ID,
+        source: i.source ?? '',
+        amount: Number(i.amount ?? 0),
+        receivedDate: i.receivedDate ?? '',
+        month: Number(i.month ?? 0),
+        year: Number(i.year ?? 0),
+      })),
+      totalRecords: filtered.length,
+      maxRecordsLimit: 10000,
+    }
+  }
+  const result = await request('/analytics/incomes/range', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsDataResponse<AnalyticsIncomeRecord>
+}
+
+/**
+ * Get incomes for a specific month for analytics
+ */
+export async function fetchAnalyticsIncomesByMonth(payload: {
+  userId: string
+  year: number
+  month: number
+}): Promise<AnalyticsDataResponse<AnalyticsIncomeRecord>> {
+  if (isGuestUserId(payload.userId)) {
+    const guestIncomes = guestStore.getIncomes()
+    const filtered = guestIncomes.filter((i) => {
+      return Number(i.year) === payload.year && Number(i.month) === payload.month
+    })
+    return {
+      data: filtered.map((i) => ({
+        incomeId: Number(i.incomeId ?? 0),
+        userId: guestStore.GUEST_USER_ID,
+        source: i.source ?? '',
+        amount: Number(i.amount ?? 0),
+        receivedDate: i.receivedDate ?? '',
+        month: Number(i.month ?? 0),
+        year: Number(i.year ?? 0),
+      })),
+      totalRecords: filtered.length,
+      maxRecordsLimit: 10000,
+    }
+  }
+  const result = await request('/analytics/incomes/month', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsDataResponse<AnalyticsIncomeRecord>
+}
+
+/**
+ * Get incomes for a specific year for analytics
+ */
+export async function fetchAnalyticsIncomesByYear(payload: {
+  userId: string
+  year: number
+}): Promise<AnalyticsDataResponse<AnalyticsIncomeRecord>> {
+  if (isGuestUserId(payload.userId)) {
+    const guestIncomes = guestStore.getIncomes()
+    const filtered = guestIncomes.filter((i) => Number(i.year) === payload.year)
+    return {
+      data: filtered.map((i) => ({
+        incomeId: Number(i.incomeId ?? 0),
+        userId: guestStore.GUEST_USER_ID,
+        source: i.source ?? '',
+        amount: Number(i.amount ?? 0),
+        receivedDate: i.receivedDate ?? '',
+        month: Number(i.month ?? 0),
+        year: Number(i.year ?? 0),
+      })),
+      totalRecords: filtered.length,
+      maxRecordsLimit: 10000,
+    }
+  }
+  const result = await request('/analytics/incomes/year', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsDataResponse<AnalyticsIncomeRecord>
+}
+
+/**
+ * Get analytics summary for date range (pre-aggregated data for charts)
+ */
+export async function fetchAnalyticsSummaryByRange(payload: {
+  userId: string
+  start: string // YYYY-MM-DD
+  end: string   // YYYY-MM-DD
+}): Promise<AnalyticsSummary> {
+  if (isGuestUserId(payload.userId)) {
+    // Build summary from guest store data
+    return buildGuestAnalyticsSummary(payload.start, payload.end)
+  }
+  const result = await request('/analytics/summary/range', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsSummary
+}
+
+/**
+ * Get analytics summary for a specific month
+ */
+export async function fetchAnalyticsSummaryByMonth(payload: {
+  userId: string
+  year: number
+  month: number
+}): Promise<AnalyticsSummary> {
+  if (isGuestUserId(payload.userId)) {
+    const startDate = new Date(payload.year, payload.month - 1, 1)
+    const endDate = new Date(payload.year, payload.month, 0)
+    const start = `${payload.year}-${String(payload.month).padStart(2, '0')}-01`
+    const end = `${payload.year}-${String(payload.month).padStart(2, '0')}-${endDate.getDate()}`
+    return buildGuestAnalyticsSummary(start, end)
+  }
+  const result = await request('/analytics/summary/month', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsSummary
+}
+
+/**
+ * Get analytics summary for a specific year
+ */
+export async function fetchAnalyticsSummaryByYear(payload: {
+  userId: string
+  year: number
+}): Promise<AnalyticsSummary> {
+  if (isGuestUserId(payload.userId)) {
+    const start = `${payload.year}-01-01`
+    const end = `${payload.year}-12-31`
+    return buildGuestAnalyticsSummary(start, end)
+  }
+  const result = await request('/analytics/summary/year', {
+    method: 'POST',
+    body: payload,
+  })
+  return result as AnalyticsSummary
+}
+
+/**
+ * Helper to build analytics summary from guest store data
+ */
+function buildGuestAnalyticsSummary(start: string, end: string): AnalyticsSummary {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  
+  const expenses = guestStore.getExpenses().filter((e) => {
+    if (!e.expenseDate) return false
+    const d = new Date(e.expenseDate)
+    return d >= startDate && d <= endDate
+  })
+  
+  const incomes = guestStore.getIncomes().filter((i) => {
+    if (!i.receivedDate) return false
+    const d = new Date(i.receivedDate)
+    return d >= startDate && d <= endDate
+  })
+
+  const expensesByCategory: Record<string, number> = {}
+  const monthlyExpenseTrend: Record<string, number> = {}
+  let totalExpenses = 0
+
+  expenses.forEach((e) => {
+    const amount = Number(e.expenseAmount ?? e.amount ?? 0)
+    totalExpenses += amount
+    
+    const cat = e.expenseCategoryName ?? 'Unknown'
+    expensesByCategory[cat] = (expensesByCategory[cat] ?? 0) + amount
+    
+    if (e.expenseDate) {
+      const d = new Date(e.expenseDate)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      monthlyExpenseTrend[key] = (monthlyExpenseTrend[key] ?? 0) + amount
+    }
+  })
+
+  const incomesBySource: Record<string, number> = {}
+  const monthlyIncomeTrend: Record<string, number> = {}
+  let totalIncome = 0
+
+  incomes.forEach((i) => {
+    const amount = Number(i.amount ?? 0)
+    totalIncome += amount
+    
+    const source = i.source ?? 'Unknown'
+    incomesBySource[source] = (incomesBySource[source] ?? 0) + amount
+    
+    if (i.receivedDate) {
+      const d = new Date(i.receivedDate)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      monthlyIncomeTrend[key] = (monthlyIncomeTrend[key] ?? 0) + amount
+    }
+  })
+
+  return {
+    totalExpenses,
+    totalIncome,
+    netBalance: totalIncome - totalExpenses,
+    totalExpenseCount: expenses.length,
+    totalIncomeCount: incomes.length,
+    expensesByCategory,
+    incomesBySource,
+    monthlyExpenseTrend,
+    monthlyIncomeTrend,
+  }
+}
+
+// ============================================================================
 // Health Check
 // ============================================================================
 
@@ -962,4 +1307,14 @@ export default {
   emailIncomeReport,
   emailAllReport,
   emailCustomReport,
+  // Analytics APIs
+  fetchAnalyticsExpensesByRange,
+  fetchAnalyticsExpensesByMonth,
+  fetchAnalyticsExpensesByYear,
+  fetchAnalyticsIncomesByRange,
+  fetchAnalyticsIncomesByMonth,
+  fetchAnalyticsIncomesByYear,
+  fetchAnalyticsSummaryByRange,
+  fetchAnalyticsSummaryByMonth,
+  fetchAnalyticsSummaryByYear,
 }
