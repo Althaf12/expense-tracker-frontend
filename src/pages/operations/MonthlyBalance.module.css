@@ -52,6 +52,18 @@
   color: var(--color-text-muted);
 }
 
+.noteBox {
+  margin: 0.5rem 0 0 0;
+  padding: 0.5rem 0.75rem;
+  /* cool blue tint at ~50% opacity for a subtle note background */
+  background: rgba(108, 157, 235, 0.5); /* blue-500 @ 50% */
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 0.5rem;
+  font-style: italic;
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+}
+
 .tableContainer {
   background: var(--surface-card);
   border-radius: 1rem;

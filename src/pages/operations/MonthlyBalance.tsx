@@ -202,6 +202,9 @@ export default function MonthlyBalance(): ReactElement {
             </p>
           </div>
         </div>
+        <p className={styles.noteBox}>
+          <strong>Note:</strong> Monthly balances are calculated at the end of every month. This keeps your balance consistent at the start of new month.
+        </p>
       </header>
 
       <section className={styles.tableContainer}>

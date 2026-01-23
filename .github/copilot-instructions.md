@@ -1,3 +1,57 @@
+# Copilot / AI Agent Instructions for expense-tracker-frontend
+
+Summary
+- Tech: React 18 + TypeScript + Vite. Router: react-router-dom v6.
+- Purpose: thin SPA that talks to a backend API (default base from `import.meta.env.VITE_API_BASE` → fallback `http://localhost:8081/api`).
+
+Quick start (PowerShell)
+```powershell
+npm install
+$env:VITE_API_BASE='http://localhost:8081/api'; npm run dev
+```
+
+Developer workflows
+- Dev server: `npm run dev` (Vite). Build: `npm run build`. Preview production build: `npm run preview`.
+- Health check: call `api.checkHealth()` in the console or hit `${API_BASE}/health` to verify backend + CORS.
+
+High-level architecture & patterns
+- API layer: `src/api/index.ts` is the single place for API helpers. It wraps `authFetch` (from `src/auth/httpClient.ts`) via `request()` and exports many convenience functions (e.g. `fetchExpenses`, `updateUserPreferences`).
+- Auth: `src/auth/httpClient.ts` provides `authFetch` with automatic 401 handling — it will try `refreshAuth()` once, retry the request, or redirect to login. Prefer using `request()` or the exported API helpers to keep refresh & cookie handling consistent.
+- Guest mode: `src/utils/guestStore.ts` implements a full in-memory/sessionStorage fallback for unauthenticated users. Key constants: `guestStore.GUEST_USER_ID === 'guest-user'` and `guestStore.GUEST_USERNAME`. Follow the existing pattern where API helpers call `guestStore` when `isGuestUser` is true.
+- Types-first: update `src/types/app.ts` before changing API helpers or components that consume those shapes.
+- Global state: `src/context/AppDataContext.tsx` exposes the app-level cache and helpers (expense categories, caches, reload helpers). Use `useAppDataContext()` to access.
+
+Conventions & concrete examples
+- Add an API endpoint: edit `src/api/index.ts`, implement a function that calls `request('/your/path', { method, body })`, then include it in the file's default export.
+- Guest fallback pattern: most API helpers check `guestStore.isGuestUser(userId)` and either operate on `guestStore` or call the backend. Copy this flow when adding user-scoped APIs.
+- File downloads: exports use `fetch` + blob handling and `triggerDownload()` in `src/api/index.ts` — keep downloads isolated from React components.
+- Caching: `fetchPreviousMonthlyBalance` uses localStorage + in-memory maps (`_prevMonthlyBalanceCache`, `_prevMonthlyBalancePromises`). Reuse these helpers for consistent client-side caching.
+
+Session & testing notes
+- Session storage: the app stores session info in `localStorage['session']` as a `SessionData` object (see `src/types/app.ts`). To simulate a logged-in user in the browser console, run:
+```js
+localStorage.setItem('session', JSON.stringify({ userId: 'your-id', username: 'you' }))
+```
+- Guest data: `guestStore` writes demo data to `sessionStorage` and uses `GUEST_STORE_VERSION` to reinitialize default/demo data when needed.
+
+Where to look for common changes
+- API helpers: [src/api/index.ts](src/api/index.ts)
+- Auth: [src/auth/httpClient.ts](src/auth/httpClient.ts) and [src/auth/authService.ts](src/auth/authService.ts)
+- Types: [src/types/app.ts](src/types/app.ts)
+- Global app data: [src/context/AppDataContext.tsx](src/context/AppDataContext.tsx)
+- Guest demo logic: [src/utils/guestStore.ts](src/utils/guestStore.ts)
+- Routing and pages: [src/App.tsx](src/App.tsx) and [src/pages/*](src/pages)
+
+Quick gotchas discovered
+- Many backend endpoints expect `userId`/`username` in request bodies or path params — tokens/headers are not always used. Prefer API helpers to avoid subtle bugs.
+- `authFetch` sets `credentials: 'include'` and manages refresh queues — avoid parallel low-level fetches that bypass `authFetch`.
+- Report exports use different endpoints (PDF vs Excel) and rely on `Content-Disposition` parsing in `src/api/index.ts`.
+
+Next actions I can take
+- Add example snippets: "add API helper" and "add a route".
+- Expand CI / test guidance if you want test tooling added.
+
+Please review and tell me any missing details or examples you want added.
 ## Copilot / AI Agent Instructions for expense-tracker-frontend
 
 Summary

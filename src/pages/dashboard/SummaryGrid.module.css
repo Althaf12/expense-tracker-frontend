@@ -34,9 +34,9 @@
   position: absolute;
   top: 0.75rem;
   right: 1rem;
-  font-size: 6rem;
+  font-size: 4rem;
   line-height: 1;
-  opacity: 0.5;
+  opacity: 0.6;
   pointer-events: none;
   z-index: 0;
   transform: translate(6%, -6%);
@@ -99,7 +99,7 @@
     font-size: 3.2rem;
     top: 0.5rem;
     right: 0.75rem;
-    opacity: 0.45;
+    opacity: 0.6;
   }
 
   .metricValue {
