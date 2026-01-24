@@ -274,10 +274,14 @@
 }
 
 .actions {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+  white-space: nowrap;
+}
 
+.actions button + button {
+  margin-left: 0.5rem;
 }
 
 .actions button {

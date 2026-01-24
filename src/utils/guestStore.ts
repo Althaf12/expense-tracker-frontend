@@ -11,13 +11,16 @@ import type {
   UserPreferences,
   MonthlyBalance,
   PagedResponse,
+  ExpenseAdjustment,
+  AdjustmentType,
+  AdjustmentStatus,
 } from '../types/app'
 
 const GUEST_USER_ID = 'guest-user'
 const GUEST_USERNAME = 'Guest User'
 const STORAGE_KEY = 'guest-store-data'
 // Bump this number when default/demo data changes to force reinitialization
-const GUEST_STORE_VERSION = 2
+const GUEST_STORE_VERSION = 3
 
 // Default demo data for guest users
 const DEFAULT_CATEGORIES: UserExpenseCategory[] = [
@@ -137,11 +140,83 @@ function generateSampleIncomes(): Income[] {
   ]
 }
 
+// Generate sample adjustments for demo purposes
+function generateSampleAdjustments(expenses: Expense[]): ExpenseAdjustment[] {
+  const now = new Date()
+  const adjustments: ExpenseAdjustment[] = []
+  
+  // Add a refund for "Online Shopping" expense if it exists
+  const shoppingExpense = expenses.find(e => e.expenseName === 'Online Shopping')
+  if (shoppingExpense) {
+    const expenseId = shoppingExpense.expensesId ?? shoppingExpense.expenseId
+    adjustments.push({
+      expenseAdjustmentsId: 1,
+      expensesId: expenseId as unknown as number, // Keep as string for matching
+      userId: GUEST_USER_ID,
+      adjustmentType: 'REFUND',
+      adjustmentAmount: 200,
+      adjustmentReason: 'Item returned - wrong size',
+      adjustmentDate: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 2))),
+      status: 'COMPLETED',
+      expenseName: shoppingExpense.expenseName,
+      originalExpenseAmount: Number(shoppingExpense.amount ?? shoppingExpense.expenseAmount),
+    })
+    // Update expense with adjustment info
+    shoppingExpense.totalAdjustments = 200
+    shoppingExpense.netExpenseAmount = Number(shoppingExpense.amount ?? shoppingExpense.expenseAmount) - 200
+  }
+  
+  // Add a cashback for "Movie Tickets" expense
+  const movieExpense = expenses.find(e => e.expenseName === 'Movie Tickets')
+  if (movieExpense) {
+    const expenseId = movieExpense.expensesId ?? movieExpense.expenseId
+    adjustments.push({
+      expenseAdjustmentsId: 2,
+      expensesId: expenseId as unknown as number,
+      userId: GUEST_USER_ID,
+      adjustmentType: 'CASHBACK',
+      adjustmentAmount: 50,
+      adjustmentReason: 'Credit card cashback',
+      adjustmentDate: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 3))),
+      status: 'COMPLETED',
+      expenseName: movieExpense.expenseName,
+      originalExpenseAmount: Number(movieExpense.amount ?? movieExpense.expenseAmount),
+    })
+    // Update expense with adjustment info
+    movieExpense.totalAdjustments = 50
+    movieExpense.netExpenseAmount = Number(movieExpense.amount ?? movieExpense.expenseAmount) - 50
+  }
+  
+  // Add a pending refund for "Electricity Bill"
+  const electricityExpense = expenses.find(e => e.expenseName === 'Electricity Bill')
+  if (electricityExpense) {
+    const expenseId = electricityExpense.expensesId ?? electricityExpense.expenseId
+    adjustments.push({
+      expenseAdjustmentsId: 3,
+      expensesId: expenseId as unknown as number,
+      userId: GUEST_USER_ID,
+      adjustmentType: 'REFUND',
+      adjustmentAmount: 150,
+      adjustmentReason: 'Meter reading correction - overcharge refund',
+      adjustmentDate: formatLocalDate(new Date(now.getFullYear(), now.getMonth(), Math.max(1, now.getDate() - 1))),
+      status: 'PENDING',
+      expenseName: electricityExpense.expenseName,
+      originalExpenseAmount: Number(electricityExpense.amount ?? electricityExpense.expenseAmount),
+    })
+    // Update expense with adjustment info (even pending adjustments count)
+    electricityExpense.totalAdjustments = 150
+    electricityExpense.netExpenseAmount = Number(electricityExpense.amount ?? electricityExpense.expenseAmount) - 150
+  }
+  
+  return adjustments
+}
+
 interface GuestStoreData {
   categories: UserExpenseCategory[]
   userExpenses: UserExpense[]
   expenses: Expense[]
   incomes: Income[]
+  adjustments: ExpenseAdjustment[]
   preferences: UserPreferences
   initialized: boolean
   version?: number
@@ -184,11 +259,15 @@ function getStore(): GuestStoreData {
   }
   
   // Initialize with default data
+  const expenses = generateSampleExpenses()
+  const adjustments = generateSampleAdjustments(expenses)
+  
   storeData = {
     categories: [...DEFAULT_CATEGORIES],
     userExpenses: [...DEFAULT_USER_EXPENSES],
-    expenses: generateSampleExpenses(),
+    expenses,
     incomes: generateSampleIncomes(),
+    adjustments,
     preferences: { ...DEFAULT_PREFERENCES },
     initialized: true,
     version: GUEST_STORE_VERSION,
@@ -590,6 +669,166 @@ export const guestStore = {
     // Return null so dashboard uses: previousMonthIncomeTotal - currentMonthExpenseTotal
     // This matches user expectation: "Total Balance = last month income - current month expenses"
     return null
+  },
+
+  // ============================================================================
+  // Expense Adjustments
+  // ============================================================================
+
+  getAdjustments(): ExpenseAdjustment[] {
+    return [...getStore().adjustments]
+  },
+
+  getAdjustmentsByUser(page = 0, size = 10): PagedResponse<ExpenseAdjustment> {
+    const adjustments = getStore().adjustments
+    const start = page * size
+    const content = adjustments.slice(start, start + size)
+    return {
+      content,
+      totalElements: adjustments.length,
+      totalPages: Math.ceil(adjustments.length / size),
+      page,
+      size,
+    }
+  },
+
+  getAdjustmentsByExpense(expenseId: string | number): ExpenseAdjustment[] {
+    const store = getStore()
+    return store.adjustments.filter(
+      (a) => String(a.expensesId) === String(expenseId)
+    )
+  },
+
+  getAdjustmentsByDateRange(startDate: string, endDate: string, page = 0, size = 10): PagedResponse<ExpenseAdjustment> {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const adjustments = getStore().adjustments.filter((a) => {
+      const date = new Date(a.adjustmentDate)
+      return date >= start && date <= end
+    })
+    const startIdx = page * size
+    const content = adjustments.slice(startIdx, startIdx + size)
+    return {
+      content,
+      totalElements: adjustments.length,
+      totalPages: Math.ceil(adjustments.length / size),
+      page,
+      size,
+    }
+  },
+
+  getAdjustmentById(adjustmentId: number): ExpenseAdjustment | null {
+    const store = getStore()
+    return store.adjustments.find((a) => a.expenseAdjustmentsId === adjustmentId) ?? null
+  },
+
+  createAdjustment(payload: {
+    expensesId: number | string
+    adjustmentType: AdjustmentType
+    adjustmentAmount: number
+    adjustmentReason?: string
+    adjustmentDate: string
+    status?: AdjustmentStatus
+  }): ExpenseAdjustment {
+    const store = getStore()
+    // Convert to string for matching - handles both numeric and string IDs
+    const expenseIdStr = String(payload.expensesId)
+    const expense = store.expenses.find(
+      (e) => String(e.expensesId) === expenseIdStr || String(e.expenseId) === expenseIdStr
+    )
+    
+    const maxId = store.adjustments.reduce((max, a) => Math.max(max, a.expenseAdjustmentsId), 0)
+    const newAdjustment: ExpenseAdjustment = {
+      expenseAdjustmentsId: maxId + 1,
+      expensesId: expenseIdStr as unknown as number, // Keep as string for matching
+      userId: GUEST_USER_ID,
+      adjustmentType: payload.adjustmentType,
+      adjustmentAmount: payload.adjustmentAmount,
+      adjustmentReason: payload.adjustmentReason,
+      adjustmentDate: payload.adjustmentDate,
+      status: payload.status ?? 'COMPLETED',
+      createdAt: new Date().toISOString(),
+      expenseName: expense?.expenseName ?? expense?.description ?? null,
+      originalExpenseAmount: expense ? Number(expense.amount ?? expense.expenseAmount) : null,
+    }
+    
+    store.adjustments.push(newAdjustment)
+    
+    // Update the related expense's totalAdjustments and netExpenseAmount
+    if (expense) {
+      const totalAdj = store.adjustments
+        .filter((a) => String(a.expensesId) === expenseIdStr)
+        .reduce((sum, a) => sum + a.adjustmentAmount, 0)
+      expense.totalAdjustments = totalAdj
+      expense.netExpenseAmount = Number(expense.amount ?? expense.expenseAmount) - totalAdj
+    }
+    
+    updateStore({ adjustments: store.adjustments, expenses: store.expenses })
+    return newAdjustment
+  },
+
+  updateAdjustment(adjustmentId: number, updates: Partial<ExpenseAdjustment>): ExpenseAdjustment | null {
+    const store = getStore()
+    const adjustment = store.adjustments.find((a) => a.expenseAdjustmentsId === adjustmentId)
+    if (!adjustment) return null
+    
+    Object.assign(adjustment, updates, { lastUpdateTmstp: new Date().toISOString() })
+    
+    // Recalculate expense totals
+    const expense = store.expenses.find(
+      (e) => String(e.expensesId) === String(adjustment.expensesId) || String(e.expenseId) === String(adjustment.expensesId)
+    )
+    if (expense) {
+      const totalAdj = store.adjustments
+        .filter((a) => String(a.expensesId) === String(adjustment.expensesId))
+        .reduce((sum, a) => sum + a.adjustmentAmount, 0)
+      expense.totalAdjustments = totalAdj
+      expense.netExpenseAmount = Number(expense.amount ?? expense.expenseAmount) - totalAdj
+    }
+    
+    updateStore({ adjustments: store.adjustments, expenses: store.expenses })
+    return adjustment
+  },
+
+  deleteAdjustment(adjustmentId: number): boolean {
+    const store = getStore()
+    const adjustment = store.adjustments.find((a) => a.expenseAdjustmentsId === adjustmentId)
+    if (!adjustment) return false
+    
+    const expenseId = adjustment.expensesId
+    store.adjustments = store.adjustments.filter((a) => a.expenseAdjustmentsId !== adjustmentId)
+    
+    // Recalculate expense totals
+    const expense = store.expenses.find(
+      (e) => String(e.expensesId) === String(expenseId) || String(e.expenseId) === String(expenseId)
+    )
+    if (expense) {
+      const totalAdj = store.adjustments
+        .filter((a) => String(a.expensesId) === String(expenseId))
+        .reduce((sum, a) => sum + a.adjustmentAmount, 0)
+      expense.totalAdjustments = totalAdj > 0 ? totalAdj : undefined
+      expense.netExpenseAmount = totalAdj > 0 ? Number(expense.amount ?? expense.expenseAmount) - totalAdj : undefined
+    }
+    
+    updateStore({ adjustments: store.adjustments, expenses: store.expenses })
+    return true
+  },
+
+  getTotalAdjustmentForExpense(expenseId: string | number): number {
+    const store = getStore()
+    return store.adjustments
+      .filter((a) => String(a.expensesId) === String(expenseId))
+      .reduce((sum, a) => sum + a.adjustmentAmount, 0)
+  },
+
+  getTotalAdjustmentForMonth(year: number, month: number): number {
+    const store = getStore()
+    return store.adjustments
+      .filter((a) => {
+        const date = new Date(a.adjustmentDate)
+        return date.getFullYear() === year && date.getMonth() + 1 === month
+      })
+      .reduce((sum, a) => sum + a.adjustmentAmount, 0)
   },
 
   // Clear all guest data (useful for testing)

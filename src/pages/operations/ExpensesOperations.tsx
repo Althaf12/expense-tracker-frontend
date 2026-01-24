@@ -1,6 +1,6 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
+import React, { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { 
   Search, 
   Plus, 
@@ -11,7 +11,11 @@ import {
   Calendar, 
   Filter,
   ChevronDown,
-  Download
+  ChevronUp,
+  Download,
+  RefreshCcw,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import {
   addExpense,
@@ -19,11 +23,14 @@ import {
   fetchExpensesByMonth,
   fetchExpensesByRange,
   updateExpense,
+  fetchExpenseAdjustmentsByExpense,
+  createExpenseAdjustment,
 } from '../../api'
-import type { Expense, UserExpenseCategory, PagedResponse } from '../../types/app'
+import type { Expense, UserExpenseCategory, PagedResponse, ExpenseAdjustment, AdjustmentType } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
 import { usePreferences } from '../../context/PreferencesContext'
+import { guestStore } from '../../utils/guestStore'
 import styles from './ExpensesOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 import Pagination from '../../components/Pagination'
@@ -166,6 +173,18 @@ export default function ExpensesOperations(): ReactElement {
   const [totalPages, setTotalPages] = useState<number>(1)
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
+  // Expense adjustments inline state
+  const [expandedExpenseIds, setExpandedExpenseIds] = useState<Set<string>>(new Set())
+  const [expenseAdjustmentsCache, setExpenseAdjustmentsCache] = useState<Map<string, ExpenseAdjustment[]>>(new Map())
+  const [loadingAdjustments, setLoadingAdjustments] = useState<Set<string>>(new Set())
+  // Inline adjustment form state
+  const [showAdjustmentForm, setShowAdjustmentForm] = useState<string | null>(null) // expenseId when form is visible
+  const [adjustmentFormData, setAdjustmentFormData] = useState<{
+    adjustmentType: AdjustmentType
+    adjustmentAmount: string
+    adjustmentReason: string
+  }>({ adjustmentType: 'REFUND', adjustmentAmount: '', adjustmentReason: '' })
+  const [savingAdjustment, setSavingAdjustment] = useState(false)
 
   useEffect(() => {
     if (!session) return
@@ -564,6 +583,121 @@ export default function ExpensesOperations(): ReactElement {
     setViewMode(mode)
   }
 
+  // Toggle expanded row to show adjustments inline
+  const toggleExpenseAdjustments = async (expenseId: string) => {
+    const newExpanded = new Set(expandedExpenseIds)
+    if (newExpanded.has(expenseId)) {
+      newExpanded.delete(expenseId)
+      setExpandedExpenseIds(newExpanded)
+      return
+    }
+    
+    newExpanded.add(expenseId)
+    setExpandedExpenseIds(newExpanded)
+    
+    // Only fetch if not already cached
+    if (!expenseAdjustmentsCache.has(expenseId) && session) {
+      setLoadingAdjustments(prev => new Set(prev).add(expenseId))
+      try {
+        const adjustments = await fetchExpenseAdjustmentsByExpense(session.userId, expenseId)
+        setExpenseAdjustmentsCache(prev => new Map(prev).set(expenseId, adjustments))
+      } catch (error) {
+        console.error('Failed to load adjustments for expense', expenseId, error)
+        setExpenseAdjustmentsCache(prev => new Map(prev).set(expenseId, []))
+      } finally {
+        setLoadingAdjustments(prev => {
+          const next = new Set(prev)
+          next.delete(expenseId)
+          return next
+        })
+      }
+    }
+  }
+
+  // Open inline adjustment form for an expense
+  const openAdjustmentForm = (expenseId: string) => {
+    setShowAdjustmentForm(expenseId)
+    setAdjustmentFormData({ adjustmentType: 'REFUND', adjustmentAmount: '', adjustmentReason: '' })
+  }
+
+  // Submit inline adjustment
+  const submitInlineAdjustment = async (expense: Expense) => {
+    if (!session) return
+    const expenseId = expense.expensesId ?? expense.expenseId
+    if (!expenseId) return
+    
+    const amount = parseFloat(adjustmentFormData.adjustmentAmount)
+    const expenseAmount = Number(expense.amount ?? expense.expenseAmount)
+    const existingAdjustments = expense.totalAdjustments ?? 0
+    const totalAfterAdjustment = existingAdjustments + amount
+    
+    if (isNaN(amount) || amount <= 0) {
+      setStatus({ type: 'error', message: 'Please enter a valid amount' })
+      return
+    }
+    
+    // Validate that adjustment amount doesn't exceed expense amount
+    if (amount > expenseAmount) {
+      setStatus({ type: 'error', message: `${adjustmentFormData.adjustmentType.charAt(0) + adjustmentFormData.adjustmentType.slice(1).toLowerCase()} amount cannot exceed expense amount (${formatCurrency(expenseAmount)})` })
+      return
+    }
+    
+    // Validate that total adjustments (existing + new) don't exceed expense amount
+    if (totalAfterAdjustment > expenseAmount) {
+      const remainingAllowed = expenseAmount - existingAdjustments
+      setStatus({ 
+        type: 'error', 
+        message: `Total adjustments would exceed expense amount. Existing adjustments: ${formatCurrency(existingAdjustments)}. Maximum additional adjustment allowed: ${formatCurrency(remainingAllowed)}` 
+      })
+      return
+    }
+    
+    setSavingAdjustment(true)
+    try {
+      // For guest users, keep the expenseId as string. For real users, convert to number.
+      const isGuest = session.userId && guestStore.isGuestUser(session.userId)
+      await createExpenseAdjustment({
+        expensesId: isGuest ? expenseId : Number(expenseId),
+        userId: session.userId,
+        adjustmentType: adjustmentFormData.adjustmentType,
+        adjustmentAmount: amount,
+        adjustmentReason: adjustmentFormData.adjustmentReason || undefined,
+        adjustmentDate: new Date().toISOString().split('T')[0],
+        status: 'COMPLETED',
+      })
+      
+      // Close form and reset state first
+      setShowAdjustmentForm(null)
+      setAdjustmentFormData({ adjustmentType: 'REFUND', adjustmentAmount: '', adjustmentReason: '' })
+      // Exit edit mode after adding adjustment
+      setEditingRowId(null)
+      setEditingRowDraft(null)
+      setEditingCategoryDropdownOpen(false)
+      
+      // Refresh data
+      await refreshAfterMutation()
+      // Invalidate adjustment cache for this expense
+      setExpenseAdjustmentsCache(prev => {
+        const next = new Map(prev)
+        next.delete(String(expenseId))
+        return next
+      })
+      
+      // Show success notification after refresh
+      setStatus({ type: 'success', message: `${adjustmentFormData.adjustmentType.charAt(0) + adjustmentFormData.adjustmentType.slice(1).toLowerCase()} added successfully` })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      // Display backend validation errors directly if they relate to amount validation
+      if (message.toLowerCase().includes('amount') || message.toLowerCase().includes('exceed') || message.toLowerCase().includes('adjustment')) {
+        setStatus({ type: 'error', message })
+      } else {
+        setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding adjustment') })
+      }
+    } finally {
+      setSavingAdjustment(false)
+    }
+  }
+
   const syncFormCategory = (value: string) => {
     const match = activeCategories.find(
       (category) => category.userExpenseCategoryName.toLowerCase() === value.toLowerCase(),
@@ -670,6 +804,8 @@ export default function ExpensesOperations(): ReactElement {
     setEditingRowId(null)
     setEditingRowDraft(null)
     setEditingCategoryDropdownOpen(false)
+    setShowAdjustmentForm(null)
+    setAdjustmentFormData({ adjustmentType: 'REFUND', adjustmentAmount: '', adjustmentReason: '' })
   }
 
   const updateInlineDraft = (
@@ -1109,7 +1245,8 @@ export default function ExpensesOperations(): ReactElement {
                       const draft = isEditing ? editingRowDraft : null
 
                       return (
-                        <tr key={key}>
+                        <React.Fragment key={key}>
+                        <tr>
                           <td className={styles.date}>
                             {isEditing ? (
                               <input
@@ -1183,6 +1320,24 @@ export default function ExpensesOperations(): ReactElement {
                                 value={draft?.expenseAmount ?? ''}
                                 onChange={(event) => updateInlineDraft('expenseAmount', event.target.value)}
                               />
+                            ) : expense.totalAdjustments && expense.totalAdjustments > 0 ? (
+                              <div className={styles.amountWithAdjustment}>
+                                <span className={styles.originalAmount}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</span>
+                                <span className={styles.netAmount}>{formatCurrency(Number(expense.netExpenseAmount ?? expense.amount ?? expense.expenseAmount))}</span>
+                                <div className={styles.adjustmentBadgeRow}>
+                                  <span className={styles.adjustmentBadge} title="Has adjustments">
+                                    -{formatCurrency(expense.totalAdjustments)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className={styles.adjustmentToggleIcon}
+                                    onClick={() => void toggleExpenseAdjustments(key)}
+                                    title={expandedExpenseIds.has(key) ? 'Hide adjustments' : 'Show adjustments'}
+                                  >
+                                    {expandedExpenseIds.has(key) ? <EyeOff size={14} /> : <Eye size={14} />}
+                                  </button>
+                                </div>
+                              </div>
                             ) : (
                               <span className={styles.cellText}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</span>
                             )}
@@ -1208,6 +1363,15 @@ export default function ExpensesOperations(): ReactElement {
                                 <button type="button" onClick={cancelInlineEdit}>
                                   Cancel
                                 </button>
+                                <button
+                                  type="button"
+                                  className={styles.addAdjustmentBtn}
+                                  onClick={() => openAdjustmentForm(key)}
+                                  title="Add refund or cashback"
+                                >
+                                  <RefreshCcw size={14} />
+                                  Add Refund/Cashback
+                                </button>
                               </>
                             ) : (
                               <>
@@ -1221,10 +1385,137 @@ export default function ExpensesOperations(): ReactElement {
                             )}
                           </td>
                         </tr>
-                      )
-                    })
-                  )}
-                </tbody>
+                        {/* Inline adjustment form when adding refund/cashback */}
+                        {showAdjustmentForm === key && (
+                          <tr className={styles.adjustmentFormRow}>
+                            <td colSpan={5}>
+                              <div className={styles.inlineAdjustmentForm}>
+                                <div className={styles.adjustmentFormHeader}>
+                                  <RefreshCcw size={16} />
+                                  <span>Add Refund/Cashback for "{expense.expenseName ?? expense.description}"</span>
+                                </div>
+                                <div className={styles.adjustmentFormFields}>
+                                  <label className={styles.adjustmentFormField}>
+                                    <span>Type</span>
+                                    <select
+                                      value={adjustmentFormData.adjustmentType}
+                                      onChange={(e) => setAdjustmentFormData(prev => ({ ...prev, adjustmentType: e.target.value as AdjustmentType }))}
+                                      disabled={savingAdjustment}
+                                    >
+                                      <option value="REFUND">Refund</option>
+                                      <option value="CASHBACK">Cashback</option>
+                                      <option value="REVERSAL">Reversal</option>
+                                    </select>
+                                  </label>
+                                  <label className={styles.adjustmentFormField}>
+                                    <span>Amount</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      value={adjustmentFormData.adjustmentAmount}
+                                      onChange={(e) => setAdjustmentFormData(prev => ({ ...prev, adjustmentAmount: e.target.value }))}
+                                      disabled={savingAdjustment}
+                                    />
+                                  </label>
+                                  <label className={styles.adjustmentFormField}>
+                                    <span>Reason (optional)</span>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g., Item returned"
+                                      value={adjustmentFormData.adjustmentReason}
+                                      onChange={(e) => setAdjustmentFormData(prev => ({ ...prev, adjustmentReason: e.target.value }))}
+                                      disabled={savingAdjustment}
+                                    />
+                                  </label>
+                                </div>
+                                <div className={styles.adjustmentFormActions}>
+                                  <button
+                                    type="button"
+                                    className={styles.adjustmentFormSave}
+                                    onClick={() => void submitInlineAdjustment(expense)}
+                                    disabled={savingAdjustment || !adjustmentFormData.adjustmentAmount}
+                                  >
+                                    {savingAdjustment ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.adjustmentFormCancel}
+                                    onClick={() => {
+                                      setShowAdjustmentForm(null)
+                                      setEditingRowId(null)
+                                      setEditingRowDraft(null)
+                                      setEditingCategoryDropdownOpen(false)
+                                    }}
+                                    disabled={savingAdjustment}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {/* Expandable row for adjustments */}
+                        {expandedExpenseIds.has(key) && (
+                          <tr className={styles.expandableRow}>
+                            <td colSpan={5}>
+                              <div className={styles.adjustmentDetailContainer}>
+                                <div className={styles.adjustmentDetailHeader}>
+                                  <span>Adjustments for "{expense.expenseName ?? expense.description}"</span>
+                                </div>
+                                {loadingAdjustments.has(key) ? (
+                                  <div className={styles.adjustmentLoading}>Loading adjustments...</div>
+                                ) : (expenseAdjustmentsCache.get(key) ?? []).length === 0 ? (
+                                  <div className={styles.adjustmentEmpty}>No adjustment details available</div>
+                                ) : (
+                                  <table className={styles.adjustmentTable}>
+                                    <thead>
+                                      <tr>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Reason</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(expenseAdjustmentsCache.get(key) ?? []).map((adj) => (
+                                        <tr key={adj.expenseAdjustmentsId}>
+                                          <td>
+                                            <span className={`${styles.adjustmentItemType} ${styles[`type${adj.adjustmentType}`]}`}>
+                                              {adj.adjustmentType}
+                                            </span>
+                                          </td>
+                                          <td className={styles.adjustmentItemAmount}>
+                                            -{formatCurrency(adj.adjustmentAmount)}
+                                          </td>
+                                          <td>
+                                            <span className={`${styles.adjustmentItemStatus} ${styles[`status${adj.status}`]}`}>
+                                              {adj.status}
+                                            </span>
+                                          </td>
+                                          <td className={styles.adjustmentItemDate}>
+                                            {formatDate(adj.adjustmentDate)}
+                                          </td>
+                                          <td className={styles.adjustmentItemReason} title={adj.adjustmentReason ?? ''}>
+                                            {adj.adjustmentReason || '-'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })
+                )}
+              </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan={2}>Total</td>

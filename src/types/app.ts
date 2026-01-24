@@ -29,6 +29,10 @@ export type Expense = {
   amount?: number | string
   expenseAmount?: number | string
   expenseDate?: string
+  /** Net expense after adjustments (original - completed adjustments) */
+  netExpenseAmount?: number
+  /** Sum of all completed adjustments for this expense */
+  totalAdjustments?: number
 }
 
 // Removed ExpenseCategory type; use UserExpenseCategory everywhere
@@ -206,10 +210,76 @@ export type AnalyticsSummary = {
   totalExpenses: number
   totalIncome: number
   netBalance: number
+  /** Sum of all completed adjustments in the date range */
+  totalAdjustments?: number
+  /** totalExpenses - totalAdjustments */
+  netExpenses?: number
   totalExpenseCount: number
   totalIncomeCount: number
   expensesByCategory: Record<string, number>
   incomesBySource: Record<string, number>
   monthlyExpenseTrend: Record<string, number>
   monthlyIncomeTrend: Record<string, number>
+}
+
+// ============================================================================
+// Expense Adjustment Types
+// ============================================================================
+
+export type AdjustmentType = 'REFUND' | 'CASHBACK' | 'REVERSAL'
+export type AdjustmentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+
+export const ADJUSTMENT_TYPES: { value: AdjustmentType; label: string }[] = [
+  { value: 'REFUND', label: 'Refund' },
+  { value: 'CASHBACK', label: 'Cashback' },
+  { value: 'REVERSAL', label: 'Reversal' },
+]
+
+export const ADJUSTMENT_STATUSES: { value: AdjustmentStatus; label: string }[] = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'FAILED', label: 'Failed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+]
+
+export const ALLOWED_ADJUSTMENT_PAGE_SIZES = [10, 20, 50, 100] as const
+
+export type ExpenseAdjustment = {
+  expenseAdjustmentsId: number
+  expensesId: number
+  userId: string
+  adjustmentType: AdjustmentType
+  adjustmentAmount: number
+  adjustmentReason?: string | null
+  adjustmentDate: string
+  status: AdjustmentStatus
+  createdAt?: string
+  lastUpdateTmstp?: string
+  expenseName?: string | null
+  originalExpenseAmount?: number | null
+}
+
+export type ExpenseAdjustmentRequest = {
+  expenseAdjustmentsId?: number
+  expensesId: number | string
+  userId: string
+  adjustmentType: AdjustmentType
+  adjustmentAmount: number
+  adjustmentReason?: string
+  adjustmentDate: string
+  status?: AdjustmentStatus
+}
+
+export type ExpenseAdjustmentDateRangeRequest = {
+  userId: string
+  startDate: string
+  endDate: string
+}
+
+export type TotalAdjustmentResponse = {
+  totalAdjustment: number
+}
+
+export type AllowedPageSizesResponse = {
+  allowedPageSizes: number[]
 }

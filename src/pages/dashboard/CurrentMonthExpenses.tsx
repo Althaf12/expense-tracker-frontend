@@ -161,7 +161,19 @@ export default function CurrentMonthExpenses({
                   return (
                     <tr key={key}>
                       <td>{expense.expenseName ?? expense.description ?? '-'}</td>
-                      <td className={styles.numeric}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</td>
+                      <td className={styles.numeric}>
+                        {expense.totalAdjustments && expense.totalAdjustments > 0 ? (
+                          <div className={localStyles.amountWithAdjustment}>
+                            <span className={localStyles.originalAmount}>{formatCurrency(Number(expense.amount ?? expense.expenseAmount))}</span>
+                            <span className={localStyles.netAmount}>{formatCurrency(Number(expense.netExpenseAmount ?? expense.amount ?? expense.expenseAmount))}</span>
+                            <span className={localStyles.adjustmentBadge} title="Has adjustments">
+                              -{formatCurrency(expense.totalAdjustments)}
+                            </span>
+                          </div>
+                        ) : (
+                          formatCurrency(Number(expense.amount ?? expense.expenseAmount))
+                        )}
+                      </td>
                       <td>{expense.expenseDate ? formatToDDMMYYYY(expense.expenseDate) : ''}</td>
                     </tr>
                   )

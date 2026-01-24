@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactElement } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Receipt, Wallet, BarChart3, Scale } from 'lucide-react'
+import { LayoutDashboard, Receipt, Wallet, BarChart3, Scale, RefreshCcw } from 'lucide-react'
 import styles from './Sidebar.module.css'
 
 type SidebarProps = {
@@ -100,6 +100,14 @@ export default function Sidebar({ collapsed = false, onToggle, isMobile = false,
                 <Scale size={20} />
               </span>
               <span className={styles.label}>Monthly Balance</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/operations/adjustments" className={linkClassName}>
+              <span className={styles.icon} aria-hidden="true">
+                <RefreshCcw size={20} />
+              </span>
+              <span className={styles.label}>Expense Adjustments</span>
             </NavLink>
           </li>
           <li>

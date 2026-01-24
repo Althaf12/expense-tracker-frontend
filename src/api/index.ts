@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -1313,6 +1313,180 @@ export function getApiBase(): string {
   return API_BASE
 }
 
+// ============================================================================
+// Expense Adjustment APIs
+// ============================================================================
+
+/**
+ * Create a new expense adjustment (refund/cashback/reversal)
+ */
+export async function createExpenseAdjustment(payload: ExpenseAdjustmentRequest): Promise<ExpenseAdjustment> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.createAdjustment({
+      expensesId: payload.expensesId,
+      adjustmentType: payload.adjustmentType,
+      adjustmentAmount: payload.adjustmentAmount,
+      adjustmentReason: payload.adjustmentReason,
+      adjustmentDate: payload.adjustmentDate,
+      status: payload.status,
+    })
+  }
+  const result = await request('/expense-adjustment', { method: 'POST', body: payload })
+  return result as ExpenseAdjustment
+}
+
+/**
+ * Update an existing expense adjustment
+ */
+export async function updateExpenseAdjustment(payload: ExpenseAdjustmentRequest): Promise<ExpenseAdjustment> {
+  if (isGuestUserId(payload.userId)) {
+    if (!payload.expenseAdjustmentsId) {
+      throw new Error('Adjustment ID is required for update')
+    }
+    const updated = guestStore.updateAdjustment(payload.expenseAdjustmentsId, {
+      adjustmentType: payload.adjustmentType,
+      adjustmentAmount: payload.adjustmentAmount,
+      adjustmentReason: payload.adjustmentReason,
+      adjustmentDate: payload.adjustmentDate,
+      status: payload.status,
+    })
+    if (!updated) {
+      throw new Error('Adjustment not found')
+    }
+    return updated
+  }
+  const result = await request('/expense-adjustment', { method: 'PUT', body: payload })
+  return result as ExpenseAdjustment
+}
+
+/**
+ * Delete an expense adjustment
+ */
+export async function deleteExpenseAdjustment(userId: string, adjustmentId: number): Promise<{ message: string }> {
+  if (isGuestUserId(userId)) {
+    const success = guestStore.deleteAdjustment(adjustmentId)
+    if (!success) {
+      throw new Error('Adjustment not found')
+    }
+    return { message: 'Adjustment deleted successfully' }
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/expense-adjustment/${safeUserId}/${adjustmentId}`, { method: 'DELETE' })
+  return result as { message: string }
+}
+
+/**
+ * Get a single adjustment by ID
+ */
+export async function fetchExpenseAdjustmentById(userId: string, adjustmentId: number): Promise<ExpenseAdjustment> {
+  if (isGuestUserId(userId)) {
+    const adjustment = guestStore.getAdjustmentById(adjustmentId)
+    if (!adjustment) {
+      throw new Error('Adjustment not found')
+    }
+    return adjustment
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/expense-adjustment/${safeUserId}/${adjustmentId}`, { method: 'GET' })
+  return result as ExpenseAdjustment
+}
+
+/**
+ * Get all adjustments for a user (paginated)
+ */
+export async function fetchExpenseAdjustmentsByUser(
+  userId: string,
+  page = 0,
+  size = 10
+): Promise<PagedResponse<ExpenseAdjustment>> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getAdjustmentsByUser(page, size)
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/expense-adjustment/user/${safeUserId}?page=${page}&size=${size}`, { method: 'GET' })
+  // Normalize response to match PagedResponse type
+  const response = result as any
+  return {
+    content: response.content ?? [],
+    totalElements: response.totalElements ?? 0,
+    totalPages: response.totalPages ?? 0,
+    page: response.pageable?.pageNumber ?? page,
+    size: response.pageable?.pageSize ?? size,
+  }
+}
+
+/**
+ * Get all adjustments for a specific expense
+ */
+export async function fetchExpenseAdjustmentsByExpense(
+  userId: string,
+  expenseId: number | string
+): Promise<ExpenseAdjustment[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getAdjustmentsByExpense(expenseId)
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/expense-adjustment/expense/${safeUserId}/${expenseId}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as ExpenseAdjustment[]) : []
+}
+
+/**
+ * Get adjustments by date range (paginated)
+ */
+export async function fetchExpenseAdjustmentsByDateRange(
+  payload: ExpenseAdjustmentDateRangeRequest,
+  page = 0,
+  size = 10
+): Promise<PagedResponse<ExpenseAdjustment>> {
+  if (isGuestUserId(payload.userId)) {
+    return guestStore.getAdjustmentsByDateRange(payload.startDate, payload.endDate, page, size)
+  }
+  const result = await request(`/expense-adjustment/range?page=${page}&size=${size}`, {
+    method: 'POST',
+    body: payload,
+  })
+  const response = result as any
+  return {
+    content: response.content ?? [],
+    totalElements: response.totalElements ?? 0,
+    totalPages: response.totalPages ?? 0,
+    page: response.pageable?.pageNumber ?? page,
+    size: response.pageable?.pageSize ?? size,
+  }
+}
+
+/**
+ * Get total adjustment amount for a specific expense
+ */
+export async function fetchTotalAdjustmentForExpense(expenseId: number | string): Promise<number> {
+  const result = await request(`/expense-adjustment/total/expense/${expenseId}`, { method: 'GET' })
+  return (result as TotalAdjustmentResponse)?.totalAdjustment ?? 0
+}
+
+/**
+ * Get total adjustments for a user in a specific month
+ */
+export async function fetchTotalAdjustmentForMonth(
+  userId: string,
+  year: number,
+  month: number
+): Promise<number> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getTotalAdjustmentForMonth(year, month)
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/expense-adjustment/total/month/${safeUserId}/${year}/${month}`, { method: 'GET' })
+  return (result as TotalAdjustmentResponse)?.totalAdjustment ?? 0
+}
+
+/**
+ * Get allowed page sizes for expense adjustments
+ */
+export async function fetchAdjustmentPageSizes(): Promise<number[]> {
+  const result = await request('/expense-adjustment/page-sizes', { method: 'GET' })
+  return (result as AllowedPageSizesResponse)?.allowedPageSizes ?? [10, 20, 50, 100]
+}
+
 export default {
   ensureUserExists,
   logoutUser,
@@ -1371,4 +1545,15 @@ export default {
   fetchAnalyticsSummaryByRange,
   fetchAnalyticsSummaryByMonth,
   fetchAnalyticsSummaryByYear,
+  // Expense Adjustment APIs
+  createExpenseAdjustment,
+  updateExpenseAdjustment,
+  deleteExpenseAdjustment,
+  fetchExpenseAdjustmentById,
+  fetchExpenseAdjustmentsByUser,
+  fetchExpenseAdjustmentsByExpense,
+  fetchExpenseAdjustmentsByDateRange,
+  fetchTotalAdjustmentForExpense,
+  fetchTotalAdjustmentForMonth,
+  fetchAdjustmentPageSizes,
 }

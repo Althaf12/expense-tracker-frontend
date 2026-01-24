@@ -1,0 +1,730 @@
+.pageContainer {
+  width: min(100%, 1200px);
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.pageHeader {
+  background: var(--surface-card);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--surface-card-border);
+  box-shadow: var(--surface-card-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.headerIcon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  background: var(--accent-primary-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.pageSubtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.monthlyTotal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+}
+
+.monthlyTotalLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.monthlyTotalValue {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #22c55e;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.addButton:hover:not(:disabled) {
+  background: var(--accent-primary-strong);
+  transform: translateY(-1px);
+}
+
+.addButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Filter Section */
+.filterSection {
+  background: var(--surface-card);
+  border-radius: 1rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--surface-card-border);
+  box-shadow: var(--surface-card-shadow);
+}
+
+.filterRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filterField label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dateInput {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  background: var(--input-background);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--input-focus-outline);
+}
+
+.filterActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filterButton,
+.clearFilterButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.filterButton {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+}
+
+.filterButton:hover:not(:disabled) {
+  background: var(--accent-primary-strong);
+}
+
+.clearFilterButton {
+  background: var(--surface-elevated);
+  color: var(--color-text-primary);
+  border: 1px solid var(--surface-card-border);
+}
+
+.clearFilterButton:hover:not(:disabled) {
+  background: var(--surface-table-hover);
+}
+
+/* Form Section */
+.formSection {
+  background: var(--surface-card);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--accent-primary);
+  box-shadow: var(--surface-card-shadow);
+}
+
+.formTitle {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.formGroupWide {
+  grid-column: 1 / -1;
+}
+
+.formGroup label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.formGroup input,
+.formGroup select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  background: var(--input-background);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease;
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--input-focus-outline);
+}
+
+.formGroup input:disabled,
+.formGroup select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inputError {
+  border-color: #ef4444 !important;
+}
+
+.errorText {
+  font-size: 0.75rem;
+  color: #ef4444;
+}
+
+.formActions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.submitButton,
+.cancelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.submitButton {
+  background: #22c55e;
+  color: white;
+  border: none;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  background: var(--surface-elevated);
+  color: var(--color-text-primary);
+  border: 1px solid var(--surface-card-border);
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--surface-table-hover);
+}
+
+/* Table Section */
+.tableContainer {
+  background: var(--surface-card);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--surface-card-border);
+  box-shadow: var(--surface-card-shadow);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--surface-table-inner-border);
+}
+
+.table th {
+  background: var(--surface-table-head);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.table th svg {
+  vertical-align: middle;
+  margin-right: 0.25rem;
+}
+
+.table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.table tbody tr:hover {
+  background: var(--surface-table-hover);
+}
+
+.expandedRow {
+  background: var(--accent-primary-soft) !important;
+}
+
+.expandCol {
+  width: 2.5rem;
+}
+
+.serialCol {
+  width: 2.5rem;
+  text-align: center;
+}
+
+.dateCol {
+  width: 7rem;
+}
+
+.typeCol {
+  width: 6rem;
+}
+
+.amountCol {
+  width: 7rem;
+  text-align: right;
+}
+
+.expenseCol {
+  min-width: 10rem;
+}
+
+.statusCol {
+  width: 6rem;
+}
+
+.reasonCol {
+  min-width: 8rem;
+  max-width: 12rem;
+}
+
+.actionsCol {
+  width: 5rem;
+  text-align: center;
+}
+
+.expandCell {
+  text-align: center;
+}
+
+.expandButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: var(--surface-elevated);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.expandButton:hover {
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+}
+
+.serialCell {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.dateCell {
+  font-weight: 500;
+  color: var(--color-text-strong);
+}
+
+.typeCell {
+  /* empty - using badge */
+}
+
+.typeBadge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.typeRefund {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.typeCashback {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.typeReversal {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+}
+
+.amountCell {
+  text-align: right;
+  font-family: 'Inter', monospace;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.expenseCell {
+  /* uses expenseInfo */
+}
+
+.expenseInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.expenseName {
+  font-weight: 500;
+  color: var(--color-text-strong);
+}
+
+.originalAmount {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.statusCell {
+  /* uses statusBadge */
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.statusCompleted {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.statusPending {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+
+.statusFailed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.statusCancelled {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+}
+
+.reasonCell {
+  /* uses reasonText */
+}
+
+.reasonText {
+  display: block;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.actionsCell {
+  text-align: center;
+}
+
+.actionButtons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.editButton,
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.editButton {
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+}
+
+.editButton:hover:not(:disabled) {
+  background: var(--accent-primary-soft-strong);
+}
+
+.editButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.deleteButton {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Detail Row */
+.detailRow {
+  background: var(--surface-elevated) !important;
+}
+
+.detailRow:hover {
+  background: var(--surface-elevated) !important;
+}
+
+.detailContent {
+  padding: 0.75rem 1rem;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.detailLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.detailValue {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-strong);
+}
+
+/* Empty State */
+.emptyRow {
+  text-align: center;
+  padding: 2rem 1rem !important;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  color: var(--color-text-muted);
+}
+
+.emptyState p {
+  margin: 0;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pageContainer {
+    padding: 0 0.5rem;
+    gap: 1rem;
+  }
+
+  .pageHeader {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .headerActions {
+    justify-content: space-between;
+  }
+
+  .filterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterField {
+    width: 100%;
+  }
+
+  .dateInput {
+    width: 100%;
+  }
+
+  .filterActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .filterActions button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tableContainer {
+    padding: 1rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .reasonCol {
+    display: none;
+  }
+
+  .reasonCell {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .expenseCol {
+    display: none;
+  }
+
+  .expenseCell {
+    display: none;
+  }
+}

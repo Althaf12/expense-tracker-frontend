@@ -5,7 +5,12 @@ import styles from './LoginRequired.module.css'
 
 const REDIRECT_DELAY_MS = 5000
 
-export default function LoginRequired(): ReactElement {
+type LoginRequiredProps = {
+  /** Optional feature name to display in the message */
+  feature?: string
+}
+
+export default function LoginRequired({ feature }: LoginRequiredProps): ReactElement {
   const [countdown, setCountdown] = useState(5)
   const loginUrl = getLoginUrl()
 
@@ -39,7 +44,9 @@ export default function LoginRequired(): ReactElement {
         </div>
         <h1 className={styles.title}>Authentication Required</h1>
         <p className={styles.message}>
-          You need to login first to access this site.
+          {feature
+            ? `You need to sign in to access ${feature}.`
+            : 'You need to login first to access this site.'}
         </p>
         <p className={styles.countdown}>
           Redirecting to login in <span className={styles.timer}>{countdown}</span> seconds...
