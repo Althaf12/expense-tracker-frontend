@@ -27,7 +27,7 @@
 }
 
 .emojiIcon {
-  font-size: 1.75rem;
+  font-size: 2.75rem;
   line-height: 1;
   flex-shrink: 0;
 }
@@ -555,7 +555,7 @@ td.actions > *:not(:last-child) {
   }
 
   .emojiIcon {
-    font-size: 1.5rem;
+    font-size: 2.5rem;
   }
 
   .title {
