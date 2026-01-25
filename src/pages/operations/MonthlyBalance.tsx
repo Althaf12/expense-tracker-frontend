@@ -4,7 +4,6 @@ import {
   Check,
   X,
   Calendar,
-  Wallet,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -192,9 +191,7 @@ export default function MonthlyBalance(): ReactElement {
     <div className={styles.pageContainer}>
       <header className={styles.pageHeader}>
         <div className={styles.headerContent}>
-          <div className={styles.headerIcon}>
-            <Wallet size={24} />
-          </div>
+          <span className={styles.headerEmoji}>⚖️</span>
           <div className={styles.headerText}>
             <h1 className={styles.pageTitle}>Monthly Balance</h1>
             <p className={styles.pageSubtitle}>
@@ -288,8 +285,10 @@ export default function MonthlyBalance(): ReactElement {
                         )}
                       </td>
                       <td className={`${styles.changeCell} ${getNetChangeClass(balance.openingBalance, balance.closingBalance)}`}>
-                        {getNetChangeIcon(balance.openingBalance, balance.closingBalance)}
-                        <span>{getNetChange(balance.openingBalance, balance.closingBalance)}</span>
+                        <span className={styles.changeCellContent}>
+                          {getNetChangeIcon(balance.openingBalance, balance.closingBalance)}
+                          {getNetChange(balance.openingBalance, balance.closingBalance)}
+                        </span>
                       </td>
                       <td className={styles.actionsCell}>
                         {isEditing ? (

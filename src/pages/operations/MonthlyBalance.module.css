@@ -21,6 +21,12 @@
   gap: 1rem;
 }
 
+.headerEmoji {
+  font-size: 2.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .headerIcon {
   width: 3rem;
   height: 3rem;
@@ -172,7 +178,11 @@
   text-align: right;
   font-family: 'Inter', monospace;
   font-weight: 600;
-  display: flex;
+  white-space: nowrap;
+}
+
+.changeCellContent {
+  display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem;

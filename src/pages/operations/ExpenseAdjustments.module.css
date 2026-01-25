@@ -26,6 +26,12 @@
   gap: 1rem;
 }
 
+.headerEmoji {
+  font-size: 2.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .headerIcon {
   width: 3rem;
   height: 3rem;
@@ -442,10 +448,6 @@
   color: var(--color-text-strong);
 }
 
-.typeCell {
-  /* empty - using badge */
-}
-
 .typeBadge {
   display: inline-block;
   padding: 0.2rem 0.5rem;
@@ -478,10 +480,6 @@
   color: #22c55e;
 }
 
-.expenseCell {
-  /* uses expenseInfo */
-}
-
 .expenseInfo {
   display: flex;
   flex-direction: column;
@@ -496,10 +494,6 @@
 .originalAmount {
   font-size: 0.75rem;
   color: var(--color-text-muted);
-}
-
-.statusCell {
-  /* uses statusBadge */
 }
 
 .statusBadge {
@@ -530,10 +524,6 @@
 .statusCancelled {
   background: rgba(107, 114, 128, 0.15);
   color: #6b7280;
-}
-
-.reasonCell {
-  /* uses reasonText */
 }
 
 .reasonText {

@@ -395,9 +395,7 @@ export default function ExpenseAdjustments(): ReactElement {
     <div className={styles.pageContainer}>
       <header className={styles.pageHeader}>
         <div className={styles.headerContent}>
-          <div className={styles.headerIcon}>
-            <RefreshCcw size={24} />
-          </div>
+          <span className={styles.headerEmoji}>🔄</span>
           <div className={styles.headerText}>
             <h1 className={styles.pageTitle}>Expense Adjustments</h1>
             <p className={styles.pageSubtitle}>
