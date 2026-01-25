@@ -1,6 +1,6 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -16,6 +16,7 @@ import {
   Loader2,
   Circle,
   ArrowRight,
+  ChevronDown,
 } from 'lucide-react'
 import { fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByMonth } from '../../api'
 import type { AnalyticsSummary } from '../../types/app'
@@ -536,6 +537,10 @@ export default function Analytics(): ReactElement {
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
   
+  // Time range dropdown state
+  const [timeRangeDropdownOpen, setTimeRangeDropdownOpen] = useState(false)
+  const timeRangeDropdownRef = useRef<HTMLDivElement>(null)
+  
   // Analytics summary data from new API
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [prevMonthSummary, setPrevMonthSummary] = useState<AnalyticsSummary | null>(null)
@@ -615,6 +620,18 @@ export default function Analytics(): ReactElement {
 
     void loadData()
   }, [session, timeRange, customStart, customEnd, setStatus, incomeMonth])
+
+  // Click outside to close time range dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (timeRangeDropdownRef.current && !timeRangeDropdownRef.current.contains(target)) {
+        setTimeRangeDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Process expense data by category from summary
   const expenseCategoryData = useMemo((): CategoryData[] => {
@@ -763,18 +780,46 @@ export default function Analytics(): ReactElement {
             {/* Time Range Selector */}
             <div className={styles.timeRangeSelector}>
               <Filter size={16} className={styles.filterIcon} />
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-                className={styles.timeSelect}
-              >
-                <option value="thisMonth">This Month</option>
-                <option value="lastMonth">Last Month</option>
-                <option value="last3Months">Last 3 Months</option>
-                <option value="last6Months">Last 6 Months</option>
-                <option value="thisYear">This Year</option>
-                <option value="custom">Custom Range</option>
-              </select>
+              <div ref={timeRangeDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className={styles.dropdownTrigger}
+                  onClick={() => setTimeRangeDropdownOpen((o) => !o)}
+                >
+                  <span>
+                    {timeRange === 'thisMonth' && 'This Month'}
+                    {timeRange === 'lastMonth' && 'Last Month'}
+                    {timeRange === 'last3Months' && 'Last 3 Months'}
+                    {timeRange === 'last6Months' && 'Last 6 Months'}
+                    {timeRange === 'thisYear' && 'This Year'}
+                    {timeRange === 'custom' && 'Custom Range'}
+                  </span>
+                  <ChevronDown size={16} />
+                </button>
+                {timeRangeDropdownOpen && (
+                  <ul className={styles.dropdownList}>
+                    {([
+                      { value: 'thisMonth', label: 'This Month' },
+                      { value: 'lastMonth', label: 'Last Month' },
+                      { value: 'last3Months', label: 'Last 3 Months' },
+                      { value: 'last6Months', label: 'Last 6 Months' },
+                      { value: 'thisYear', label: 'This Year' },
+                      { value: 'custom', label: 'Custom Range' },
+                    ] as const).map((opt) => (
+                      <li
+                        key={opt.value}
+                        className={`${styles.dropdownItem} ${timeRange === opt.value ? styles.dropdownItemActive : ''}`}
+                        onClick={() => {
+                          setTimeRange(opt.value)
+                          setTimeRangeDropdownOpen(false)
+                        }}
+                      >
+                        {opt.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               
               {timeRange === 'custom' && (
                 <div className={styles.customDateRange}>

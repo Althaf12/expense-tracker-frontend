@@ -9,7 +9,8 @@ import {
   Pencil, 
   Check, 
   X,
-  Download
+  Download,
+  ChevronDown
 } from 'lucide-react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
@@ -70,6 +71,20 @@ const deriveMonthYear = (isoDate: string): { monthName: string; monthNumber: num
 const ensureIncomeId = (income: Income): string =>
   String(income.incomeId ?? `${income.source ?? 'income'}-${income.receivedDate ?? ''}`)
 
+// Helper to compute default month and year based on income preference
+const getPreferredMonthYear = (preference: 'P' | 'C'): { month: number; year: number } => {
+  const now = new Date()
+  if (preference === 'P') {
+    // Previous month
+    const prevMonth = now.getMonth() // 0-indexed, so getMonth() gives previous month number (1-indexed)
+    const year = prevMonth === 0 ? now.getFullYear() - 1 : now.getFullYear()
+    const month = prevMonth === 0 ? 12 : prevMonth
+    return { month, year }
+  }
+  // Current month
+  return { month: now.getMonth() + 1, year: now.getFullYear() }
+}
+
 export default function IncomeOperations(): ReactElement {
   const {
     session,
@@ -77,14 +92,21 @@ export default function IncomeOperations(): ReactElement {
     incomesCache,
     reloadIncomesCache,
   } = useAppDataContext()
-  const { formatCurrency } = usePreferences()
-  const [viewMode, setViewMode] = useState<IncomeViewMode>('current-year')
+  const { formatCurrency, incomeMonth } = usePreferences()
+  
+  // Compute default month/year based on user preference
+  const { month: defaultMonth, year: defaultYear } = useMemo(
+    () => getPreferredMonthYear(incomeMonth),
+    [incomeMonth]
+  )
+
+  const [viewMode, setViewMode] = useState<IncomeViewMode>('month')
   const [results, setResults] = useState<Income[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [formState, setFormState] = useState<IncomeFormState>(initialForm)
   const [lastQuery, setLastQuery] = useState<{ mode: IncomeViewMode; payload?: Record<string, unknown> } | null>(null)
-  const [monthFilter, setMonthFilter] = useState<number>(new Date().getMonth() + 1)
-  const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear())
+  const [monthFilter, setMonthFilter] = useState<number>(defaultMonth)
+  const [yearFilter, setYearFilter] = useState<number>(defaultYear)
   const [rangeStart, setRangeStart] = useState<string>('')
   const [rangeEnd, setRangeEnd] = useState<string>('')
   const [editingRowId, setEditingRowId] = useState<string | null>(null)
@@ -105,15 +127,30 @@ export default function IncomeOperations(): ReactElement {
   const initialLoadRef = useRef<boolean>(false)
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
+  // Month dropdown state
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
+  const monthDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!session) return
     if (initialLoadRef.current) return
     initialLoadRef.current = true
-    // Avoid duplicate loads: only call paged load once on mount
-    void loadIncomes('current-year', undefined, 0, DEFAULT_PAGE_SIZE)
+    // Load income for the preferred month based on user preference
+    void loadIncomes('month', { month: defaultMonth, year: defaultYear }, 0, DEFAULT_PAGE_SIZE)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session])
+  }, [session, defaultMonth, defaultYear])
+
+  // Click outside to close month dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(target)) {
+        setMonthDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const sourceSuggestions = useMemo(() => {
     const query = formState.source.trim().toLowerCase()
@@ -459,7 +496,7 @@ export default function IncomeOperations(): ReactElement {
   return (
     <Grid container component="section" className={styles.page} spacing={3}>
       <Grid size={{ xs: 12, xl: 8 }}>
-        <section className={styles.card}>
+        <section className={`${styles.card} ${styles.cardWithDropdown}`}>
           <header className={styles.cardHeader}>
             <div className={styles.headerWithIcon}>
               <span className={styles.emojiIcon}>💰</span>
@@ -531,13 +568,32 @@ export default function IncomeOperations(): ReactElement {
               <div className={styles.monthInputs}>
                 <label>
                   <span>Month</span>
-                  <select value={monthFilter} onChange={(event) => setMonthFilter(Number(event.target.value))}>
-                    {MONTHS.map((monthName, index) => (
-                      <option key={monthName} value={index + 1}>
-                        {monthName}
-                      </option>
-                    ))}
-                  </select>
+                  <div ref={monthDropdownRef} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      className={styles.dropdownTrigger}
+                      onClick={() => setMonthDropdownOpen((o) => !o)}
+                    >
+                      <span>{MONTHS[monthFilter - 1]}</span>
+                      <ChevronDown size={16} />
+                    </button>
+                    {monthDropdownOpen && (
+                      <ul className={styles.dropdownList}>
+                        {MONTHS.map((monthName, index) => (
+                          <li
+                            key={monthName}
+                            className={`${styles.dropdownItem} ${monthFilter === index + 1 ? styles.dropdownItemActive : ''}`}
+                            onClick={() => {
+                              setMonthFilter(index + 1)
+                              setMonthDropdownOpen(false)
+                            }}
+                          >
+                            {monthName}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </label>
                 <label>
                   <span>Year</span>

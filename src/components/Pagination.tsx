@@ -1,5 +1,5 @@
-import { useMemo, type ReactElement } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import styles from './Pagination.module.css'
 
 type PaginationProps = {
@@ -27,11 +27,11 @@ export default function Pagination({
   showSizeSelector = true,
   loading = false,
 }: PaginationProps): ReactElement | null {
-  // Don't render if there's no data
-  if (totalElements === 0) {
-    return null
-  }
+  // Page size dropdown state
+  const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false)
+  const sizeDropdownRef = useRef<HTMLDivElement>(null)
 
+  // All hooks MUST be called before any early return
   const pageNumbers = useMemo(() => {
     const pages: (number | 'ellipsis')[] = []
     const maxVisible = 7
@@ -71,7 +71,26 @@ export default function Pagination({
     return pages
   }, [currentPage, totalPages])
 
-  const startItem = totalElements === 0 ? 0 : currentPage * pageSize + 1
+  // Click outside to close dropdown - must use useEffect
+  useEffect(() => {
+    if (!sizeDropdownOpen) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sizeDropdownRef.current && !sizeDropdownRef.current.contains(event.target as Node)) {
+        setSizeDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [sizeDropdownOpen])
+
+  // Don't render if there's no data - AFTER all hooks
+  if (totalElements === 0) {
+    return null
+  }
+
+  const startItem = currentPage * pageSize + 1
   const endItem = Math.min((currentPage + 1) * pageSize, totalElements)
 
   const handlePrevious = () => {
@@ -89,13 +108,6 @@ export default function Pagination({
   const handlePageClick = (page: number) => {
     if (page !== currentPage && !loading) {
       onPageChange(page)
-    }
-  }
-
-  const handleSizeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSize = Number(event.target.value)
-    if (onPageSizeChange) {
-      onPageSizeChange(newSize)
     }
   }
 
@@ -149,18 +161,35 @@ export default function Pagination({
       {showSizeSelector && onPageSizeChange && (
         <div className={styles.sizeSelector}>
           <label htmlFor="page-size">Per page:</label>
-          <select
-            id="page-size"
-            value={pageSize}
-            onChange={handleSizeChange}
-            disabled={loading}
-          >
-            {pageSizeOptions.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
+          <div ref={sizeDropdownRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={styles.dropdownTrigger}
+              onClick={() => !loading && setSizeDropdownOpen((o) => !o)}
+              disabled={loading}
+            >
+              <span>{pageSize}</span>
+              <ChevronDown size={14} />
+            </button>
+            {sizeDropdownOpen && (
+              <ul className={styles.dropdownList}>
+                {pageSizeOptions.map((size) => (
+                  <li
+                    key={size}
+                    className={`${styles.dropdownItem} ${pageSize === size ? styles.dropdownItemActive : ''}`}
+                    onClick={() => {
+                      if (onPageSizeChange) {
+                        onPageSizeChange(size)
+                      }
+                      setSizeDropdownOpen(false)
+                    }}
+                  >
+                    {size}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
     </nav>

@@ -8,6 +8,7 @@ import {
   Tag,
   Wallet,
   ChevronRight,
+  ChevronDown,
   Plus,
   Pencil,
   Trash2,
@@ -144,6 +145,16 @@ export default function Profile({ session }: ProfileProps): ReactElement {
   const [editingCategoryDropdownOpen, setEditingCategoryDropdownOpen] = useState(false)
   const [editingCategoryInput, setEditingCategoryInput] = useState('')
   const editingCategoryFieldRef = useRef<HTMLDivElement | null>(null)
+
+  // Status dropdown states for categories and expenses
+  const [addCategoryStatusDropdownOpen, setAddCategoryStatusDropdownOpen] = useState(false)
+  const addCategoryStatusFieldRef = useRef<HTMLDivElement | null>(null)
+  const [editCategoryStatusDropdownOpen, setEditCategoryStatusDropdownOpen] = useState(false)
+  const editCategoryStatusFieldRef = useRef<HTMLDivElement | null>(null)
+  const [addExpenseStatusDropdownOpen, setAddExpenseStatusDropdownOpen] = useState(false)
+  const addExpenseStatusFieldRef = useRef<HTMLDivElement | null>(null)
+  const [editExpenseStatusDropdownOpen, setEditExpenseStatusDropdownOpen] = useState(false)
+  const editExpenseStatusFieldRef = useRef<HTMLDivElement | null>(null)
 
   const canManageCategories = Boolean(userId)
   const canManageExpenses = Boolean(userId)
@@ -333,10 +344,23 @@ export default function Profile({ session }: ProfileProps): ReactElement {
       if (editingCategoryDropdownOpen && editingCategoryFieldRef.current && !editingCategoryFieldRef.current.contains(e.target as Node)) {
         setEditingCategoryDropdownOpen(false)
       }
+      // Close status dropdowns
+      if (addCategoryStatusDropdownOpen && addCategoryStatusFieldRef.current && !addCategoryStatusFieldRef.current.contains(e.target as Node)) {
+        setAddCategoryStatusDropdownOpen(false)
+      }
+      if (editCategoryStatusDropdownOpen && editCategoryStatusFieldRef.current && !editCategoryStatusFieldRef.current.contains(e.target as Node)) {
+        setEditCategoryStatusDropdownOpen(false)
+      }
+      if (addExpenseStatusDropdownOpen && addExpenseStatusFieldRef.current && !addExpenseStatusFieldRef.current.contains(e.target as Node)) {
+        setAddExpenseStatusDropdownOpen(false)
+      }
+      if (editExpenseStatusDropdownOpen && editExpenseStatusFieldRef.current && !editExpenseStatusFieldRef.current.contains(e.target as Node)) {
+        setEditExpenseStatusDropdownOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
-  }, [addCategoryDropdownOpen, editingCategoryDropdownOpen])
+  }, [addCategoryDropdownOpen, editingCategoryDropdownOpen, addCategoryStatusDropdownOpen, editCategoryStatusDropdownOpen, addExpenseStatusDropdownOpen, editExpenseStatusDropdownOpen])
 
   useEffect(() => {
     if (addingExpense) {
@@ -768,14 +792,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                   value={categoryAddDraft.name}
                   onChange={(e) => setCategoryAddDraft({ ...categoryAddDraft, name: e.target.value })}
                 />
-                <select
-                  className={styles.select}
-                  value={categoryAddDraft.status}
-                  onChange={(e) => setCategoryAddDraft({ ...categoryAddDraft, status: e.target.value as 'A' | 'I' })}
-                >
-                  <option value="A">Active</option>
-                  <option value="I">Inactive</option>
-                </select>
+                <div className={styles.inlineDropdownField} ref={addCategoryStatusFieldRef}>
+                  <button
+                    type="button"
+                    className={styles.dropdownTrigger}
+                    onClick={() => setAddCategoryStatusDropdownOpen(!addCategoryStatusDropdownOpen)}
+                  >
+                    <span>{categoryAddDraft.status === 'A' ? 'Active' : 'Inactive'}</span>
+                    <ChevronDown size={14} />
+                  </button>
+                  {addCategoryStatusDropdownOpen && (
+                    <ul className={styles.dropdownList} role="listbox">
+                      {[{ value: 'A', label: 'Active' }, { value: 'I', label: 'Inactive' }].map((option) => (
+                        <li
+                          key={option.value}
+                          className={`${styles.dropdownItem} ${categoryAddDraft.status === option.value ? styles.dropdownItemActive : ''}`}
+                          onMouseDown={(ev) => {
+                            ev.preventDefault()
+                            setCategoryAddDraft({ ...categoryAddDraft, status: option.value as 'A' | 'I' })
+                            setAddCategoryStatusDropdownOpen(false)
+                          }}
+                        >
+                          {option.label}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 <div className={styles.formActions}>
                   <button type="button" className={styles.saveButton} onClick={handleAddCategory} disabled={categoryActionInFlight}>
                     <Check size={16} />
@@ -805,14 +848,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                           value={categoryDraft?.name ?? ''}
                           onChange={(e) => setCategoryDraft({ ...categoryDraft!, name: e.target.value })}
                         />
-                        <select
-                          className={styles.select}
-                          value={categoryDraft?.status ?? 'A'}
-                          onChange={(e) => setCategoryDraft({ ...categoryDraft!, status: e.target.value as 'A' | 'I' })}
-                        >
-                          <option value="A">Active</option>
-                          <option value="I">Inactive</option>
-                        </select>
+                        <div className={styles.inlineDropdownField} ref={editCategoryStatusFieldRef}>
+                          <button
+                            type="button"
+                            className={styles.dropdownTrigger}
+                            onClick={() => setEditCategoryStatusDropdownOpen(!editCategoryStatusDropdownOpen)}
+                          >
+                            <span>{(categoryDraft?.status ?? 'A') === 'A' ? 'Active' : 'Inactive'}</span>
+                            <ChevronDown size={14} />
+                          </button>
+                          {editCategoryStatusDropdownOpen && (
+                            <ul className={styles.dropdownList} role="listbox">
+                              {[{ value: 'A', label: 'Active' }, { value: 'I', label: 'Inactive' }].map((option) => (
+                                <li
+                                  key={option.value}
+                                  className={`${styles.dropdownItem} ${(categoryDraft?.status ?? 'A') === option.value ? styles.dropdownItemActive : ''}`}
+                                  onMouseDown={(ev) => {
+                                    ev.preventDefault()
+                                    setCategoryDraft({ ...categoryDraft!, status: option.value as 'A' | 'I' })
+                                    setEditCategoryStatusDropdownOpen(false)
+                                  }}
+                                >
+                                  {option.label}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                         <div className={styles.itemActions}>
                           <button type="button" className={styles.saveButton} onClick={() => handleUpdateCategory(category)} disabled={categoryActionInFlight}>
                             <Check size={16} />
@@ -947,14 +1009,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                   value={expenseAddDraft.amount}
                   onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, amount: e.target.value })}
                 />
-                <select
-                  className={styles.select}
-                  value={expenseAddDraft.status}
-                  onChange={(e) => setExpenseAddDraft({ ...expenseAddDraft, status: e.target.value as 'A' | 'I' })}
-                >
-                  <option value="A">Active</option>
-                  <option value="I">Inactive</option>
-                </select>
+                <div className={styles.inlineDropdownField} ref={addExpenseStatusFieldRef}>
+                  <button
+                    type="button"
+                    className={styles.dropdownTrigger}
+                    onClick={() => setAddExpenseStatusDropdownOpen(!addExpenseStatusDropdownOpen)}
+                  >
+                    <span>{expenseAddDraft.status === 'A' ? 'Active' : 'Inactive'}</span>
+                    <ChevronDown size={14} />
+                  </button>
+                  {addExpenseStatusDropdownOpen && (
+                    <ul className={styles.dropdownList} role="listbox">
+                      {[{ value: 'A', label: 'Active' }, { value: 'I', label: 'Inactive' }].map((option) => (
+                        <li
+                          key={option.value}
+                          className={`${styles.dropdownItem} ${expenseAddDraft.status === option.value ? styles.dropdownItemActive : ''}`}
+                          onMouseDown={(ev) => {
+                            ev.preventDefault()
+                            setExpenseAddDraft({ ...expenseAddDraft, status: option.value as 'A' | 'I' })
+                            setAddExpenseStatusDropdownOpen(false)
+                          }}
+                        >
+                          {option.label}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 <div className={styles.formActions}>
                   <button type="button" className={styles.saveButton} onClick={handleAddExpense} disabled={expenseActionInFlight}>
                     <Check size={16} />
@@ -1027,14 +1108,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                           value={expenseDraft?.amount ?? ''}
                           onChange={(e) => setExpenseDraft({ ...expenseDraft!, amount: e.target.value })}
                         />
-                        <select
-                          className={styles.select}
-                          value={expenseDraft?.status ?? 'A'}
-                          onChange={(e) => setExpenseDraft({ ...expenseDraft!, status: e.target.value as 'A' | 'I' })}
-                        >
-                          <option value="A">Active</option>
-                          <option value="I">Inactive</option>
-                        </select>
+                        <div className={styles.inlineDropdownField} ref={editExpenseStatusFieldRef}>
+                          <button
+                            type="button"
+                            className={styles.dropdownTrigger}
+                            onClick={() => setEditExpenseStatusDropdownOpen(!editExpenseStatusDropdownOpen)}
+                          >
+                            <span>{(expenseDraft?.status ?? 'A') === 'A' ? 'Active' : 'Inactive'}</span>
+                            <ChevronDown size={14} />
+                          </button>
+                          {editExpenseStatusDropdownOpen && (
+                            <ul className={styles.dropdownList} role="listbox">
+                              {[{ value: 'A', label: 'Active' }, { value: 'I', label: 'Inactive' }].map((option) => (
+                                <li
+                                  key={option.value}
+                                  className={`${styles.dropdownItem} ${(expenseDraft?.status ?? 'A') === option.value ? styles.dropdownItemActive : ''}`}
+                                  onMouseDown={(ev) => {
+                                    ev.preventDefault()
+                                    setExpenseDraft({ ...expenseDraft!, status: option.value as 'A' | 'I' })
+                                    setEditExpenseStatusDropdownOpen(false)
+                                  }}
+                                >
+                                  {option.label}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                         <div className={styles.itemActions}>
                           <button type="button" className={styles.saveButton} onClick={() => handleUpdateExpense(expense)} disabled={expenseActionInFlight}>
                             <Check size={16} />

@@ -311,7 +311,6 @@ input[type="number"] {
 .box {
   box-sizing: border-box;
   max-width: 100%;
-  overflow: hidden;
   word-break: break-word;
   hyphens: auto;
 }
@@ -361,4 +360,22 @@ input[type="number"] {
     margin: 0;
     border-radius: 10px;
   }
+}
+
+/* Global select option styling for native dropdowns */
+select option {
+  background: var(--dropdown-background);
+  color: var(--color-text-primary);
+  padding: 0.5rem;
+}
+
+/* Improve dark mode native select option appearance */
+html[data-theme='dark'] select option {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+html[data-theme='light'] select option {
+  background: #ffffff;
+  color: #0f172a;
 }

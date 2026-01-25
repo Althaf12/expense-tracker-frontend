@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type FormEvent } from 'react'
 import {
   RefreshCcw,
   Plus,
@@ -154,6 +154,12 @@ export default function ExpenseAdjustments(): ReactElement {
   // Monthly totals
   const [monthlyTotal, setMonthlyTotal] = useState<number>(0)
 
+  // Custom dropdown state
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const typeDropdownRef = useRef<HTMLDivElement>(null)
+  const statusDropdownRef = useRef<HTMLDivElement>(null)
+
   const userId = session?.userId ?? ''
   const isGuest = guestStore.isGuestUser(userId)
 
@@ -204,6 +210,21 @@ export default function ExpenseAdjustments(): ReactElement {
     void loadAdjustments(0, pageSize)
     void loadMonthlyTotal()
   }, [loadAdjustments, loadMonthlyTotal, pageSize])
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(target)) {
+        setTypeDropdownOpen(false)
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(target)) {
+        setStatusDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handlePageChange = (page: number) => {
     void loadAdjustments(page, pageSize)
@@ -495,16 +516,33 @@ export default function ExpenseAdjustments(): ReactElement {
 
               <div className={styles.formGroup}>
                 <label htmlFor="adjustmentType">Type *</label>
-                <select
-                  id="adjustmentType"
-                  value={formData.adjustmentType}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, adjustmentType: e.target.value as AdjustmentType }))}
-                  disabled={actionInFlight}
-                >
-                  {ADJUSTMENT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                <div ref={typeDropdownRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    className={styles.dropdownTrigger}
+                    onClick={() => !actionInFlight && setTypeDropdownOpen((o) => !o)}
+                    disabled={actionInFlight}
+                  >
+                    <span>{ADJUSTMENT_TYPES.find((t) => t.value === formData.adjustmentType)?.label ?? 'Select type'}</span>
+                    <ChevronDown size={16} />
+                  </button>
+                  {typeDropdownOpen && (
+                    <ul className={styles.dropdownList}>
+                      {ADJUSTMENT_TYPES.map((t) => (
+                        <li
+                          key={t.value}
+                          className={`${styles.dropdownItem} ${formData.adjustmentType === t.value ? styles.dropdownItemActive : ''}`}
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, adjustmentType: t.value }))
+                            setTypeDropdownOpen(false)
+                          }}
+                        >
+                          {t.label}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               <div className={styles.formGroup}>
@@ -542,16 +580,33 @@ export default function ExpenseAdjustments(): ReactElement {
 
               <div className={styles.formGroup}>
                 <label htmlFor="status">Status</label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as AdjustmentStatus }))}
-                  disabled={actionInFlight}
-                >
-                  {ADJUSTMENT_STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
+                <div ref={statusDropdownRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    className={styles.dropdownTrigger}
+                    onClick={() => !actionInFlight && setStatusDropdownOpen((o) => !o)}
+                    disabled={actionInFlight}
+                  >
+                    <span>{ADJUSTMENT_STATUSES.find((s) => s.value === formData.status)?.label ?? 'Select status'}</span>
+                    <ChevronDown size={16} />
+                  </button>
+                  {statusDropdownOpen && (
+                    <ul className={styles.dropdownList}>
+                      {ADJUSTMENT_STATUSES.map((s) => (
+                        <li
+                          key={s.value}
+                          className={`${styles.dropdownItem} ${formData.status === s.value ? styles.dropdownItemActive : ''}`}
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, status: s.value }))
+                            setStatusDropdownOpen(false)
+                          }}
+                        >
+                          {s.label}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               <div className={`${styles.formGroup} ${styles.formGroupWide}`}>

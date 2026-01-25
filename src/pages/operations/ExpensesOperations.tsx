@@ -185,6 +185,11 @@ export default function ExpensesOperations(): ReactElement {
     adjustmentReason: string
   }>({ adjustmentType: 'REFUND', adjustmentAmount: '', adjustmentReason: '' })
   const [savingAdjustment, setSavingAdjustment] = useState(false)
+  const [adjustmentTypeDropdownOpen, setAdjustmentTypeDropdownOpen] = useState(false)
+  const adjustmentTypeFieldRef = useRef<HTMLDivElement | null>(null)
+  // Month dropdown state for view mode
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
+  const monthDropdownRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!session) return
@@ -387,6 +392,38 @@ export default function ExpensesOperations(): ReactElement {
       document.removeEventListener('mousedown', handleClickAway)
     }
   }, [inlineCategoryDropdownOpen])
+
+  // Close adjustment type dropdown when clicking outside
+  useEffect(() => {
+    if (!adjustmentTypeDropdownOpen) return
+
+    const handleClickAway = (event: MouseEvent) => {
+      if (adjustmentTypeFieldRef.current && !adjustmentTypeFieldRef.current.contains(event.target as Node)) {
+        setAdjustmentTypeDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickAway)
+    return () => {
+      document.removeEventListener('mousedown', handleClickAway)
+    }
+  }, [adjustmentTypeDropdownOpen])
+
+  // Close month dropdown when clicking outside
+  useEffect(() => {
+    if (!monthDropdownOpen) return
+
+    const handleClickAway = (event: MouseEvent) => {
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(event.target as Node)) {
+        setMonthDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickAway)
+    return () => {
+      document.removeEventListener('mousedown', handleClickAway)
+    }
+  }, [monthDropdownOpen])
 
   const beginInlineAdd = () => {
     setAddingInline(true)
@@ -1024,13 +1061,32 @@ export default function ExpensesOperations(): ReactElement {
               <div className={styles.monthInputs}>
                 <label className={styles.inlineField}>
                   <span>Month</span>
-                  <select value={selectedMonth} onChange={(event) => setSelectedMonth(Number(event.target.value))}>
-                    {MONTHS.map((label, index) => (
-                      <option key={label} value={index + 1}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                  <div ref={monthDropdownRef} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      className={styles.dropdownTrigger}
+                      onClick={() => setMonthDropdownOpen((o) => !o)}
+                    >
+                      <span>{MONTHS[selectedMonth - 1]}</span>
+                      <ChevronDown size={16} />
+                    </button>
+                    {monthDropdownOpen && (
+                      <ul className={styles.dropdownList}>
+                        {MONTHS.map((label, index) => (
+                          <li
+                            key={label}
+                            className={`${styles.dropdownItem} ${selectedMonth === index + 1 ? styles.dropdownItemActive : ''}`}
+                            onClick={() => {
+                              setSelectedMonth(index + 1)
+                              setMonthDropdownOpen(false)
+                            }}
+                          >
+                            {label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </label>
                 <label className={styles.inlineField}>
                   <span>Year</span>
@@ -1395,18 +1451,41 @@ export default function ExpensesOperations(): ReactElement {
                                   <span>Add Refund/Cashback for "{expense.expenseName ?? expense.description}"</span>
                                 </div>
                                 <div className={styles.adjustmentFormFields}>
-                                  <label className={styles.adjustmentFormField}>
+                                  <div className={styles.adjustmentFormField}>
                                     <span>Type</span>
-                                    <select
-                                      value={adjustmentFormData.adjustmentType}
-                                      onChange={(e) => setAdjustmentFormData(prev => ({ ...prev, adjustmentType: e.target.value as AdjustmentType }))}
-                                      disabled={savingAdjustment}
-                                    >
-                                      <option value="REFUND">Refund</option>
-                                      <option value="CASHBACK">Cashback</option>
-                                      <option value="REVERSAL">Reversal</option>
-                                    </select>
-                                  </label>
+                                    <div className={styles.inlineDropdownField} ref={adjustmentTypeFieldRef}>
+                                      <button
+                                        type="button"
+                                        className={styles.dropdownTrigger}
+                                        onClick={() => setAdjustmentTypeDropdownOpen(!adjustmentTypeDropdownOpen)}
+                                        disabled={savingAdjustment}
+                                      >
+                                        <span>{adjustmentFormData.adjustmentType === 'REFUND' ? 'Refund' : adjustmentFormData.adjustmentType === 'CASHBACK' ? 'Cashback' : 'Reversal'}</span>
+                                        <ChevronDown size={14} />
+                                      </button>
+                                      {adjustmentTypeDropdownOpen && (
+                                        <ul className={styles.dropdownList} role="listbox">
+                                          {[
+                                            { value: 'REFUND', label: 'Refund' },
+                                            { value: 'CASHBACK', label: 'Cashback' },
+                                            { value: 'REVERSAL', label: 'Reversal' },
+                                          ].map((option) => (
+                                            <li
+                                              key={option.value}
+                                              className={`${styles.dropdownItem} ${adjustmentFormData.adjustmentType === option.value ? styles.dropdownItemActive : ''}`}
+                                              onMouseDown={(ev) => {
+                                                ev.preventDefault()
+                                                setAdjustmentFormData(prev => ({ ...prev, adjustmentType: option.value as AdjustmentType }))
+                                                setAdjustmentTypeDropdownOpen(false)
+                                              }}
+                                            >
+                                              {option.label}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  </div>
                                   <label className={styles.adjustmentFormField}>
                                     <span>Amount</span>
                                     <input
