@@ -895,6 +895,11 @@ td.actions > *:not(:last-child) {
 }
 
 /* Inline adjustment form row */
+.adjustmentFormRow {
+  position: relative;
+  z-index: 10;
+}
+
 .adjustmentFormRow td {
   padding: 0 !important;
   background: var(--accent-primary-soft);
@@ -1026,4 +1031,45 @@ td.actions > *:not(:last-child) {
 :global([data-theme="dark"]) .adjustmentFormField select option {
   background-color: #1e293b !important;
   color: #e2e8f0 !important;
+}
+
+/* Mobile: ensure adjustment form dropdown is visible above table */
+@media (max-width: 768px) {
+  .adjustmentFormRow {
+    position: relative;
+    z-index: 100;
+  }
+
+  .adjustmentFormRow .inlineDropdownField .dropdownList {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    top: auto;
+    bottom: auto;
+    width: auto;
+    max-width: calc(100vw - 2rem);
+    z-index: 99999;
+  }
+
+  .adjustmentFormFields {
+    flex-direction: column;
+  }
+
+  .adjustmentFormField {
+    min-width: 100%;
+  }
+
+  .inlineAdjustmentForm {
+    padding: 0.75rem;
+  }
+
+  .adjustmentFormActions {
+    flex-wrap: wrap;
+  }
+
+  .adjustmentFormSave,
+  .adjustmentFormCancel {
+    flex: 1;
+    min-width: 80px;
+  }
 }
