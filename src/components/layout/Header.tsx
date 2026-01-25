@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { User, LogOut, LogIn, Menu } from 'lucide-react'
 import type { SessionData } from '../../types/app'
 import { useTheme } from '../../context/ThemeContext'
+import { usePreferences } from '../../context/PreferencesContext'
 import ThemeToggle from './ThemeToggle'
+import InfoToggle, { type InfoMode } from './InfoToggle'
 import styles from './Header.module.css'
 
 type HeaderProps = {
@@ -26,6 +28,11 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
+  const { showHideInfo, setShowHideInfo } = usePreferences()
+
+  const handleInfoToggle = (mode: InfoMode) => {
+    setShowHideInfo(mode === 'show' ? 'S' : 'H')
+  }
 
   useEffect(() => {
     const handleClickAway = (event: MouseEvent) => {
@@ -85,6 +92,11 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
       </div>
 
       <nav className={styles.actions}>
+        <InfoToggle 
+          mode={showHideInfo === 'H' ? 'hide' : 'show'} 
+          onToggle={handleInfoToggle} 
+          className={styles.headerInfoToggle} 
+        />
         <ThemeToggle theme={theme} onToggle={setTheme} className={styles.headerThemeToggle} />
         {isGuest && (
           <button type="button" className={styles.signInButton} onClick={handleLogin}>

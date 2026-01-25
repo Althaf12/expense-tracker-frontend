@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -652,6 +652,7 @@ export async function updateUserPreferences(payload: {
   currencyCode?: CurrencyCode
   theme?: ThemeCode
   incomeMonth?: IncomeMonth
+  showHideInfo?: ShowHideInfo
 }): Promise<void> {
   if (isGuestUserId(payload.userId)) {
     guestStore.updatePreferences({
@@ -659,6 +660,7 @@ export async function updateUserPreferences(payload: {
       currencyCode: payload.currencyCode,
       theme: payload.theme,
       incomeMonth: payload.incomeMonth,
+      showHideInfo: payload.showHideInfo,
     })
     return
   }
@@ -667,6 +669,7 @@ export async function updateUserPreferences(payload: {
   if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode
   if (payload.theme !== undefined) body.theme = payload.theme
   if (payload.incomeMonth !== undefined) body.incomeMonth = payload.incomeMonth
+  if (payload.showHideInfo !== undefined) body.showHideInfo = payload.showHideInfo
   await request('/user/preferences', { method: 'POST', body })
 }
 

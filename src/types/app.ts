@@ -70,6 +70,7 @@ export type FontSize = 'S' | 'M' | 'L'
 export type ThemeCode = 'L' | 'D'
 export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'SGD' | 'AED' | 'JPY' | 'CNY'
 export type IncomeMonth = 'P' | 'C'
+export type ShowHideInfo = 'S' | 'H'
 
 export type UserPreferences = {
   userPreferencesId?: number
@@ -78,12 +79,18 @@ export type UserPreferences = {
   currencyCode: CurrencyCode
   theme: ThemeCode
   incomeMonth: IncomeMonth
+  showHideInfo: ShowHideInfo
   lastUpdateTmstp?: string
 }
 
 export const INCOME_MONTH_OPTIONS: { code: IncomeMonth; label: string; description: string }[] = [
   { code: 'P', label: 'Previous Month', description: 'Use last month\'s income (recommended for salary)' },
   { code: 'C', label: 'Current Month', description: 'Use this month\'s income' },
+]
+
+export const SHOW_HIDE_INFO_OPTIONS: { code: ShowHideInfo; label: string; description: string }[] = [
+  { code: 'S', label: 'Show', description: 'Show all amounts normally' },
+  { code: 'H', label: 'Hide', description: 'Hide amounts with XXX...' },
 ]
 
 export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {

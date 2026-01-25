@@ -48,6 +48,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   currencyCode: 'INR',
   theme: 'L',
   incomeMonth: 'P',
+  showHideInfo: 'S',
 }
 
 // Generate sample expenses for current month

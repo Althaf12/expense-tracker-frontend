@@ -21,12 +21,14 @@ import {
   CalendarArrowUp,
   CalendarArrowDown,
   Info,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import { useTheme } from '../../context/ThemeContext'
-import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyCode, IncomeMonth } from '../../types/app'
-import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS, INCOME_MONTH_OPTIONS } from '../../types/app'
+import type { SessionData, UserExpenseCategory, UserExpense, FontSize, CurrencyCode, IncomeMonth, ShowHideInfo } from '../../types/app'
+import { CURRENCY_OPTIONS, FONT_SIZE_OPTIONS, INCOME_MONTH_OPTIONS, SHOW_HIDE_INFO_OPTIONS } from '../../types/app'
 import {
   copyUserExpenseCategoriesFromMaster,
   copyUserExpensesFromMaster,
@@ -105,9 +107,11 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     fontSize,
     currencyCode,
     incomeMonth,
+    showHideInfo,
     setFontSize,
     setCurrencyCode,
     setIncomeMonth,
+    setShowHideInfo,
     formatCurrency,
   } = usePreferences()
 
@@ -736,6 +740,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
               <Info size={14} />
               <span>
                 Choose previous income if you receive salary. Otherwise, if you want to track income from your current month, choose current income option. Monthly Balance sheet will be updated accordingly.
+              </span>
+            </div>
+          </div>
+
+          {/* Show/Hide Amount Info */}
+          <div className={`${styles.settingCard} ${styles.showHideInfoCard}`}>
+            <div className={styles.settingHeader}>
+              {showHideInfo === 'S' ? <Eye size={20} /> : <EyeOff size={20} />}
+              <span>Amount Visibility</span>
+            </div>
+            <div className={styles.showHideInfoToggle}>
+              {SHOW_HIDE_INFO_OPTIONS.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  className={`${styles.showHideInfoButton} ${showHideInfo === option.code ? styles.active : ''}`}
+                  onClick={() => setShowHideInfo(option.code)}
+                >
+                  {option.code === 'S' ? <Eye size={16} /> : <EyeOff size={16} />}
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className={styles.showHideInfoInfo}>
+              <Info size={14} />
+              <span>
+                When set to "Hide", all monetary amounts (income, expenses, adjustments) will be masked with XXX... for privacy. Use the toggle in the header to quickly switch between modes.
               </span>
             </div>
           </div>

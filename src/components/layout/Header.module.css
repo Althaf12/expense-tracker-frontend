@@ -207,6 +207,10 @@
   display: inline-flex;
 }
 
+.headerInfoToggle {
+  display: inline-flex;
+}
+
 .signInButton {
   display: inline-flex;
   align-items: center;

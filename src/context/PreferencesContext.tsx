@@ -8,7 +8,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
 } from 'react'
-import type { FontSize, CurrencyCode, IncomeMonth, UserPreferences } from '../types/app'
+import type { FontSize, CurrencyCode, IncomeMonth, ShowHideInfo, UserPreferences } from '../types/app'
 import { CURRENCY_SYMBOLS } from '../types/app'
 import { fetchUserPreferences, updateUserPreferences } from '../api'
 import { useTheme, type Theme } from './ThemeContext'
@@ -22,12 +22,15 @@ type PreferencesContextValue = {
   currencyCode: CurrencyCode
   currencySymbol: string
   incomeMonth: IncomeMonth
+  showHideInfo: ShowHideInfo
   loading: boolean
   setFontSize: (size: FontSize) => Promise<void>
   setCurrencyCode: (code: CurrencyCode) => Promise<void>
   setIncomeMonth: (pref: IncomeMonth) => Promise<void>
+  setShowHideInfo: (pref: ShowHideInfo) => Promise<void>
   loadPreferences: (username: string) => Promise<void>
   formatCurrency: (amount: number) => string
+  maskAmount: (formattedAmount: string) => string
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | undefined>(undefined)
@@ -96,6 +99,11 @@ export function PreferencesProvider({
     return (stored?.incomeMonth as IncomeMonth) || 'P'
   })
 
+  const [showHideInfo, setShowHideInfoState] = useState<ShowHideInfo>(() => {
+    const stored = getStoredPreferences(isGuest)
+    return (stored?.showHideInfo as ShowHideInfo) || 'S'
+  })
+
   const [loading, setLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(userId || null)
 
@@ -110,6 +118,7 @@ export function PreferencesProvider({
         setFontSizeState(prefs.fontSize || 'S')
         setCurrencyCodeState(prefs.currencyCode || 'INR')
         setIncomeMonthState(prefs.incomeMonth || 'P')
+        setShowHideInfoState(prefs.showHideInfo || 'S')
         applyFontSize(prefs.fontSize || 'S')
         // Sync theme with ThemeContext
         if (prefs.theme) {
@@ -121,6 +130,7 @@ export function PreferencesProvider({
           currencyCode: prefs.currencyCode,
           theme: prefs.theme,
           incomeMonth: prefs.incomeMonth,
+          showHideInfo: prefs.showHideInfo,
           userId: user,
         }, userIsGuest)
       }
@@ -187,6 +197,22 @@ export function PreferencesProvider({
     [currentUserId]
   )
 
+  const setShowHideInfo = useCallback(
+    async (pref: ShowHideInfo) => {
+      const userIsGuest = guestStore.isGuestUser(currentUserId)
+      setShowHideInfoState(pref)
+      storePreferences({ showHideInfo: pref }, userIsGuest)
+      if (currentUserId) {
+        try {
+          await updateUserPreferences({ userId: currentUserId, showHideInfo: pref })
+        } catch {
+          /* ignore API errors */
+        }
+      }
+    },
+    [currentUserId]
+  )
+
   const currencySymbol = useMemo(() => CURRENCY_SYMBOLS[currencyCode], [currencyCode])
 
   const numberFormatter = useMemo(() => {
@@ -203,13 +229,31 @@ export function PreferencesProvider({
         return '-'
       }
       const symbol = CURRENCY_SYMBOLS[currencyCode] ?? currencyCode
+      let formatted: string
       try {
-        return `${symbol}${numberFormatter.format(amount)}`
+        formatted = `${symbol}${numberFormatter.format(amount)}`
       } catch {
-        return `${symbol}${amount.toFixed(2)}`
+        formatted = `${symbol}${amount.toFixed(2)}`
       }
+      // Auto-mask when showHideInfo is 'H'
+      if (showHideInfo === 'H') {
+        return formatted.replace(/\d/g, 'X')
+      }
+      return formatted
     },
-    [currencyCode, numberFormatter]
+    [currencyCode, numberFormatter, showHideInfo]
+  )
+
+  // Mask digits in a formatted amount string with 'X' when showHideInfo is 'H'
+  const maskAmount = useCallback(
+    (formattedAmount: string): string => {
+      if (showHideInfo === 'S') {
+        return formattedAmount
+      }
+      // Replace all digits with 'X'
+      return formattedAmount.replace(/\d/g, 'X')
+    },
+    [showHideInfo]
   )
 
   const value = useMemo(
@@ -218,14 +262,17 @@ export function PreferencesProvider({
       currencyCode,
       currencySymbol,
       incomeMonth,
+      showHideInfo,
       loading,
       setFontSize,
       setCurrencyCode,
       setIncomeMonth,
+      setShowHideInfo,
       loadPreferences,
       formatCurrency,
+      maskAmount,
     }),
-    [fontSize, currencyCode, currencySymbol, incomeMonth, loading, setFontSize, setCurrencyCode, setIncomeMonth, loadPreferences, formatCurrency]
+    [fontSize, currencyCode, currencySymbol, incomeMonth, showHideInfo, loading, setFontSize, setCurrencyCode, setIncomeMonth, setShowHideInfo, loadPreferences, formatCurrency, maskAmount]
   )
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>
