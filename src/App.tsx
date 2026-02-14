@@ -23,7 +23,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { PreferencesProvider } from './context/PreferencesContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import Notifications from './components/notifications/Notifications'
-import { checkAuth, logout as ssoLogout, toSessionData } from './auth'
+import { checkAuth, logout as ssoLogout, toSessionData, MAIN_SITE_URL } from './auth'
 import { guestStore } from './utils/guestStore'
 import GuestWelcomeModal from './components/GuestWelcomeModal'
 import LoginModal from './components/LoginModal'
@@ -50,9 +50,10 @@ export default function App(): ReactElement {
   // Helper to check if current session is guest
   const isGuestSession = session?.userId === guestStore.GUEST_USER_ID
 
-  // Open login modal
+  // Redirect to eternivity.com login page with return URL
   const openLoginModal = useCallback(() => {
-    setShowLoginModal(true)
+    const returnUrl = window.location.href
+    window.location.href = `${MAIN_SITE_URL}/login?redirect_uri=${encodeURIComponent(returnUrl)}`
   }, [])
 
   // Close login modal
