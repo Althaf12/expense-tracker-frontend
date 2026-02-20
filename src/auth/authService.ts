@@ -5,7 +5,7 @@
  * Does NOT store tokens locally - relies on HttpOnly cookies.
  */
 
-import { getLoginUrl, getLogoutUrl, getAuthMeUrl, getRefreshUrl, AUTH_BASE_URL, APP_BASE_URL } from './config'
+import { getLoginUrl, getLogoutUrl, getAuthMeUrl, getRefreshUrl, AUTH_BASE_URL, API_BASE_URL, APP_BASE_URL } from './config'
 import type { SessionData } from '../types/app'
 
 export type AuthUser = {
@@ -212,6 +212,20 @@ export function redirectToLogin(redirectUri?: string): void {
  */
 export async function logout(): Promise<void> {
   try {
+    // Notify application backend of user's last activity (best-effort)
+    try {
+      await fetch(`${API_BASE_URL}/user/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      })
+    } catch (apiErr) {
+      console.error('API logout (last activity) error:', apiErr)
+    }
+
     await fetch(getLogoutUrl(), {
       method: 'POST',
       credentials: 'include',
