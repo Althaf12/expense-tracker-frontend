@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -1649,6 +1649,101 @@ export async function deleteUserCreditCardEstimate(payload: { userId: string; id
   return result as { status: string }
 }
 
+// ============================================================================
+// Income Estimates APIs
+// ============================================================================
+
+export async function fetchIncomeEstimates(userId: string): Promise<IncomeEstimate[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getIncomeEstimates()
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/income-estimates/${safeUserId}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as IncomeEstimate[]) : []
+}
+
+export async function fetchIncomeEstimatesByMonth(userId: string, month: string, year: number): Promise<IncomeEstimate[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getIncomeEstimatesByMonth(month, year)
+  }
+  const safeUserId = ensureUserId(userId)
+  const safeMonth = encodeURIComponent(month)
+  const result = await request(`/income-estimates/${safeUserId}/${safeMonth}/${year}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as IncomeEstimate[]) : []
+}
+
+export async function addIncomeEstimate(payload: {
+  userId: string
+  source?: string
+  amount: number
+  receivedDate: string
+  month: string
+  year: number
+}): Promise<{ status: string; id: number | string }> {
+  if (isGuestUserId(payload.userId)) {
+    const est = guestStore.createIncomeEstimate({
+      source: payload.source ?? 'Salary',
+      amount: payload.amount,
+      receivedDate: payload.receivedDate,
+      month: payload.month,
+      year: payload.year,
+    })
+    return { status: 'success', id: est.incomeEstimatesId }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const body: Record<string, unknown> = {
+    amount: payload.amount,
+    receivedDate: payload.receivedDate,
+    month: payload.month,
+    year: payload.year,
+  }
+  if (payload.source !== undefined) body.source = payload.source
+  const result = await request(`/income-estimates/${safeUserId}`, { method: 'POST', body })
+  return result as { status: string; id: number | string }
+}
+
+export async function updateIncomeEstimate(payload: {
+  userId: string
+  id: string | number
+  source?: string
+  amount?: number
+  receivedDate?: string
+  month?: string
+  year?: number
+}): Promise<{ status: string }> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateIncomeEstimate(payload.id, {
+      source: payload.source,
+      amount: payload.amount,
+      receivedDate: payload.receivedDate,
+      month: payload.month,
+      year: payload.year,
+    })
+    return { status: 'success' }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const body: Record<string, unknown> = {}
+  if (payload.source !== undefined) body.source = payload.source
+  if (payload.amount !== undefined) body.amount = payload.amount
+  if (payload.receivedDate !== undefined) body.receivedDate = payload.receivedDate
+  if (payload.month !== undefined) body.month = payload.month
+  if (payload.year !== undefined) body.year = payload.year
+  const result = await request(`/income-estimates/${safeUserId}/${safeId}`, { method: 'PUT', body })
+  return result as { status: string }
+}
+
+export async function deleteIncomeEstimate(payload: { userId: string; id: string | number }): Promise<{ status: string }> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.deleteIncomeEstimate(payload.id)
+    return { status: 'success' }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const result = await request(`/income-estimates/${safeUserId}/${safeId}`, { method: 'DELETE' })
+  return result as { status: string }
+}
+
 export default {
   ensureUserExists,
   logoutUser,
@@ -1729,4 +1824,10 @@ export default {
   addUserCreditCardEstimate,
   updateUserCreditCardEstimate,
   deleteUserCreditCardEstimate,
+  // Income Estimates APIs
+  fetchIncomeEstimates,
+  fetchIncomeEstimatesByMonth,
+  addIncomeEstimate,
+  updateIncomeEstimate,
+  deleteIncomeEstimate,
 }

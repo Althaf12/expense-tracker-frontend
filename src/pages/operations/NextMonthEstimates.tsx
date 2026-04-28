@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { Typography } from '@mui/material'
-import { Plus, Pencil, Trash2, Check, X, CreditCard } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, CreditCard, TrendingUp } from 'lucide-react'
 import {
   fetchUserExpensesEstimates,
   fetchUserCreditCardEstimates,
@@ -11,8 +11,12 @@ import {
   updateUserCreditCardEstimate,
   deleteUserCreditCardEstimate,
   fetchUserExpenseCategories,
+  fetchIncomeEstimates,
+  addIncomeEstimate,
+  updateIncomeEstimate,
+  deleteIncomeEstimate,
 } from '../../api'
-import type { UserExpensesEstimate, UserCreditCardEstimate, UserExpenseCategory } from '../../types/app'
+import type { UserExpensesEstimate, UserCreditCardEstimate, UserExpenseCategory, IncomeEstimate } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import { useNotifications } from '../../context/NotificationsContext'
@@ -21,6 +25,11 @@ import Skeleton from '../../components/Skeleton'
 import styles from './NextMonthEstimates.module.css'
 
 // ─── Local types ────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 type ExpEstimateGroup = {
   categoryId: string
@@ -50,7 +59,58 @@ type CCAddForm = {
 const emptyExpForm: ExpAddForm = { userExpenseName: '', userExpenseCategoryId: '', amount: '', status: 'A' }
 const emptyCCForm: CCAddForm = { cardName: '', expenseName: '', amount: '' }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+type IncomeAddForm = {
+  source: string
+  amount: string
+  receivedDate: string
+  month: string
+  year: string
+}
+
+function createEmptyIncomeForm(): IncomeAddForm {
+  const now = new Date()
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const mm = String(next.getMonth() + 1).padStart(2, '0')
+  return {
+    source: 'Salary',
+    amount: '',
+    receivedDate: `${next.getFullYear()}-${mm}-01`,
+    month: MONTH_NAMES[next.getMonth()],
+    year: String(next.getFullYear()),
+  }
+}
+
+/** Returns YYYY-MM-01 for the first day of the selected month+year, but no earlier than the current month's first day */
+function minDateForIncomeForm(month: string, year: string): string {
+  const now = new Date()
+  const currentFirst = new Date(now.getFullYear(), now.getMonth(), 1)
+  const monthIdx = MONTH_NAMES.indexOf(month)
+  const yearNum = parseInt(year)
+  if (monthIdx < 0 || isNaN(yearNum)) {
+    return `${currentFirst.getFullYear()}-${String(currentFirst.getMonth() + 1).padStart(2, '0')}-01`
+  }
+  const selectedFirst = new Date(yearNum, monthIdx, 1)
+  const base = selectedFirst > currentFirst ? selectedFirst : currentFirst
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+/** Returns YYYY-MM-DD for the last day of the selected month+year */
+function maxDateForIncomeForm(month: string, year: string): string {
+  const monthIdx = MONTH_NAMES.indexOf(month)
+  const yearNum = parseInt(year)
+  if (monthIdx < 0 || isNaN(yearNum)) return ''
+  const lastDay = new Date(yearNum, monthIdx + 1, 0)
+  return `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`
+}
+
+/** True if the month+year combo is before the current month */
+function isBeforeCurrentMonth(month: string, year: string): boolean {
+  const now = new Date()
+  const monthIdx = MONTH_NAMES.indexOf(month)
+  const yearNum = parseInt(year)
+  if (monthIdx < 0 || isNaN(yearNum)) return false
+  return yearNum < now.getFullYear() || (yearNum === now.getFullYear() && monthIdx < now.getMonth())
+}
 
 function groupByCategory(estimates: UserExpensesEstimate[]): ExpEstimateGroup[] {
   const map = new Map<string, ExpEstimateGroup>()
@@ -89,6 +149,7 @@ export default function NextMonthEstimates(): ReactElement {
   // ── Data state ──────────────────────────────────────────────────────────
   const [expEstimates, setExpEstimates] = useState<UserExpensesEstimate[]>([])
   const [ccEstimates, setCcEstimates] = useState<UserCreditCardEstimate[]>([])
+  const [incomeEstimates, setIncomeEstimates] = useState<IncomeEstimate[]>([])
   const [categories, setCategories] = useState<UserExpenseCategory[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -112,6 +173,16 @@ export default function NextMonthEstimates(): ReactElement {
   const [editCCForm, setEditCCForm] = useState<CCAddForm>(emptyCCForm)
   const [editCCSaving, setEditCCSaving] = useState(false)
 
+  // ── Income estimate form state ───────────────────────────────────────────
+  const [showIncomeAddForm, setShowIncomeAddForm] = useState(false)
+  const [incomeAddForm, setIncomeAddForm] = useState<IncomeAddForm>(createEmptyIncomeForm)
+  const [incomeAddSaving, setIncomeAddSaving] = useState(false)
+
+  // ── Income estimate inline edit state ───────────────────────────────────
+  const [editingIncomeId, setEditingIncomeId] = useState<string | null>(null)
+  const [editIncomeForm, setEditIncomeForm] = useState<IncomeAddForm>(createEmptyIncomeForm)
+  const [editIncomeSaving, setEditIncomeSaving] = useState(false)
+
   // ── Toast flag to avoid repeated warnings per load ───────────────────────
   const ccWarnShownRef = useRef(false)
 
@@ -121,14 +192,16 @@ export default function NextMonthEstimates(): ReactElement {
     setLoading(true)
     ccWarnShownRef.current = false
     try {
-      const [ests, ccEsts, cats] = await Promise.all([
+      const [ests, ccEsts, cats, incEsts] = await Promise.all([
         fetchUserExpensesEstimates(userId),
         fetchUserCreditCardEstimates(userId),
         fetchUserExpenseCategories(userId),
+        fetchIncomeEstimates(userId),
       ])
       setExpEstimates(ests)
       setCcEstimates(ccEsts)
       setCategories(cats)
+      setIncomeEstimates(incEsts)
     } catch (err) {
       addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
     } finally {
@@ -342,6 +415,104 @@ export default function NextMonthEstimates(): ReactElement {
       addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
     }
   }
+
+  // ── Income Estimate CRUD ──────────────────────────────────────────────────
+
+  // Available years for the income form (current year + next year)
+  const now = new Date()
+  const incomeYearOptions = [now.getFullYear(), now.getFullYear() + 1]
+
+  function availableMonthsForYear(year: string): string[] {
+    const yearNum = parseInt(year)
+    if (yearNum === now.getFullYear()) {
+      return MONTH_NAMES.slice(now.getMonth())
+    }
+    return MONTH_NAMES
+  }
+
+  const handleIncomeAdd = async (e: FormEvent) => {
+    e.preventDefault()
+    if (isBeforeCurrentMonth(incomeAddForm.month, incomeAddForm.year)) {
+      addNotification({ type: 'error', message: 'Month and year cannot be before the current month.' })
+      return
+    }
+    setIncomeAddSaving(true)
+    try {
+      const amt = parseAmount(incomeAddForm.amount)
+      if (isNaN(amt) || amt <= 0) throw new Error('Invalid amount')
+      await addIncomeEstimate({
+        userId,
+        source: incomeAddForm.source.trim() || 'Salary',
+        amount: amt,
+        receivedDate: incomeAddForm.receivedDate,
+        month: incomeAddForm.month,
+        year: parseInt(incomeAddForm.year),
+      })
+      addNotification({ type: 'success', message: 'Income estimate added.' })
+      setIncomeAddForm(createEmptyIncomeForm())
+      setShowIncomeAddForm(false)
+      await loadData()
+    } catch (err) {
+      addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
+    } finally {
+      setIncomeAddSaving(false)
+    }
+  }
+
+  const startEditIncome = (est: IncomeEstimate) => {
+    setEditingIncomeId(String(est.incomeEstimatesId))
+    setEditIncomeForm({
+      source: est.source,
+      amount: String(est.amount),
+      receivedDate: est.receivedDate,
+      month: est.month,
+      year: String(est.year),
+    })
+  }
+
+  const handleIncomeEdit = async (e: FormEvent, id: string) => {
+    e.preventDefault()
+    if (isBeforeCurrentMonth(editIncomeForm.month, editIncomeForm.year)) {
+      addNotification({ type: 'error', message: 'Month and year cannot be before the current month.' })
+      return
+    }
+    setEditIncomeSaving(true)
+    try {
+      const amt = parseAmount(editIncomeForm.amount)
+      if (isNaN(amt) || amt <= 0) throw new Error('Invalid amount')
+      await updateIncomeEstimate({
+        userId,
+        id,
+        source: editIncomeForm.source.trim() || 'Salary',
+        amount: amt,
+        receivedDate: editIncomeForm.receivedDate,
+        month: editIncomeForm.month,
+        year: parseInt(editIncomeForm.year),
+      })
+      addNotification({ type: 'success', message: 'Income estimate updated.' })
+      setEditingIncomeId(null)
+      await loadData()
+    } catch (err) {
+      addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
+    } finally {
+      setEditIncomeSaving(false)
+    }
+  }
+
+  const handleIncomeDelete = async (id: string | number) => {
+    try {
+      await deleteIncomeEstimate({ userId, id })
+      addNotification({ type: 'success', message: 'Income estimate deleted.' })
+      await loadData()
+    } catch (err) {
+      addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
+    }
+  }
+
+  const incomeTotal = useMemo(
+    () => incomeEstimates.reduce((s, e) => s + Number(e.amount ?? 0), 0),
+    [incomeEstimates]
+  )
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -648,8 +819,277 @@ export default function NextMonthEstimates(): ReactElement {
           )}
         </section>
 
-        {/* ── Right: Credit Card Estimates ─────────────────────────────────── */}
-        <section className={styles.card}>
+        {/* ── Right: Income + Credit Card Estimates ────────────────────────── */}
+        <div className={styles.rightColumn}>
+
+          {/* ── Income Estimates ──────────────────────────────────────────── */}
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div className={styles.cardTitleRow}>
+                <span className={styles.emojiIcon} aria-hidden="true">💰</span>
+                <div>
+                  <Typography variant="h5" component="h2" className={styles.cardTitle}>
+                    Income Estimates
+                  </Typography>
+                  <Typography variant="body2" component="p" className={styles.cardSubtitle}>
+                    Planned income sources for next month.
+                  </Typography>
+                </div>
+              </div>
+              <div className={styles.headerRight}>
+                <span className={styles.totalBadge}>{formatCurrency(incomeTotal)}</span>
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => { setShowIncomeAddForm((v) => !v); setEditingIncomeId(null) }}
+                >
+                  <Plus size={14} />
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div>
+                {[0, 1].map((i) => (
+                  <div key={i} className={styles.skeletonRow}>
+                    <div style={{ width: 100 }}><Skeleton /></div>
+                    <div style={{ flex: 1 }}><Skeleton /></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {incomeEstimates.length === 0 ? (
+                  <Typography variant="body2" component="p" className={styles.placeholder}>
+                    No income estimates yet. Click &quot;+ Add&quot; to plan your income sources.
+                  </Typography>
+                ) : (
+                  <div className={styles.incomeList}>
+                    {incomeEstimates.map((est) => {
+                      const id = String(est.incomeEstimatesId)
+                      const isEditing = editingIncomeId === id
+                      return (
+                        <div key={id}>
+                          {isEditing ? (
+                            <form className={styles.inlineForm} onSubmit={(e) => handleIncomeEdit(e, id)}>
+                              <input
+                                className={styles.inlineInput}
+                                value={editIncomeForm.source}
+                                onChange={(e) => setEditIncomeForm((f) => ({ ...f, source: e.target.value }))}
+                                placeholder="Source (e.g. Salary)"
+                                required
+                              />
+                              <input
+                                className={styles.inlineInput}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editIncomeForm.amount}
+                                onChange={(e) => setEditIncomeForm((f) => ({ ...f, amount: e.target.value }))}
+                                placeholder="Amount *"
+                                required
+                                style={{ maxWidth: 110 }}
+                              />
+                              <input
+                                className={styles.inlineInput}
+                                type="date"
+                                value={editIncomeForm.receivedDate}
+                                min={minDateForIncomeForm(editIncomeForm.month, editIncomeForm.year)}
+                                max={maxDateForIncomeForm(editIncomeForm.month, editIncomeForm.year)}
+                                onChange={(e) => setEditIncomeForm((f) => ({ ...f, receivedDate: e.target.value }))}
+                                required
+                                style={{ maxWidth: 140 }}
+                              />
+                              <select
+                                className={styles.inlineSelect}
+                                value={editIncomeForm.month}
+                                onChange={(e) => {
+                                  const newMonth = e.target.value
+                                  setEditIncomeForm((f) => ({
+                                    ...f,
+                                    month: newMonth,
+                                    receivedDate: minDateForIncomeForm(newMonth, f.year),
+                                  }))
+                                }}
+                                required
+                                style={{ maxWidth: 120 }}
+                              >
+                                {availableMonthsForYear(editIncomeForm.year).map((m) => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                              </select>
+                              <select
+                                className={styles.inlineSelect}
+                                value={editIncomeForm.year}
+                                onChange={(e) => {
+                                  const newYear = e.target.value
+                                  const months = availableMonthsForYear(newYear)
+                                  const validMonth = months.includes(editIncomeForm.month) ? editIncomeForm.month : months[0]
+                                  setEditIncomeForm((f) => ({
+                                    ...f,
+                                    year: newYear,
+                                    month: validMonth,
+                                    receivedDate: minDateForIncomeForm(validMonth, newYear),
+                                  }))
+                                }}
+                                required
+                                style={{ maxWidth: 80 }}
+                              >
+                                {incomeYearOptions.map((y) => (
+                                  <option key={y} value={String(y)}>{y}</option>
+                                ))}
+                              </select>
+                              <div className={styles.inlineFormActions}>
+                                <button type="submit" className={styles.saveButton} disabled={editIncomeSaving}>
+                                  <Check size={13} />{editIncomeSaving ? 'Saving…' : 'Save'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.cancelButton}
+                                  onClick={() => setEditingIncomeId(null)}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <div className={styles.incomeItemRow}>
+                              <div className={styles.incomeItemInfo}>
+                                <span className={styles.incomeItemSource}>
+                                  <TrendingUp size={13} />
+                                  {est.source}
+                                </span>
+                                <span className={styles.incomeItemMeta}>
+                                  {est.month} {est.year} · {est.receivedDate}
+                                </span>
+                              </div>
+                              <span className={styles.incomeItemAmount}>{formatCurrency(Number(est.amount ?? 0))}</span>
+                              <div className={styles.itemActions}>
+                                <button
+                                  type="button"
+                                  className={styles.iconButton}
+                                  onClick={() => startEditIncome(est)}
+                                  aria-label={`Edit ${est.source}`}
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.iconButton} ${styles.iconButtonDanger}`}
+                                  onClick={() => handleIncomeDelete(est.incomeEstimatesId)}
+                                  aria-label={`Delete ${est.source}`}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Add income estimate form */}
+                {showIncomeAddForm && (
+                  <div className={styles.addFormContainer}>
+                    <p className={styles.addFormTitle}>New Income Estimate</p>
+                    <form className={styles.addFormRow} onSubmit={handleIncomeAdd}>
+                      <input
+                        className={styles.formInput}
+                        value={incomeAddForm.source}
+                        onChange={(e) => setIncomeAddForm((f) => ({ ...f, source: e.target.value }))}
+                        placeholder="Source (e.g. Salary)"
+                        required
+                      />
+                      <input
+                        className={styles.formInput}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={incomeAddForm.amount}
+                        onChange={(e) => setIncomeAddForm((f) => ({ ...f, amount: e.target.value }))}
+                        placeholder="Amount *"
+                        required
+                        style={{ maxWidth: 110 }}
+                      />
+                      <input
+                        className={styles.formInput}
+                        type="date"
+                        value={incomeAddForm.receivedDate}
+                        min={minDateForIncomeForm(incomeAddForm.month, incomeAddForm.year)}
+                        max={maxDateForIncomeForm(incomeAddForm.month, incomeAddForm.year)}
+                        onChange={(e) => setIncomeAddForm((f) => ({ ...f, receivedDate: e.target.value }))}
+                        required
+                        style={{ maxWidth: 140 }}
+                      />
+                      <select
+                        className={styles.formSelect}
+                        value={incomeAddForm.month}
+                        onChange={(e) => {
+                          const newMonth = e.target.value
+                          setIncomeAddForm((f) => ({
+                            ...f,
+                            month: newMonth,
+                            receivedDate: minDateForIncomeForm(newMonth, f.year),
+                          }))
+                        }}
+                        required
+                      >
+                        {availableMonthsForYear(incomeAddForm.year).map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <select
+                        className={styles.formSelect}
+                        value={incomeAddForm.year}
+                        onChange={(e) => {
+                          const newYear = e.target.value
+                          const months = availableMonthsForYear(newYear)
+                          const validMonth = months.includes(incomeAddForm.month) ? incomeAddForm.month : months[0]
+                          setIncomeAddForm((f) => ({
+                            ...f,
+                            year: newYear,
+                            month: validMonth,
+                            receivedDate: minDateForIncomeForm(validMonth, newYear),
+                          }))
+                        }}
+                        required
+                        style={{ maxWidth: 90 }}
+                      >
+                        {incomeYearOptions.map((y) => (
+                          <option key={y} value={String(y)}>{y}</option>
+                        ))}
+                      </select>
+                      <div className={styles.formActions}>
+                        <button type="submit" className={styles.saveButton} disabled={incomeAddSaving}>
+                          <Check size={14} />{incomeAddSaving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.cancelButton}
+                          onClick={() => { setShowIncomeAddForm(false); setIncomeAddForm(createEmptyIncomeForm()) }}
+                        >
+                          <X size={14} /> Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {incomeEstimates.length > 0 && (
+                  <div className={styles.cardFooter}>
+                    <span className={styles.footerLabel}>Total income</span>
+                    <span className={styles.footerAmount}>{formatCurrency(incomeTotal)}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+
+          {/* ── Credit Card Estimates ──────────────────────────────────────── */}
+          <section className={styles.card}>
           <div className={styles.cardHeader}>
             <div className={styles.cardTitleRow}>
               <span className={styles.emojiIcon} aria-hidden="true">💳</span>
@@ -848,6 +1288,7 @@ export default function NextMonthEstimates(): ReactElement {
             </>
           )}
         </section>
+        </div>
       </div>
     </div>
   )

@@ -16,13 +16,14 @@ import type {
   AdjustmentStatus,
   UserExpensesEstimate,
   UserCreditCardEstimate,
+  IncomeEstimate,
 } from '../types/app'
 
 const GUEST_USER_ID = 'guest-user'
 const GUEST_USERNAME = 'Guest User'
 const STORAGE_KEY = 'guest-store-data'
 // Bump this number when default/demo data changes to force reinitialization
-const GUEST_STORE_VERSION = 3
+const GUEST_STORE_VERSION = 4
 
 // Default demo data for guest users
 const DEFAULT_CATEGORIES: UserExpenseCategory[] = [
@@ -54,6 +55,30 @@ const DEFAULT_EXPENSES_ESTIMATES: UserExpensesEstimate[] = [
 const DEFAULT_CREDIT_CARD_ESTIMATES: UserCreditCardEstimate[] = [
   { userCreditCardEstimatesId: 'cc-1', userId: GUEST_USER_ID, cardName: 'HDFC Amazon Pay', expenseName: 'Amazon Shopping', amount: 3500 },
   { userCreditCardEstimatesId: 'cc-2', userId: GUEST_USER_ID, cardName: 'SBI SimplyCLICK', expenseName: 'Swiggy Orders', amount: 1200 },
+]
+
+function getNextMonthName(): string {
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December']
+  const now = new Date()
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  return MONTH_NAMES[next.getMonth()]
+}
+
+function getNextMonthYear(): number {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1).getFullYear()
+}
+
+function getNextMonthFirstDay(): string {
+  const now = new Date()
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+const DEFAULT_INCOME_ESTIMATES: IncomeEstimate[] = [
+  { incomeEstimatesId: 'ie-1', userId: GUEST_USER_ID, source: 'Salary', amount: 85000, receivedDate: getNextMonthFirstDay(), month: getNextMonthName(), year: getNextMonthYear() },
+  { incomeEstimatesId: 'ie-2', userId: GUEST_USER_ID, source: 'Freelance', amount: 15000, receivedDate: getNextMonthFirstDay(), month: getNextMonthName(), year: getNextMonthYear() },
 ]
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -237,6 +262,7 @@ interface GuestStoreData {
   version?: number
   expensesEstimates: UserExpensesEstimate[]
   creditCardEstimates: UserCreditCardEstimate[]
+  incomeEstimates: IncomeEstimate[]
 }
 
 // In-memory store (also backed by sessionStorage)
@@ -274,6 +300,7 @@ function getStore(): GuestStoreData {
     // Ensure new fields are present for existing sessions that predate them
     if (!fromSession.expensesEstimates) fromSession.expensesEstimates = [...DEFAULT_EXPENSES_ESTIMATES]
     if (!fromSession.creditCardEstimates) fromSession.creditCardEstimates = [...DEFAULT_CREDIT_CARD_ESTIMATES]
+    if (!fromSession.incomeEstimates) fromSession.incomeEstimates = [...DEFAULT_INCOME_ESTIMATES]
     storeData = fromSession
     return storeData
   }
@@ -293,6 +320,7 @@ function getStore(): GuestStoreData {
     version: GUEST_STORE_VERSION,
     expensesEstimates: [...DEFAULT_EXPENSES_ESTIMATES],
     creditCardEstimates: [...DEFAULT_CREDIT_CARD_ESTIMATES],
+    incomeEstimates: [...DEFAULT_INCOME_ESTIMATES],
   }
   saveToSession(storeData)
   return storeData
@@ -981,6 +1009,68 @@ export const guestStore = {
       (e) => String(e.userCreditCardEstimatesId) !== String(id)
     )
     updateStore({ creditCardEstimates: store.creditCardEstimates })
+  },
+
+  // ============================================================================
+  // Income Estimates
+  // ============================================================================
+
+  getIncomeEstimates(): IncomeEstimate[] {
+    return [...getStore().incomeEstimates]
+  },
+
+  getIncomeEstimatesByMonth(month: string, year: number): IncomeEstimate[] {
+    return getStore().incomeEstimates.filter(
+      (e) => e.month === month && e.year === year
+    )
+  },
+
+  createIncomeEstimate(payload: {
+    source?: string
+    amount: number
+    receivedDate: string
+    month: string
+    year: number
+  }): IncomeEstimate {
+    const store = getStore()
+    const newEstimate: IncomeEstimate = {
+      incomeEstimatesId: generateId('ie'),
+      userId: GUEST_USER_ID,
+      source: payload.source ?? 'Salary',
+      amount: payload.amount,
+      receivedDate: payload.receivedDate,
+      month: payload.month,
+      year: payload.year,
+      lastUpdateTmstp: new Date().toISOString(),
+    }
+    store.incomeEstimates.push(newEstimate)
+    updateStore({ incomeEstimates: store.incomeEstimates })
+    return newEstimate
+  },
+
+  updateIncomeEstimate(id: string | number, updates: Partial<IncomeEstimate>): void {
+    const store = getStore()
+    const estimate = store.incomeEstimates.find(
+      (e) => String(e.incomeEstimatesId) === String(id)
+    )
+    if (estimate) {
+      const cleanUpdates: Partial<IncomeEstimate> = {}
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) {
+          (cleanUpdates as Record<string, unknown>)[key] = value
+        }
+      }
+      Object.assign(estimate, cleanUpdates, { lastUpdateTmstp: new Date().toISOString() })
+      updateStore({ incomeEstimates: store.incomeEstimates })
+    }
+  },
+
+  deleteIncomeEstimate(id: string | number): void {
+    const store = getStore()
+    store.incomeEstimates = store.incomeEstimates.filter(
+      (e) => String(e.incomeEstimatesId) !== String(id)
+    )
+    updateStore({ incomeEstimates: store.incomeEstimates })
   },
 }
 

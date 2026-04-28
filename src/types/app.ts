@@ -314,3 +314,14 @@ export type UserCreditCardEstimate = {
   amount?: number
   lastUpdateTmstp?: string
 }
+
+export type IncomeEstimate = {
+  incomeEstimatesId: number | string
+  userId: string
+  source: string
+  amount: number
+  receivedDate: string
+  lastUpdateTmstp?: string
+  month: string
+  year: number
+}

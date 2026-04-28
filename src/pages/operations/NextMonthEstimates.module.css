@@ -591,6 +591,69 @@
   padding: 0.5rem 0;
 }
 
+/* ── Right column (income + CC stacked) ── */
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Income Estimates list ── */
+.incomeList {
+  margin-top: 0.5rem;
+  border: 1px solid var(--surface-table-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.incomeItemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--surface-table-border);
+  transition: background 0.12s ease;
+}
+
+.incomeItemRow:last-child {
+  border-bottom: none;
+}
+
+.incomeItemRow:hover {
+  background: var(--surface-table-hover);
+}
+
+.incomeItemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.incomeItemSource {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.incomeItemMeta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.incomeItemAmount {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ── Placeholder ── */
 .placeholder {
   padding: 1.5rem 0 0.5rem;
