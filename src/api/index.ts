@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -1490,6 +1490,165 @@ export async function fetchAdjustmentPageSizes(): Promise<number[]> {
   return (result as AllowedPageSizesResponse)?.allowedPageSizes ?? [10, 20, 50, 100]
 }
 
+// ============================================================================
+// User Expenses Estimates APIs
+// ============================================================================
+
+export async function fetchUserExpensesEstimates(userId: string): Promise<UserExpensesEstimate[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getExpensesEstimates()
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-expenses-estimates/${safeUserId}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpensesEstimate[]) : []
+}
+
+export async function fetchUserExpensesEstimatesActive(userId: string): Promise<UserExpensesEstimate[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getActiveExpensesEstimates()
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-expenses-estimates/${safeUserId}/active`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserExpensesEstimate[]) : []
+}
+
+export async function addUserExpensesEstimate(payload: {
+  userId: string
+  userExpenseName: string
+  userExpenseCategoryId: string | number
+  amount: number
+  status?: 'A' | 'I'
+}): Promise<{ status: string; id: number | string }> {
+  if (isGuestUserId(payload.userId)) {
+    const est = guestStore.createExpensesEstimate({
+      userExpenseName: payload.userExpenseName,
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+      amount: payload.amount,
+      status: payload.status ?? 'A',
+    })
+    return { status: 'success', id: est.userExpensesEstimatesId }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const body: Record<string, unknown> = {
+    userExpenseName: payload.userExpenseName,
+    userExpenseCategoryId: payload.userExpenseCategoryId,
+    amount: payload.amount,
+  }
+  if (payload.status) body.status = payload.status
+  const result = await request(`/user-expenses-estimates/${safeUserId}`, { method: 'POST', body })
+  return result as { status: string; id: number | string }
+}
+
+export async function updateUserExpensesEstimate(payload: {
+  userId: string
+  id: string | number
+  userExpenseName?: string
+  userExpenseCategoryId?: string | number
+  amount?: number
+  status?: 'A' | 'I'
+}): Promise<{ status: string }> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateExpensesEstimate(payload.id, {
+      userExpenseName: payload.userExpenseName,
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+      amount: payload.amount,
+      status: payload.status,
+    })
+    return { status: 'success' }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const body: Record<string, unknown> = {}
+  if (payload.userExpenseName !== undefined) body.userExpenseName = payload.userExpenseName
+  if (payload.userExpenseCategoryId !== undefined) body.userExpenseCategoryId = payload.userExpenseCategoryId
+  if (payload.amount !== undefined) body.amount = payload.amount
+  if (payload.status !== undefined) body.status = payload.status
+  const result = await request(`/user-expenses-estimates/${safeUserId}/${safeId}`, { method: 'PUT', body })
+  return result as { status: string }
+}
+
+export async function deleteUserExpensesEstimate(payload: { userId: string; id: string | number }): Promise<{ status: string }> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.deleteExpensesEstimate(payload.id)
+    return { status: 'success' }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const result = await request(`/user-expenses-estimates/${safeUserId}/${safeId}`, { method: 'DELETE' })
+  return result as { status: string }
+}
+
+// ============================================================================
+// User Credit Card Estimates APIs
+// ============================================================================
+
+export async function fetchUserCreditCardEstimates(userId: string): Promise<UserCreditCardEstimate[]> {
+  if (isGuestUserId(userId)) {
+    return guestStore.getCreditCardEstimates()
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user-credit-card-estimates/${safeUserId}`, { method: 'GET' })
+  return Array.isArray(result) ? (result as UserCreditCardEstimate[]) : []
+}
+
+export async function addUserCreditCardEstimate(payload: {
+  userId: string
+  cardName: string
+  expenseName?: string
+  amount?: number
+}): Promise<{ status: string; id: number | string }> {
+  if (isGuestUserId(payload.userId)) {
+    const est = guestStore.createCreditCardEstimate({
+      cardName: payload.cardName,
+      expenseName: payload.expenseName,
+      amount: payload.amount,
+    })
+    return { status: 'success', id: est.userCreditCardEstimatesId }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const body: Record<string, unknown> = { cardName: payload.cardName }
+  if (payload.expenseName !== undefined) body.expenseName = payload.expenseName
+  if (payload.amount !== undefined) body.amount = payload.amount
+  const result = await request(`/user-credit-card-estimates/${safeUserId}`, { method: 'POST', body })
+  return result as { status: string; id: number | string }
+}
+
+export async function updateUserCreditCardEstimate(payload: {
+  userId: string
+  id: string | number
+  cardName?: string
+  expenseName?: string
+  amount?: number
+}): Promise<{ status: string }> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.updateCreditCardEstimate(payload.id, {
+      cardName: payload.cardName,
+      expenseName: payload.expenseName,
+      amount: payload.amount,
+    })
+    return { status: 'success' }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const body: Record<string, unknown> = {}
+  if (payload.cardName !== undefined) body.cardName = payload.cardName
+  if (payload.expenseName !== undefined) body.expenseName = payload.expenseName
+  if (payload.amount !== undefined) body.amount = payload.amount
+  const result = await request(`/user-credit-card-estimates/${safeUserId}/${safeId}`, { method: 'PUT', body })
+  return result as { status: string }
+}
+
+export async function deleteUserCreditCardEstimate(payload: { userId: string; id: string | number }): Promise<{ status: string }> {
+  if (isGuestUserId(payload.userId)) {
+    guestStore.deleteCreditCardEstimate(payload.id)
+    return { status: 'success' }
+  }
+  const safeUserId = ensureUserId(payload.userId)
+  const safeId = encodeURIComponent(String(payload.id))
+  const result = await request(`/user-credit-card-estimates/${safeUserId}/${safeId}`, { method: 'DELETE' })
+  return result as { status: string }
+}
+
 export default {
   ensureUserExists,
   logoutUser,
@@ -1559,4 +1718,15 @@ export default {
   fetchTotalAdjustmentForExpense,
   fetchTotalAdjustmentForMonth,
   fetchAdjustmentPageSizes,
+  // User Expenses Estimates APIs
+  fetchUserExpensesEstimates,
+  fetchUserExpensesEstimatesActive,
+  addUserExpensesEstimate,
+  updateUserExpensesEstimate,
+  deleteUserExpensesEstimate,
+  // User Credit Card Estimates APIs
+  fetchUserCreditCardEstimates,
+  addUserCreditCardEstimate,
+  updateUserCreditCardEstimate,
+  deleteUserCreditCardEstimate,
 }

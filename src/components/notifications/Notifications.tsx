@@ -33,7 +33,7 @@ export default function Notifications(): JSX.Element {
       if (timersRef.current[key] || closing[key]) return
       const t = window.setTimeout(() => {
         startClose(key)
-      }, 5000)
+      }, 10000)
       timersRef.current[key] = t
     })
 

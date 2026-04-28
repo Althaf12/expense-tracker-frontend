@@ -14,6 +14,8 @@ import type {
   ExpenseAdjustment,
   AdjustmentType,
   AdjustmentStatus,
+  UserExpensesEstimate,
+  UserCreditCardEstimate,
 } from '../types/app'
 
 const GUEST_USER_ID = 'guest-user'
@@ -40,6 +42,18 @@ const DEFAULT_USER_EXPENSES: UserExpense[] = [
   { userExpensesId: 'exp-3', userId: GUEST_USER_ID, userExpenseName: 'Internet', userExpenseCategoryName: 'Utilities', userExpenseCategoryId: 'cat-5', amount: 1000, status: 'A', paid: 'N' },
   { userExpensesId: 'exp-4', userId: GUEST_USER_ID, userExpenseName: 'Fuel', userExpenseCategoryName: 'Transportation', userExpenseCategoryId: 'cat-2', amount: 3000, status: 'A', paid: 'N' },
   { userExpensesId: 'exp-5', userId: GUEST_USER_ID, userExpenseName: 'Gym Membership', userExpenseCategoryName: 'Healthcare', userExpenseCategoryId: 'cat-6', amount: 1500, status: 'I', paid: 'N' },
+]
+
+const DEFAULT_EXPENSES_ESTIMATES: UserExpensesEstimate[] = [
+  { userExpensesEstimatesId: 'est-1', userId: GUEST_USER_ID, userExpenseName: 'Rent', userExpenseCategoryId: 'cat-5', userExpenseCategoryName: 'Utilities', amount: 15000, status: 'A' },
+  { userExpensesEstimatesId: 'est-2', userId: GUEST_USER_ID, userExpenseName: 'Groceries', userExpenseCategoryId: 'cat-1', userExpenseCategoryName: 'Food & Dining', amount: 5000, status: 'A' },
+  { userExpensesEstimatesId: 'est-3', userId: GUEST_USER_ID, userExpenseName: 'Internet', userExpenseCategoryId: 'cat-5', userExpenseCategoryName: 'Utilities', amount: 1000, status: 'A' },
+  { userExpensesEstimatesId: 'est-4', userId: GUEST_USER_ID, userExpenseName: 'Fuel', userExpenseCategoryId: 'cat-2', userExpenseCategoryName: 'Transportation', amount: 3000, status: 'A' },
+]
+
+const DEFAULT_CREDIT_CARD_ESTIMATES: UserCreditCardEstimate[] = [
+  { userCreditCardEstimatesId: 'cc-1', userId: GUEST_USER_ID, cardName: 'HDFC Amazon Pay', expenseName: 'Amazon Shopping', amount: 3500 },
+  { userCreditCardEstimatesId: 'cc-2', userId: GUEST_USER_ID, cardName: 'SBI SimplyCLICK', expenseName: 'Swiggy Orders', amount: 1200 },
 ]
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -221,6 +235,8 @@ interface GuestStoreData {
   preferences: UserPreferences
   initialized: boolean
   version?: number
+  expensesEstimates: UserExpensesEstimate[]
+  creditCardEstimates: UserCreditCardEstimate[]
 }
 
 // In-memory store (also backed by sessionStorage)
@@ -255,6 +271,9 @@ function getStore(): GuestStoreData {
   // If stored data exists and matches current version, reuse it.
   // Otherwise reinitialize so generated incomes (previous/older months) stay current.
   if (fromSession && fromSession.initialized && fromSession.version === GUEST_STORE_VERSION) {
+    // Ensure new fields are present for existing sessions that predate them
+    if (!fromSession.expensesEstimates) fromSession.expensesEstimates = [...DEFAULT_EXPENSES_ESTIMATES]
+    if (!fromSession.creditCardEstimates) fromSession.creditCardEstimates = [...DEFAULT_CREDIT_CARD_ESTIMATES]
     storeData = fromSession
     return storeData
   }
@@ -272,6 +291,8 @@ function getStore(): GuestStoreData {
     preferences: { ...DEFAULT_PREFERENCES },
     initialized: true,
     version: GUEST_STORE_VERSION,
+    expensesEstimates: [...DEFAULT_EXPENSES_ESTIMATES],
+    creditCardEstimates: [...DEFAULT_CREDIT_CARD_ESTIMATES],
   }
   saveToSession(storeData)
   return storeData
@@ -838,6 +859,128 @@ export const guestStore = {
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem(STORAGE_KEY)
     }
+  },
+
+  // ============================================================================
+  // Expenses Estimates
+  // ============================================================================
+
+  getExpensesEstimates(): UserExpensesEstimate[] {
+    return [...getStore().expensesEstimates]
+  },
+
+  getActiveExpensesEstimates(): UserExpensesEstimate[] {
+    return getStore().expensesEstimates.filter((e) => e.status === 'A')
+  },
+
+  createExpensesEstimate(payload: {
+    userExpenseName: string
+    userExpenseCategoryId: string | number
+    amount: number
+    status?: 'A' | 'I'
+  }): UserExpensesEstimate {
+    const store = getStore()
+    const category = store.categories.find(
+      (c) => String(c.userExpenseCategoryId) === String(payload.userExpenseCategoryId)
+    )
+    const newEstimate: UserExpensesEstimate = {
+      userExpensesEstimatesId: generateId('est'),
+      userId: GUEST_USER_ID,
+      userExpenseName: payload.userExpenseName,
+      userExpenseCategoryId: payload.userExpenseCategoryId,
+      userExpenseCategoryName: category?.userExpenseCategoryName ?? '',
+      amount: payload.amount,
+      status: payload.status ?? 'A',
+      lastUpdateTmstp: new Date().toISOString(),
+    }
+    store.expensesEstimates.push(newEstimate)
+    updateStore({ expensesEstimates: store.expensesEstimates })
+    return newEstimate
+  },
+
+  updateExpensesEstimate(id: string | number, updates: Partial<UserExpensesEstimate>): void {
+    const store = getStore()
+    const estimate = store.expensesEstimates.find(
+      (e) => String(e.userExpensesEstimatesId) === String(id)
+    )
+    if (estimate) {
+      const cleanUpdates: Partial<UserExpensesEstimate> = {}
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) {
+          (cleanUpdates as Record<string, unknown>)[key] = value
+        }
+      }
+      Object.assign(estimate, cleanUpdates, { lastUpdateTmstp: new Date().toISOString() })
+      if (cleanUpdates.userExpenseCategoryId) {
+        const category = store.categories.find(
+          (c) => String(c.userExpenseCategoryId) === String(cleanUpdates.userExpenseCategoryId)
+        )
+        if (category) {
+          estimate.userExpenseCategoryName = category.userExpenseCategoryName
+        }
+      }
+      updateStore({ expensesEstimates: store.expensesEstimates })
+    }
+  },
+
+  deleteExpensesEstimate(id: string | number): void {
+    const store = getStore()
+    store.expensesEstimates = store.expensesEstimates.filter(
+      (e) => String(e.userExpensesEstimatesId) !== String(id)
+    )
+    updateStore({ expensesEstimates: store.expensesEstimates })
+  },
+
+  // ============================================================================
+  // Credit Card Estimates
+  // ============================================================================
+
+  getCreditCardEstimates(): UserCreditCardEstimate[] {
+    return [...getStore().creditCardEstimates]
+  },
+
+  createCreditCardEstimate(payload: {
+    cardName: string
+    expenseName?: string
+    amount?: number
+  }): UserCreditCardEstimate {
+    const store = getStore()
+    const newEstimate: UserCreditCardEstimate = {
+      userCreditCardEstimatesId: generateId('cc'),
+      userId: GUEST_USER_ID,
+      cardName: payload.cardName,
+      expenseName: payload.expenseName,
+      amount: payload.amount,
+      lastUpdateTmstp: new Date().toISOString(),
+    }
+    store.creditCardEstimates.push(newEstimate)
+    updateStore({ creditCardEstimates: store.creditCardEstimates })
+    return newEstimate
+  },
+
+  updateCreditCardEstimate(id: string | number, updates: Partial<UserCreditCardEstimate>): void {
+    const store = getStore()
+    const estimate = store.creditCardEstimates.find(
+      (e) => String(e.userCreditCardEstimatesId) === String(id)
+    )
+    if (estimate) {
+      const cleanUpdates: Partial<UserCreditCardEstimate> = {}
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) {
+          (cleanUpdates as Record<string, unknown>)[key] = value
+        }
+      }
+      Object.assign(estimate, cleanUpdates, { lastUpdateTmstp: new Date().toISOString() })
+      updateStore({ creditCardEstimates: store.creditCardEstimates })
+    }
+  },
+
+  deleteCreditCardEstimate(id: string | number): void {
+    const store = getStore()
+    store.creditCardEstimates = store.creditCardEstimates.filter(
+      (e) => String(e.userCreditCardEstimatesId) !== String(id)
+    )
+    updateStore({ creditCardEstimates: store.creditCardEstimates })
   },
 }
 

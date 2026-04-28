@@ -290,3 +290,27 @@ export type TotalAdjustmentResponse = {
 export type AllowedPageSizesResponse = {
   allowedPageSizes: number[]
 }
+
+// ============================================================================
+// Next Month Estimates Types
+// ============================================================================
+
+export type UserExpensesEstimate = {
+  userExpensesEstimatesId: number | string
+  userId: string
+  userExpenseName: string
+  userExpenseCategoryId: number | string
+  userExpenseCategoryName: string
+  amount: number
+  lastUpdateTmstp?: string
+  status: 'A' | 'I'
+}
+
+export type UserCreditCardEstimate = {
+  userCreditCardEstimatesId: number | string
+  userId: string
+  cardName: string
+  expenseName?: string
+  amount?: number
+  lastUpdateTmstp?: string
+}

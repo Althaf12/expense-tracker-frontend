@@ -7,6 +7,7 @@ import IncomeOperations from './pages/operations/IncomeOperations'
 import MonthlyBalance from './pages/operations/MonthlyBalance'
 import ExpenseAdjustments from './pages/operations/ExpenseAdjustments'
 import Analytics from './pages/operations/Analytics'
+import NextMonthEstimates from './pages/operations/NextMonthEstimates'
 import Profile from './pages/profile/Profile'
 import {
   fetchExpensesByMonth as apiFetchExpensesByMonth,
@@ -393,6 +394,7 @@ export default function App(): ReactElement {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/operations/expenses" element={<ExpensesOperations />} />
                   <Route path="/operations/income" element={<IncomeOperations />} />
+                  <Route path="/operations/next-month-estimates" element={<NextMonthEstimates />} />
                   <Route path="/operations/monthly-balance" element={<MonthlyBalance />} />
                   <Route path="/operations/adjustments" element={<ExpenseAdjustments />} />
                   <Route path="/operations/analytics" element={<Analytics />} />
