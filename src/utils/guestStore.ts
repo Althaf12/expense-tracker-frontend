@@ -23,7 +23,7 @@ const GUEST_USER_ID = 'guest-user'
 const GUEST_USERNAME = 'Guest User'
 const STORAGE_KEY = 'guest-store-data'
 // Bump this number when default/demo data changes to force reinitialization
-const GUEST_STORE_VERSION = 4
+const GUEST_STORE_VERSION = 5
 
 // Default demo data for guest users
 const DEFAULT_CATEGORIES: UserExpenseCategory[] = [
@@ -33,6 +33,7 @@ const DEFAULT_CATEGORIES: UserExpenseCategory[] = [
   { userExpenseCategoryId: 'cat-4', userExpenseCategoryName: 'Entertainment', status: 'A', userId: GUEST_USER_ID },
   { userExpenseCategoryId: 'cat-5', userExpenseCategoryName: 'Utilities', status: 'A', userId: GUEST_USER_ID },
   { userExpenseCategoryId: 'cat-6', userExpenseCategoryName: 'Healthcare', status: 'A', userId: GUEST_USER_ID },
+  { userExpenseCategoryId: 'cat-9', userExpenseCategoryName: 'Credit Card', status: 'A', userId: GUEST_USER_ID },
   { userExpenseCategoryId: 'cat-7', userExpenseCategoryName: 'Education', status: 'I', userId: GUEST_USER_ID },
   { userExpenseCategoryId: 'cat-8', userExpenseCategoryName: 'Travel', status: 'I', userId: GUEST_USER_ID },
 ]
