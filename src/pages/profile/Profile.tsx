@@ -54,7 +54,7 @@ type CategoryDraft = {
 }
 
 const MAX_USER_CATEGORIES = 20
-const MAX_USER_EXPENSES = 50
+const MAX_USER_EXPENSES = 100
 
 type ExpenseDraft = {
   name: string

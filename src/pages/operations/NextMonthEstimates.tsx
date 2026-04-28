@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { Typography } from '@mui/material'
-import { Plus, Pencil, Trash2, Check, X, CreditCard, TrendingUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, CreditCard, TrendingUp, Info, AlertTriangle, Wallet, ArrowDownCircle } from 'lucide-react'
 import {
   fetchUserExpensesEstimates,
   fetchUserCreditCardEstimates,
@@ -183,6 +183,9 @@ export default function NextMonthEstimates(): ReactElement {
   const [editIncomeForm, setEditIncomeForm] = useState<IncomeAddForm>(createEmptyIncomeForm)
   const [editIncomeSaving, setEditIncomeSaving] = useState(false)
 
+  // ── Delete confirmation state ─────────────────────────────────────────────
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'exp' | 'cc' | 'income'; id: string | number; label: string } | null>(null)
+
   // ── Toast flag to avoid repeated warnings per load ───────────────────────
   const ccWarnShownRef = useRef(false)
 
@@ -339,10 +342,25 @@ export default function NextMonthEstimates(): ReactElement {
     }
   }
 
-  const handleExpDelete = async (id: string | number) => {
+  const handleExpDelete = (id: string | number, label: string) => {
+    setDeleteConfirm({ type: 'exp', id, label })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return
+    const { type, id } = deleteConfirm
+    setDeleteConfirm(null)
     try {
-      await deleteUserExpensesEstimate({ userId, id })
-      addNotification({ type: 'success', message: 'Expense estimate deleted.' })
+      if (type === 'exp') {
+        await deleteUserExpensesEstimate({ userId, id })
+        addNotification({ type: 'success', message: 'Expense estimate deleted.' })
+      } else if (type === 'cc') {
+        await deleteUserCreditCardEstimate({ userId, id })
+        addNotification({ type: 'success', message: 'Credit card estimate deleted.' })
+      } else {
+        await deleteIncomeEstimate({ userId, id })
+        addNotification({ type: 'success', message: 'Income estimate deleted.' })
+      }
       await loadData()
     } catch (err) {
       addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
@@ -406,14 +424,8 @@ export default function NextMonthEstimates(): ReactElement {
     }
   }
 
-  const handleCCDelete = async (id: string | number) => {
-    try {
-      await deleteUserCreditCardEstimate({ userId, id })
-      addNotification({ type: 'success', message: 'Credit card estimate deleted.' })
-      await loadData()
-    } catch (err) {
-      addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
-    }
+  const handleCCDelete = (id: string | number, label: string) => {
+    setDeleteConfirm({ type: 'cc', id, label })
   }
 
   // ── Income Estimate CRUD ──────────────────────────────────────────────────
@@ -499,14 +511,8 @@ export default function NextMonthEstimates(): ReactElement {
     }
   }
 
-  const handleIncomeDelete = async (id: string | number) => {
-    try {
-      await deleteIncomeEstimate({ userId, id })
-      addNotification({ type: 'success', message: 'Income estimate deleted.' })
-      await loadData()
-    } catch (err) {
-      addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
-    }
+  const handleIncomeDelete = (id: string | number, label: string) => {
+    setDeleteConfirm({ type: 'income', id, label })
   }
 
   const incomeTotal = useMemo(
@@ -528,8 +534,46 @@ export default function NextMonthEstimates(): ReactElement {
           Next Month Estimates
         </Typography>
         <Typography variant="body2" component="p" className={styles.pageSubtitle}>
-          Plan your expense estimates and credit card spending for next month.
+          Plan your income estimates, expense estimates, and credit card spending for next month.
         </Typography>
+      </div>
+
+      {/* ── Info note ── */}
+      <div className={styles.infoNote}>
+        <Info size={16} className={styles.infoNoteIcon} />
+        <span>
+          These estimates will be automatically copied to your <strong>Planned Expenses</strong> at the start of next month,
+          and the income sources listed here will be added to your <strong>Income</strong> for that month.
+        </span>
+      </div>
+
+      {/* ── Summary bar ── */}
+      <div className={styles.summaryBar}>
+        <div className={styles.summaryItem}>
+          <TrendingUp size={18} className={styles.summaryIconIncome} />
+          <div>
+            <span className={styles.summaryLabel}>Est. Income</span>
+            <span className={styles.summaryValue}>{formatCurrency(incomeTotal)}</span>
+          </div>
+        </div>
+        <div className={styles.summaryDivider} />
+        <div className={styles.summaryItem}>
+          <ArrowDownCircle size={18} className={styles.summaryIconExpense} />
+          <div>
+            <span className={styles.summaryLabel}>Est. Expenses</span>
+            <span className={styles.summaryValue}>{formatCurrency(grandTotal)}</span>
+          </div>
+        </div>
+        <div className={styles.summaryDivider} />
+        <div className={styles.summaryItem}>
+          <Wallet size={18} className={incomeTotal - grandTotal >= 0 ? styles.summaryIconBalance : styles.summaryIconDeficit} />
+          <div>
+            <span className={styles.summaryLabel}>Remaining Balance</span>
+            <span className={`${styles.summaryValue} ${incomeTotal - grandTotal >= 0 ? styles.summaryPositive : styles.summaryNegative}`}>
+              {formatCurrency(incomeTotal - grandTotal)}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className={styles.columns}>
@@ -726,7 +770,7 @@ export default function NextMonthEstimates(): ReactElement {
                                               <button
                                                 type="button"
                                                 className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                                                onClick={() => handleExpDelete(est.userExpensesEstimatesId)}
+                                                onClick={() => handleExpDelete(est.userExpensesEstimatesId, est.userExpenseName)}
                                                 aria-label={`Delete ${est.userExpenseName}`}
                                               >
                                                 <Trash2 size={14} />
@@ -977,7 +1021,7 @@ export default function NextMonthEstimates(): ReactElement {
                                 <button
                                   type="button"
                                   className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                                  onClick={() => handleIncomeDelete(est.incomeEstimatesId)}
+                                  onClick={() => handleIncomeDelete(est.incomeEstimatesId, est.source)}
                                   aria-label={`Delete ${est.source}`}
                                 >
                                   <Trash2 size={14} />
@@ -1218,7 +1262,7 @@ export default function NextMonthEstimates(): ReactElement {
                                     <button
                                       type="button"
                                       className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                                      onClick={() => handleCCDelete(est.userCreditCardEstimatesId)}
+                                      onClick={() => handleCCDelete(est.userCreditCardEstimatesId, est.expenseName ?? est.cardName)}
                                       aria-label={`Delete ${est.expenseName ?? est.cardName}`}
                                     >
                                       <Trash2 size={14} />
@@ -1290,6 +1334,29 @@ export default function NextMonthEstimates(): ReactElement {
         </section>
         </div>
       </div>
+
+      {/* ── Delete confirmation modal ── */}
+      {deleteConfirm && (
+        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label="Confirm delete">
+          <div className={styles.modalBox}>
+            <div className={styles.modalIconRow}>
+              <AlertTriangle size={28} className={styles.modalWarningIcon} />
+            </div>
+            <p className={styles.modalTitle}>Delete Estimate?</p>
+            <p className={styles.modalBody}>
+              Are you sure you want to delete <strong>&quot;{deleteConfirm.label}&quot;</strong>? This cannot be undone.
+            </p>
+            <div className={styles.modalActions}>
+              <button className={styles.modalCancelBtn} onClick={() => setDeleteConfirm(null)}>
+                Cancel
+              </button>
+              <button className={styles.modalDeleteBtn} onClick={confirmDelete}>
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

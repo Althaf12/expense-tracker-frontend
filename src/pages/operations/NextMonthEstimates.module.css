@@ -20,6 +20,208 @@
   margin: 0;
 }
 
+/* ── Info note ── */
+.infoNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 0.65rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.infoNote strong {
+  color: var(--color-text-strong);
+}
+
+.infoNoteIcon {
+  flex-shrink: 0;
+  color: #60a5fa;
+  margin-top: 1px;
+}
+
+/* ── Summary bar ── */
+.summaryBar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-table-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.summaryItem {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 140px;
+}
+
+.summaryItem > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.summaryLabel {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.summaryValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.summaryPositive {
+  color: #22c55e;
+}
+
+.summaryNegative {
+  color: #ef4444;
+}
+
+.summaryIconIncome {
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.summaryIconExpense {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.summaryIconBalance {
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+
+.summaryIconDeficit {
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.summaryDivider {
+  width: 1px;
+  height: 2.5rem;
+  background: var(--surface-table-border);
+  flex-shrink: 0;
+  margin: 0 1.25rem;
+}
+
+@media (max-width: 700px) {
+  .summaryDivider { display: none; }
+  .summaryBar { gap: 1rem; }
+}
+
+/* ── Delete confirmation modal ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modalBox {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-table-border);
+  border-radius: 1rem;
+  padding: 1.75rem 1.5rem 1.5rem;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.modalIconRow {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.modalWarningIcon {
+  color: #f59e0b;
+}
+
+.modalTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-strong);
+  margin: 0 0 0.5rem;
+}
+
+.modalBody {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin: 0 0 1.25rem;
+  line-height: 1.55;
+}
+
+.modalBody strong {
+  color: var(--color-text-strong);
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
+}
+
+.modalCancelBtn {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--surface-table-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.modalCancelBtn:hover {
+  background: var(--surface-table-hover);
+}
+
+.modalDeleteBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.modalDeleteBtn:hover {
+  background: #dc2626;
+}
+
 /* ── Two-column layout ── */
 .columns {
   display: grid;
