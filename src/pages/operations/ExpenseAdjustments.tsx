@@ -163,12 +163,18 @@ export default function ExpenseAdjustments(): ReactElement {
   const userId = session?.userId ?? ''
   const isGuest = guestStore.isGuestUser(userId)
 
+  const inflightLoadRef = useRef<string | null>(null)
+  const inflightMonthlyTotalRef = useRef(false)
+
   const loadAdjustments = useCallback(
     async (page: number, size: number) => {
       if (!userId) {
         setAdjustments([])
         return
       }
+      const loadKey = `${userId}:${page}:${size}:${isFiltering}:${filterStartDate}:${filterEndDate}`
+      if (inflightLoadRef.current === loadKey) return
+      inflightLoadRef.current = loadKey
       setLoading(true)
       try {
         let response: PagedResponse<ExpenseAdjustment>
@@ -189,6 +195,7 @@ export default function ExpenseAdjustments(): ReactElement {
         const message = error instanceof Error ? error.message : String(error)
         setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading adjustments') })
       } finally {
+        inflightLoadRef.current = null
         setLoading(false)
       }
     },
@@ -197,12 +204,16 @@ export default function ExpenseAdjustments(): ReactElement {
 
   const loadMonthlyTotal = useCallback(async () => {
     if (!userId) return
+    if (inflightMonthlyTotalRef.current) return
+    inflightMonthlyTotalRef.current = true
     const now = new Date()
     try {
       const total = await fetchTotalAdjustmentForMonth(userId, now.getFullYear(), now.getMonth() + 1)
       setMonthlyTotal(total)
     } catch {
       // Ignore errors for monthly total
+    } finally {
+      inflightMonthlyTotalRef.current = false
     }
   }, [userId])
 

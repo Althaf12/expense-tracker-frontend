@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import {
   Pencil,
   Check,
@@ -68,12 +68,17 @@ export default function MonthlyBalance(): ReactElement {
 
   const userId = session?.userId ?? ''
 
+  const inflightLoadRef = useRef<string | null>(null)
+
   const loadBalances = useCallback(
     async (page: number, size: number) => {
       if (!userId) {
         setBalances([])
         return
       }
+      const loadKey = `${userId}:${page}:${size}`
+      if (inflightLoadRef.current === loadKey) return
+      inflightLoadRef.current = loadKey
       setLoading(true)
       try {
         const response: PagedResponse<MonthlyBalanceType> = await fetchAllMonthlyBalances({
@@ -89,6 +94,7 @@ export default function MonthlyBalance(): ReactElement {
         const message = error instanceof Error ? error.message : String(error)
         setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading monthly balances') })
       } finally {
+        inflightLoadRef.current = null
         setLoading(false)
       }
     },

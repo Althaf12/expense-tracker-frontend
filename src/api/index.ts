@@ -567,27 +567,6 @@ export async function fetchPreviousMonthlyBalance(userId: string): Promise<Month
     return _prevMonthlyBalanceCache.get(storageKey) ?? null
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      const raw = window.localStorage.getItem(storageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed.balance === 'number') {
-          const mb: MonthlyBalance = { closingBalance: parsed.balance, month: yearKey ? Number(monthKey) : undefined, year: yearKey }
-          _prevMonthlyBalanceCache.set(storageKey, mb)
-          return mb
-        }
-        if (parsed && typeof parsed.closingBalance === 'number') {
-          const mb: MonthlyBalance = { closingBalance: parsed.closingBalance, month: yearKey ? Number(monthKey) : undefined, year: yearKey }
-          _prevMonthlyBalanceCache.set(storageKey, mb)
-          return mb
-        }
-      }
-    } catch {
-      /* ignore parse/storage errors */
-    }
-  }
-
   if (_prevMonthlyBalancePromises.has(storageKey)) {
     return _prevMonthlyBalancePromises.get(storageKey)!
   }
@@ -602,21 +581,18 @@ export async function fetchPreviousMonthlyBalance(userId: string): Promise<Month
         const month = typeof payload.month === 'number' ? payload.month : yearKey
         const year = typeof payload.year === 'number' ? payload.year : yearKey
         const mb: MonthlyBalance = { openingBalance, closingBalance, month, year }
-
-        const storeValue = closingBalance ?? openingBalance ?? null
-        if (storeValue !== null && typeof window !== 'undefined') {
-          try {
-            window.localStorage.setItem(storageKey, JSON.stringify({ balance: storeValue, month, year, storedAt: new Date().toISOString() }))
-          } catch {
-            /* ignore storage errors */
-          }
-        }
-
         _prevMonthlyBalanceCache.set(storageKey, mb)
         return mb
       }
       _prevMonthlyBalanceCache.set(storageKey, null)
       return null
+    } catch (error) {
+      // 404 means no monthly balance exists for the previous month — treat as null, not an error
+      if (error instanceof Error && error.message.includes('404')) {
+        _prevMonthlyBalanceCache.set(storageKey, null)
+        return null
+      }
+      throw error
     } finally {
       _prevMonthlyBalancePromises.delete(storageKey)
     }

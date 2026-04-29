@@ -188,10 +188,13 @@ export default function NextMonthEstimates(): ReactElement {
 
   // ── Toast flag to avoid repeated warnings per load ───────────────────────
   const ccWarnShownRef = useRef(false)
+  const inflightLoadRef = useRef<string | null>(null)
 
   // ── Load data ────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     if (!userId) return
+    if (inflightLoadRef.current === userId) return
+    inflightLoadRef.current = userId
     setLoading(true)
     ccWarnShownRef.current = false
     try {
@@ -208,6 +211,7 @@ export default function NextMonthEstimates(): ReactElement {
     } catch (err) {
       addNotification({ type: 'error', message: friendlyErrorMessage(err instanceof Error ? err.message : String(err)) })
     } finally {
+      inflightLoadRef.current = null
       setLoading(false)
     }
   }, [userId, addNotification])
