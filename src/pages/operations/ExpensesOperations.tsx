@@ -98,6 +98,13 @@ const getAmount = (expense: Expense): number => {
   return typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0
 }
 
+const sortExpensesByDateDesc = (expenses: Expense[]): Expense[] =>
+  [...expenses].sort((a, b) => {
+    const da = a.expenseDate ? new Date(a.expenseDate).getTime() : 0
+    const db = b.expenseDate ? new Date(b.expenseDate).getTime() : 0
+    return db - da
+  })
+
 type ExpenseWithUserCategory = Expense & {
   userExpenseCategoryId?: string | number
   userExpenseCategoryName?: string
@@ -229,7 +236,7 @@ export default function ExpensesOperations(): ReactElement {
           page: 0,
           size: DEFAULT_PAGE_SIZE,
         })
-        setResults(response.content)
+        setResults(sortExpensesByDateDesc(response.content))
         setCurrentPage(response.page)
         setTotalElements(response.totalElements)
         setTotalPages(response.totalPages)
@@ -603,7 +610,7 @@ export default function ExpensesOperations(): ReactElement {
         response = await fetchExpensesByMonth({ userId, month, year, page, size })
         setLastQuery({ mode: 'month', payload: { month, year } })
       }
-      setResults(response.content)
+      setResults(sortExpensesByDateDesc(response.content))
       setCurrentPage(response.page)
       setTotalElements(response.totalElements)
       setTotalPages(response.totalPages)

@@ -62,6 +62,13 @@ const amountFromUserExpense = (expense: UserExpense): number => {
   return 0
 }
 
+const sortExpensesByDateDesc = (expenses: Expense[]): Expense[] =>
+  [...expenses].sort((a, b) => {
+    const da = a.expenseDate ? new Date(a.expenseDate).getTime() : 0
+    const db = b.expenseDate ? new Date(b.expenseDate).getTime() : 0
+    return db - da
+  })
+
 const toISODate = (date: Date): string => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -207,11 +214,11 @@ export default function useDashboardData() {
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
 
-        setMonthlyExpenses(currentExpensesResponse.content)
+        setMonthlyExpenses(sortExpensesByDateDesc(currentExpensesResponse.content))
         setExpenseTotalElements(currentExpensesResponse.totalElements)
         setExpenseTotalPages(currentExpensesResponse.totalPages)
         setExpenseCurrentPage(currentExpensesResponse.page)
-        setPreviousMonthExpenses(previousExpensesResponse.content)
+        setPreviousMonthExpenses(sortExpensesByDateDesc(previousExpensesResponse.content))
         setCurrentMonthExpenseTotalFromApi(currentExpenseTotal)
         setPreviousMonthExpenseTotalFromApi(previousExpenseTotal)
 
@@ -604,7 +611,7 @@ export default function useDashboardData() {
       await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
 
       const refreshed = await fetchExpensesByMonth({ userId: session.userId, month, year, page: expenseCurrentPage, size: expensePageSize })
-      setMonthlyExpenses(refreshed.content)
+      setMonthlyExpenses(sortExpensesByDateDesc(refreshed.content))
       setExpenseTotalElements(refreshed.totalElements)
       setExpenseTotalPages(refreshed.totalPages)
     } catch (error) {
@@ -726,7 +733,7 @@ export default function useDashboardData() {
     void (async () => {
       try {
         const response = await fetchExpensesByMonth({ userId, month, year, page, size: expensePageSize })
-        setMonthlyExpenses(response.content)
+        setMonthlyExpenses(sortExpensesByDateDesc(response.content))
         setExpenseTotalElements(response.totalElements)
         setExpenseTotalPages(response.totalPages)
         setExpenseCurrentPage(response.page)
@@ -748,7 +755,7 @@ export default function useDashboardData() {
     void (async () => {
       try {
         const response = await fetchExpensesByMonth({ userId, month, year, page: 0, size })
-        setMonthlyExpenses(response.content)
+        setMonthlyExpenses(sortExpensesByDateDesc(response.content))
         setExpenseTotalElements(response.totalElements)
         setExpenseTotalPages(response.totalPages)
         setExpenseCurrentPage(response.page)
