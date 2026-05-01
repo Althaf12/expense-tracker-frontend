@@ -366,6 +366,24 @@ export async function fetchExpensesByMonth(payload: { userId: string; month: num
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
+export async function fetchExpenseTotalByMonth(payload: { userId: string; month: number; year: number }): Promise<number> {
+  if (isGuestUserId(payload.userId)) {
+    const result = guestStore.getExpensesByMonth(payload.month, payload.year)
+    return result.content.reduce((sum: number, e: Expense) => {
+      const v = e.amount ?? e.expenseAmount
+      const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : 0
+      return sum + (Number.isFinite(n) ? n : 0)
+    }, 0)
+  }
+  const result = await request('/expense/total/month', { body: { userId: payload.userId, month: payload.month, year: payload.year } })
+  if (result && typeof result === 'object' && 'totalAmount' in result) {
+    const v = (result as { totalAmount: unknown }).totalAmount
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : 0
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 export async function fetchExpensesByYear(payload: { userId: string; year: number }): Promise<Expense[]> {
   if (isGuestUserId(payload.userId)) {
     return guestStore.getExpenses().filter((e) => {
@@ -1741,6 +1759,7 @@ export default {
   deleteUserExpense,
   fetchExpensesByRange,
   fetchExpensesByMonth,
+  fetchExpenseTotalByMonth,
   fetchExpensesByYear,
   addExpense,
   deleteExpense,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import {
   addExpense,
   fetchExpensesByMonth,
+  fetchExpenseTotalByMonth,
   fetchIncomeByMonth,
   fetchPreviousMonthlyBalance,
   resolveUserExpenseCategoryId,
@@ -144,6 +145,8 @@ export default function useDashboardData() {
   const [expensePageSize, setExpensePageSize] = useState<number>(20)
   const [expenseTotalElements, setExpenseTotalElements] = useState<number>(0)
   const [expenseTotalPages, setExpenseTotalPages] = useState<number>(1)
+  const [currentMonthExpenseTotalFromApi, setCurrentMonthExpenseTotalFromApi] = useState<number | null>(null)
+  const [previousMonthExpenseTotalFromApi, setPreviousMonthExpenseTotalFromApi] = useState<number | null>(null)
 
   const visibleTemplates = useMemo(() => activeUserExpenses.filter((expense) => (expense.status ?? 'A') === 'A'), [activeUserExpenses])
 
@@ -161,6 +164,8 @@ export default function useDashboardData() {
       setPreviousMonthIncome([])
       setTwoMonthsAgoIncome([])
       setMonthlyBalanceBase(0)
+      setCurrentMonthExpenseTotalFromApi(null)
+      setPreviousMonthExpenseTotalFromApi(null)
       lastLoadKeyRef.current = null
       inflightLoadKeyRef.current = null
       return
@@ -187,6 +192,8 @@ export default function useDashboardData() {
           previousIncomeResponse,
           twoMonthsAgoIncomeResponse,
           previousMonthBalance,
+          currentExpenseTotal,
+          previousExpenseTotal,
         ] = await Promise.all([
           fetchExpensesByMonth({ userId, month, year, page: expenseCurrentPage, size: expensePageSize }),
           fetchExpensesByMonth({ userId, month: previousContext.month, year: previousContext.year }),
@@ -194,6 +201,8 @@ export default function useDashboardData() {
           fetchIncomeByMonth({ userId, month: previousContext.month, year: previousContext.year }),
           fetchIncomeByMonth({ userId, month: twoMonthsAgoContext.month, year: twoMonthsAgoContext.year }),
           fetchPreviousMonthlyBalance(userId),
+          fetchExpenseTotalByMonth({ userId, month, year }),
+          fetchExpenseTotalByMonth({ userId, month: previousContext.month, year: previousContext.year }),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -203,6 +212,8 @@ export default function useDashboardData() {
         setExpenseTotalPages(currentExpensesResponse.totalPages)
         setExpenseCurrentPage(currentExpensesResponse.page)
         setPreviousMonthExpenses(previousExpensesResponse.content)
+        setCurrentMonthExpenseTotalFromApi(currentExpenseTotal)
+        setPreviousMonthExpenseTotalFromApi(previousExpenseTotal)
 
         // For guest users only show previous month income (exclude earlier or current month incomes)
         const isGuest = session.userId === 'guest-user'
@@ -466,9 +477,15 @@ export default function useDashboardData() {
 
   const monthlyTotal = useMemo(() => filteredMonthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0), [filteredMonthlyExpenses])
 
-  const currentMonthExpenseTotal = useMemo(() => monthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0), [monthlyExpenses])
+  const currentMonthExpenseTotal = useMemo(
+    () => currentMonthExpenseTotalFromApi ?? monthlyExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0),
+    [currentMonthExpenseTotalFromApi, monthlyExpenses],
+  )
 
-  const previousMonthExpenseTotal = useMemo(() => previousMonthExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0), [previousMonthExpenses])
+  const previousMonthExpenseTotal = useMemo(
+    () => previousMonthExpenseTotalFromApi ?? previousMonthExpenses.reduce((sum, expense) => sum + amountFromExpense(expense), 0),
+    [previousMonthExpenseTotalFromApi, previousMonthExpenses],
+  )
 
   const currentMonthIncomeTotal = useMemo(() => currentMonthIncome.reduce((sum, income) => sum + amountFromIncome(income), 0), [currentMonthIncome])
 
