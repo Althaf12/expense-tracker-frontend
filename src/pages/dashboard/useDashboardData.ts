@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import {
   addExpense,
+  fetchCurrentBalance,
   fetchExpensesByMonth,
   fetchExpenseTotalByMonth,
   fetchIncomeByMonth,
@@ -154,6 +155,7 @@ export default function useDashboardData() {
   const [expenseTotalPages, setExpenseTotalPages] = useState<number>(1)
   const [currentMonthExpenseTotalFromApi, setCurrentMonthExpenseTotalFromApi] = useState<number | null>(null)
   const [previousMonthExpenseTotalFromApi, setPreviousMonthExpenseTotalFromApi] = useState<number | null>(null)
+  const [currentClosingBalance, setCurrentClosingBalance] = useState<number | null>(null)
 
   const visibleTemplates = useMemo(() => activeUserExpenses.filter((expense) => (expense.status ?? 'A') === 'A'), [activeUserExpenses])
 
@@ -173,6 +175,7 @@ export default function useDashboardData() {
       setMonthlyBalanceBase(0)
       setCurrentMonthExpenseTotalFromApi(null)
       setPreviousMonthExpenseTotalFromApi(null)
+      setCurrentClosingBalance(null)
       lastLoadKeyRef.current = null
       inflightLoadKeyRef.current = null
       return
@@ -201,6 +204,7 @@ export default function useDashboardData() {
           previousMonthBalance,
           currentExpenseTotal,
           previousExpenseTotal,
+          currentBalanceResult,
         ] = await Promise.all([
           fetchExpensesByMonth({ userId, month, year, page: expenseCurrentPage, size: expensePageSize }),
           fetchExpensesByMonth({ userId, month: previousContext.month, year: previousContext.year }),
@@ -210,6 +214,7 @@ export default function useDashboardData() {
           fetchPreviousMonthlyBalance(userId),
           fetchExpenseTotalByMonth({ userId, month, year }),
           fetchExpenseTotalByMonth({ userId, month: previousContext.month, year: previousContext.year }),
+          fetchCurrentBalance(userId),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -255,6 +260,9 @@ export default function useDashboardData() {
         const mb = previousMonthBalance as (import('../../types/app').MonthlyBalance | null)
         const resolved = mb ? (typeof mb.closingBalance === 'number' ? mb.closingBalance : typeof mb.openingBalance === 'number' ? mb.openingBalance : 0) : 0
         setMonthlyBalanceBase(resolved)
+        if (!isGuest) {
+          setCurrentClosingBalance(currentBalanceResult)
+        }
         setStatus(null)
         lastLoadKeyRef.current = loadKey
       } catch (error) {
@@ -512,10 +520,11 @@ export default function useDashboardData() {
     [incomeMonth, previousMonthIncomeTotal, twoMonthsAgoIncomeTotal]
   )
 
-  const totalBalance = useMemo(
-    () => (monthlyBalanceBase ?? 0) + preferredIncomeTotal - currentMonthExpenseTotal,
-    [monthlyBalanceBase, preferredIncomeTotal, currentMonthExpenseTotal],
-  )
+  const totalBalance = useMemo(() => {
+    const isGuest = session?.userId === 'guest-user'
+    if (!isGuest && currentClosingBalance !== null) return currentClosingBalance
+    return (monthlyBalanceBase ?? 0) + preferredIncomeTotal - currentMonthExpenseTotal
+  }, [session?.userId, currentClosingBalance, monthlyBalanceBase, preferredIncomeTotal, currentMonthExpenseTotal])
 
   const previousBalance = useMemo(() => preferredPreviousIncomeTotal - previousMonthExpenseTotal, [preferredPreviousIncomeTotal, previousMonthExpenseTotal])
 

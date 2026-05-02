@@ -620,6 +620,24 @@ export async function fetchPreviousMonthlyBalance(userId: string): Promise<Month
   return inflight
 }
 
+/**
+ * Fetch the latest closing balance for a user.
+ * This is always up-to-date after any income, expense, monthly balance or adjustment change.
+ */
+export async function fetchCurrentBalance(userId: string): Promise<number> {
+  if (isGuestUserId(userId)) {
+    return 0 // guest users calculate this client-side from local data
+  }
+  const safeUserId = ensureUserId(userId)
+  const result = await request(`/user/${safeUserId}/current-balance`, { method: 'GET' })
+  if (result && typeof result === 'object') {
+    const v = (result as { currentClosingBalance?: unknown }).currentClosingBalance
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : 0
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 // ============================================================================
 // User Preferences APIs
 // ============================================================================
@@ -1771,6 +1789,7 @@ export default {
   fetchIncomeByMonth,
   fetchIncomeLastYear,
   fetchPreviousMonthlyBalance,
+  fetchCurrentBalance,
   checkHealth,
   getApiBase,
   fetchUserPreferences,
