@@ -107,18 +107,19 @@ export default function PlannedExpenses({
         </div>
       </header>
 
-      {!collapsed && visibleTemplates.length === 0 && (
-        <Typography variant="body2" component="p" className={styles.placeholder}>
-          {userExpenses.length === 0
-            ? 'No planned expenses yet. Add them in your profile to plan monthly spending.'
-            : 'All planned expenses are inactive. Activate planned expenses in your profile to track them here.'}
-        </Typography>
-      )}
-      {!collapsed && visibleTemplates.length > 0 && (
-        <>
-          <div className={localStyles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(monthlyTemplateProgress)}>
-            <div className={localStyles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
-          </div>
+      <div className={`${localStyles.collapseWrapper} ${collapsed ? localStyles.collapseWrapperCollapsed : ''}`}>
+        <div className={localStyles.collapseInner}>
+          {visibleTemplates.length === 0 ? (
+            <Typography variant="body2" component="p" className={styles.placeholder}>
+              {userExpenses.length === 0
+                ? 'No planned expenses yet. Add them in your profile to plan monthly spending.'
+                : 'All planned expenses are inactive. Activate planned expenses in your profile to track them here.'}
+            </Typography>
+          ) : (
+            <>
+              <div className={localStyles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(monthlyTemplateProgress)}>
+                <div className={localStyles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
+              </div>
           <div className={localStyles.plannedTableContainer} role="group" aria-label="Planned expenses grouped by category">
             <div className={localStyles.gridHeader}>
               <div className={localStyles.gridHeaderCell}>Category</div>
@@ -185,12 +186,14 @@ export default function PlannedExpenses({
               })}
             </div>
           </div>
-          <div className={localStyles.plannedFooter}>
-            <span className={localStyles.plannedFooterLabel}>Total planned</span>
-            <span className={localStyles.plannedFooterAmount}>{formatCurrency(expenseTemplatesTotal)}</span>
-          </div>
-        </>
-      )}
+              <div className={localStyles.plannedFooter}>
+                <span className={localStyles.plannedFooterLabel}>Total planned</span>
+                <span className={localStyles.plannedFooterAmount}>{formatCurrency(expenseTemplatesTotal)}</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </section>
   )
 }

@@ -78,6 +78,21 @@
   transform: rotate(-90deg);
 }
 
+.collapseWrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.collapseWrapperCollapsed {
+  grid-template-rows: 0fr;
+}
+
+.collapseInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Container - columns are equal width (two columns) across all sizes */
 .plannedTableContainer {
   margin-top: 1rem;
