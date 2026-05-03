@@ -23,11 +23,13 @@
 }
 
 .sidebarWrapper {
-
+  position: sticky;
+  top: var(--app-header-height);
+  height: calc(100vh - var(--app-header-height));
   display: flex;
   flex-shrink: 0;
-  align-self: stretch;
-  height: -webkit-fill-available;
+  align-self: flex-start;
+  overflow-y: auto;
 }
 
 .sidebarWrapperMobile {

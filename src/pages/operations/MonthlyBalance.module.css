@@ -80,6 +80,7 @@
 
 .tableWrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 1rem;
 }
 
@@ -87,6 +88,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  min-width: 480px;
 }
 
 .table th,
@@ -315,26 +317,12 @@
   }
 
   .tableContainer {
-    padding: 1rem;
+    padding: 1rem 0.5rem;
   }
 
   .table th,
   .table td {
     padding: 0.6rem 0.5rem;
     font-size: 0.8rem;
-  }
-
-  .serialCol,
-  .changeCol {
-    display: none;
-  }
-
-  .serialCell,
-  .changeCell {
-    display: none;
-  }
-
-  .amountCol {
-    width: auto;
   }
 }
