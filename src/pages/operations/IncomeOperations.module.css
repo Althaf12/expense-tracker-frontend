@@ -529,6 +529,16 @@
     border-radius: 0.5rem;
   }
 
+  .cardHeader {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .headerWithIcon {
     gap: 0.5rem;
   }
