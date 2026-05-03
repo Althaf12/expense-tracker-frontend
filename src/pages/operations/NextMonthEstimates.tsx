@@ -1288,11 +1288,17 @@ export default function NextMonthEstimates(): ReactElement {
                 <div className={styles.addFormContainer}>
                   <p className={styles.addFormTitle}>New Credit Card Estimate</p>
                   <form className={styles.addFormRow} onSubmit={handleCCAdd}>
+                    <datalist id="cc-card-names-add">
+                      {ccByCard.map((g) => (
+                        <option key={g.cardName} value={g.cardName} />
+                      ))}
+                    </datalist>
                     <input
                       className={styles.formInput}
                       value={ccAddForm.cardName}
                       onChange={(e) => setCCAddForm((f) => ({ ...f, cardName: e.target.value }))}
                       placeholder="Card name *"
+                      list="cc-card-names-add"
                       required
                     />
                     <input
