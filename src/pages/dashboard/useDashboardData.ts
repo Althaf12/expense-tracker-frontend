@@ -619,10 +619,16 @@ export default function useDashboardData() {
 
       await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
 
-      const refreshed = await fetchExpensesByMonth({ userId: session.userId, month, year, page: expenseCurrentPage, size: expensePageSize })
+      const [refreshed, newExpenseTotal, newBalance] = await Promise.all([
+        fetchExpensesByMonth({ userId: session.userId, month, year, page: expenseCurrentPage, size: expensePageSize }),
+        fetchExpenseTotalByMonth({ userId: session.userId, month, year }),
+        fetchCurrentBalance(session.userId),
+      ])
       setMonthlyExpenses(sortExpensesByDateDesc(refreshed.content))
       setExpenseTotalElements(refreshed.totalElements)
       setExpenseTotalPages(refreshed.totalPages)
+      setCurrentMonthExpenseTotalFromApi(newExpenseTotal)
+      setCurrentClosingBalance(newBalance)
     } catch (error) {
       if (paidUpdated) {
         try {
