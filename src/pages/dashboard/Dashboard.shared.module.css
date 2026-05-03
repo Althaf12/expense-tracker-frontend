@@ -15,7 +15,7 @@
   background: var(--surface-card);
   height: -webkit-fill-available;
   border-radius: 0.75rem;
-  box-shadow: 0 8px 24px rgba(2,6,23,0.55);
+  box-shadow: var(--surface-card-shadow, 0 8px 24px rgba(2,6,23,0.55));
   padding: 1.5rem;
   border: 1px solid rgba(255,255,255,0.03);
   backdrop-filter: blur(6px);
@@ -23,7 +23,7 @@
 }
 
 .card:hover {
-  box-shadow: 0 12px 32px rgba(2,6,23,0.65);
+  box-shadow: var(--surface-card-hover-shadow, 0 12px 32px rgba(2,6,23,0.65));
 }
 
 .cardHeader {
