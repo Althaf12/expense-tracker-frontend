@@ -51,6 +51,33 @@
   opacity: 0.6;
 }
 
+.collapseButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--secondary-button-border);
+  border-radius: 0.55rem;
+  padding: 0.35rem;
+  cursor: pointer;
+  color: var(--secondary-button-text);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.collapseButton:hover {
+  background: var(--secondary-button-hover);
+}
+
+.chevronExpanded {
+  transition: transform 0.25s ease;
+  transform: rotate(0deg);
+}
+
+.chevronCollapsed {
+  transition: transform 0.25s ease;
+  transform: rotate(-90deg);
+}
+
 /* Container - columns are equal width (two columns) across all sizes */
 .plannedTableContainer {
   margin-top: 1rem;

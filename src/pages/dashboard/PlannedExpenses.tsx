@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material'
-import type { ReactElement } from 'react'
-import { GripVertical, RefreshCw } from 'lucide-react'
+import { useState, type ReactElement } from 'react'
+import { GripVertical, RefreshCw, ChevronDown } from 'lucide-react'
 import type { UserExpense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './PlannedExpenses.module.css'
@@ -47,6 +47,7 @@ export default function PlannedExpenses({
   userExpenses,
   loading = false,
 }: Props): ReactElement {
+  const [collapsed, setCollapsed] = useState(false)
   if (loading) {
     return (
       <section className={styles.card} aria-live="polite">
@@ -94,16 +95,26 @@ export default function PlannedExpenses({
             <RefreshCw size={16} />
             Reset month
           </button>
+          <button
+            type="button"
+            className={localStyles.collapseButton}
+            onClick={() => setCollapsed((c) => !c)}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand planned expenses' : 'Collapse planned expenses'}
+          >
+            <ChevronDown size={18} className={collapsed ? localStyles.chevronCollapsed : localStyles.chevronExpanded} />
+          </button>
         </div>
       </header>
 
-      {visibleTemplates.length === 0 ? (
+      {!collapsed && visibleTemplates.length === 0 && (
         <Typography variant="body2" component="p" className={styles.placeholder}>
           {userExpenses.length === 0
             ? 'No planned expenses yet. Add them in your profile to plan monthly spending.'
             : 'All planned expenses are inactive. Activate planned expenses in your profile to track them here.'}
         </Typography>
-      ) : (
+      )}
+      {!collapsed && visibleTemplates.length > 0 && (
         <>
           <div className={localStyles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(monthlyTemplateProgress)}>
             <div className={localStyles.progressFill} style={{ width: `${monthlyTemplateProgress}%` }} />
