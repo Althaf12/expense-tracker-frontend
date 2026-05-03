@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  Upload,
   RefreshCcw,
   Eye,
   EyeOff
@@ -35,6 +36,7 @@ import styles from './ExpensesOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 import Pagination from '../../components/Pagination'
 import ExportModal from '../../components/ExportModal'
+import ImportStatementModal from '../../components/ImportStatementModal'
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -180,6 +182,8 @@ export default function ExpensesOperations(): ReactElement {
   const [totalPages, setTotalPages] = useState<number>(1)
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
+  // Import statement modal state
+  const [importModalOpen, setImportModalOpen] = useState<boolean>(false)
   // Expense adjustments inline state
   const [expandedExpenseIds, setExpandedExpenseIds] = useState<Set<string>>(new Set())
   const [expenseAdjustmentsCache, setExpenseAdjustmentsCache] = useState<Map<string, ExpenseAdjustment[]>>(new Map())
@@ -1023,6 +1027,15 @@ export default function ExpensesOperations(): ReactElement {
               <button
                 type="button"
                 className={styles.exportButton}
+                onClick={() => setImportModalOpen(true)}
+                title="Import HDFC bank statement"
+              >
+                <Upload size={16} />
+                Import
+              </button>
+              <button
+                type="button"
+                className={styles.exportButton}
                 onClick={() => setExportModalOpen(true)}
                 title="Export data"
               >
@@ -1739,6 +1752,13 @@ export default function ExpensesOperations(): ReactElement {
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         defaultExportType="EXPENSES"
+      />
+
+      {/* Import Statement Modal */}
+      <ImportStatementModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImported={() => void refreshAfterMutation()}
       />
     </Grid>
   )

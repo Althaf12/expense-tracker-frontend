@@ -10,6 +10,7 @@ import {
   Check, 
   X,
   Download,
+  Upload,
   ChevronDown
 } from 'lucide-react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
@@ -21,6 +22,7 @@ import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
 import Pagination from '../../components/Pagination'
 import ExportModal from '../../components/ExportModal'
+import ImportStatementModal from '../../components/ImportStatementModal'
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -127,6 +129,8 @@ export default function IncomeOperations(): ReactElement {
   const initialLoadRef = useRef<boolean>(false)
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
+  // Import statement modal state
+  const [importModalOpen, setImportModalOpen] = useState<boolean>(false)
   // Month dropdown state
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
   const monthDropdownRef = useRef<HTMLDivElement>(null)
@@ -511,6 +515,15 @@ export default function IncomeOperations(): ReactElement {
             </div>
             <div className={styles.headerActions}>
               <span className={styles.badge}>{filteredResults.length} records</span>
+              <button
+                type="button"
+                className={styles.exportButton}
+                onClick={() => setImportModalOpen(true)}
+                title="Import HDFC bank statement"
+              >
+                <Upload size={16} />
+                Import
+              </button>
               <button
                 type="button"
                 className={styles.exportButton}
@@ -947,6 +960,16 @@ export default function IncomeOperations(): ReactElement {
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         defaultExportType="INCOME"
+      />
+
+      {/* Import Statement Modal */}
+      <ImportStatementModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImported={() => {
+          if (session) void reloadIncomesCache(session.userId)
+          if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
+        }}
       />
     </Grid>
   )

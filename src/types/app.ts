@@ -164,6 +164,17 @@ export type PagedResponse<T> = {
 export type ExportType = 'EXPENSES' | 'INCOME' | 'BOTH'
 export type ExportFormat = 'EXCEL' | 'PDF'
 
+// ============================================================================
+// Statement Import Types
+// ============================================================================
+
+export type HdfcImportResponse = {
+  expensesAdded: number
+  incomesAdded: number
+  skippedCount: number
+  messages: string[]
+}
+
 export type ExportRequest = {
   userId: string
   startDate: string

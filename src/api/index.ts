@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate, HdfcImportResponse } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -618,6 +618,41 @@ export async function fetchPreviousMonthlyBalance(userId: string): Promise<Month
 
   _prevMonthlyBalancePromises.set(storageKey, inflight)
   return inflight
+}
+
+// ============================================================================
+// Statement Import APIs
+// ============================================================================
+
+/**
+ * Import an HDFC bank statement PDF.
+ * Parses the statement and creates both expenses and incomes automatically.
+ */
+export async function importHdfcStatement(payload: {
+  userId: string
+  file: File
+  password?: string
+}): Promise<HdfcImportResponse> {
+  if (isGuestUserId(payload.userId)) {
+    throw new Error('Statement import is not available for guest users. Please sign in.')
+  }
+  const url = `${API_BASE}/expense/import/hdfc`
+  const formData = new FormData()
+  formData.append('file', payload.file)
+  formData.append('userId', payload.userId)
+  if (payload.password) {
+    formData.append('password', payload.password)
+  }
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  })
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(errorText || `Statement import failed: ${response.status}`)
+  }
+  return response.json() as Promise<HdfcImportResponse>
 }
 
 /**
@@ -1790,6 +1825,7 @@ export default {
   fetchIncomeLastYear,
   fetchPreviousMonthlyBalance,
   fetchCurrentBalance,
+  importHdfcStatement,
   checkHealth,
   getApiBase,
   fetchUserPreferences,
