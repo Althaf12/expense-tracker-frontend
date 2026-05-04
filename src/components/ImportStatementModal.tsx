@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactElement } from 'react'
-import { X, Upload, FileText, Loader2 } from 'lucide-react'
+import { X, Upload, FileText, Loader2, Info } from 'lucide-react'
 import type { HdfcImportResponse } from '../types/app'
 import { importHdfcStatement } from '../api'
 import { useAppDataContext } from '../context/AppDataContext'
@@ -24,6 +24,8 @@ export default function ImportStatementModal({
 
   const [file, setFile] = useState<File | null>(null)
   const [password, setPassword] = useState<string>('')
+  const [storePassword, setStorePassword] = useState<boolean>(false)
+  const [useStoredPassword, setUseStoredPassword] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const [result, setResult] = useState<HdfcImportResponse | null>(null)
@@ -34,6 +36,8 @@ export default function ImportStatementModal({
     if (open) {
       setFile(null)
       setPassword('')
+      setStorePassword(false)
+      setUseStoredPassword(false)
       setError('')
       setResult(null)
       setLoading(false)
@@ -98,6 +102,8 @@ export default function ImportStatementModal({
         userId: session.userId,
         file,
         password: password.trim() || undefined,
+        storePassword,
+        useStoredPassword,
       })
       setResult(response)
 
@@ -129,7 +135,7 @@ export default function ImportStatementModal({
         <div className={styles.header}>
           <h2 className={styles.title}>
             <Upload size={18} />
-            Import HDFC Statement
+            Import Bank Statement
           </h2>
           <button
             type="button"
@@ -143,6 +149,12 @@ export default function ImportStatementModal({
         </div>
 
         <div className={styles.body}>
+          {/* HDFC-only notice */}
+          <div className={styles.supportedBankNote}>
+            <Info size={14} className={styles.supportedBankNoteIcon} />
+            <span>Currently, only <strong>HDFC Bank</strong> statements (PDF) are supported.</span>
+          </div>
+
           <p className={styles.description}>
             Upload your HDFC bank statement PDF. Expenses and incomes will be automatically extracted and added to your account.
           </p>
@@ -187,22 +199,58 @@ export default function ImportStatementModal({
             </div>
           )}
 
-          {/* Optional password */}
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="stmt-password">
-              PDF Password
-              <span className={styles.labelOptional}>(optional)</span>
+          {/* Password section */}
+          <div className={styles.passwordSection}>
+            {/* Use stored password checkbox */}
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                className={styles.checkbox}
+                checked={useStoredPassword}
+                onChange={(e) => {
+                  setUseStoredPassword(e.target.checked)
+                  if (e.target.checked) {
+                    setPassword('')
+                    setStorePassword(false)
+                  }
+                }}
+                disabled={loading}
+              />
+              Use my stored bank statement password
             </label>
-            <input
-              id="stmt-password"
-              type="password"
-              className={styles.input}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter if the PDF is password-protected"
-              disabled={loading}
-              autoComplete="off"
-            />
+
+            {/* Manual password fields � hidden when using stored password */}
+            {!useStoredPassword && (
+              <>
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="stmt-password">
+                    PDF Password
+                    <span className={styles.labelOptional}>(optional)</span>
+                  </label>
+                  <input
+                    id="stmt-password"
+                    type="password"
+                    className={styles.input}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter if the PDF is password-protected"
+                    disabled={loading}
+                    autoComplete="off"
+                  />
+                </div>
+
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    className={styles.checkbox}
+                    checked={storePassword}
+                    onChange={(e) => setStorePassword(e.target.checked)}
+                    disabled={loading || !password.trim()}
+                  />
+                  Save this password for future imports
+                </label>
+              </>
+            )}
           </div>
 
           {/* Error */}
@@ -226,13 +274,17 @@ export default function ImportStatementModal({
                     <span className={styles.successStatLabel}>Skipped</span>
                   </div>
                 )}
+                {result.statementClosingBalance != null && (
+                  <div className={styles.successStat}>
+                    <span className={styles.successStatValue}>
+                      {result.statementClosingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className={styles.successStatLabel}>Closing balance</span>
+                  </div>
+                )}
               </div>
-              {result.messages.length > 0 && (
-                <div className={styles.successMessages}>
-                  {result.messages.map((msg, i) => (
-                    <span key={i} className={styles.successMessage}>• {msg}</span>
-                  ))}
-                </div>
+              {result.balanceMatchWarning && (
+                <div className={styles.balanceWarning}>{result.balanceMatchWarning}</div>
               )}
             </div>
           )}
@@ -257,7 +309,7 @@ export default function ImportStatementModal({
                 {loading ? (
                   <>
                     <Loader2 size={16} className={styles.spinner} />
-                    Importing…
+                    Importing...
                   </>
                 ) : (
                   <>

@@ -632,6 +632,8 @@ export async function importHdfcStatement(payload: {
   userId: string
   file: File
   password?: string
+  storePassword?: boolean
+  useStoredPassword?: boolean
 }): Promise<HdfcImportResponse> {
   if (isGuestUserId(payload.userId)) {
     throw new Error('Statement import is not available for guest users. Please sign in.')
@@ -640,8 +642,15 @@ export async function importHdfcStatement(payload: {
   const formData = new FormData()
   formData.append('file', payload.file)
   formData.append('userId', payload.userId)
-  if (payload.password) {
-    formData.append('password', payload.password)
+  if (payload.useStoredPassword) {
+    formData.append('useStoredPassword', 'true')
+  } else {
+    if (payload.password) {
+      formData.append('password', payload.password)
+    }
+    if (payload.storePassword) {
+      formData.append('storePassword', 'true')
+    }
   }
   const response = await fetch(url, {
     method: 'POST',
@@ -650,7 +659,14 @@ export async function importHdfcStatement(payload: {
   })
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(errorText || `Statement import failed: ${response.status}`)
+    let message = errorText || `Statement import failed: ${response.status}`
+    try {
+      const parsed = JSON.parse(errorText) as { message?: string }
+      if (parsed.message) message = parsed.message
+    } catch {
+      // not JSON — use raw text
+    }
+    throw new Error(message)
   }
   return response.json() as Promise<HdfcImportResponse>
 }

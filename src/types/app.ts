@@ -172,6 +172,8 @@ export type HdfcImportResponse = {
   expensesAdded: number
   incomesAdded: number
   skippedCount: number
+  statementClosingBalance: number | null
+  balanceMatchWarning: string | null
   messages: string[]
 }
 
