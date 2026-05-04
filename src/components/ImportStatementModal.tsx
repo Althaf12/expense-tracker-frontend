@@ -219,7 +219,7 @@ export default function ImportStatementModal({
               Use my stored bank statement password
             </label>
 
-            {/* Manual password fields — hidden when using stored password */}
+            {/* Manual password fields ï¿½ hidden when using stored password */}
             {!useStoredPassword && (
               <>
                 <div className={styles.field}>
