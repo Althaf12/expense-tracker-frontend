@@ -95,7 +95,6 @@ export default function Profile({ session }: ProfileProps): ReactElement {
 
   const {
     setStatus,
-    expenseCategories: activeCategories,
     ensureExpenseCategories,
     refreshExpenseCategories,
     ensureUserExpenses,
@@ -176,14 +175,14 @@ export default function Profile({ session }: ProfileProps): ReactElement {
 
   const categoryLookup = useMemo(() => {
     const map = new Map<string, UserExpenseCategory>()
-    activeCategories.forEach((category) => {
+    categories.forEach((category) => {
       const key = String(category.userExpenseCategoryId)
       if (key) {
         map.set(key, category)
       }
     })
     return map
-  }, [activeCategories])
+  }, [categories])
 
   const categoryOptions = useMemo(
     () =>
