@@ -1,6 +1,7 @@
 import Grid from '@mui/material/Grid'
 import { Typography } from '@mui/material'
 import React, { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
+import ReactDOM from 'react-dom'
 import { 
   Search, 
   Plus, 
@@ -387,6 +388,8 @@ export default function ExpensesOperations(): ReactElement {
     )
   }, [editingRowDraft, activeCategories])
 
+  const inlineCategoryInputRef = useRef<HTMLInputElement | null>(null)
+  const editingCategoryInputRef = useRef<HTMLInputElement | null>(null)
   const [inlineCategoryDropdownOpen, setInlineCategoryDropdownOpen] = useState<boolean>(false)
 
   useEffect(() => {
@@ -1238,6 +1241,7 @@ export default function ExpensesOperations(): ReactElement {
                       <td>
                         <div className={styles.inlineDropdownField} ref={inlineCategoryFieldRef}>
                           <input
+                            ref={inlineCategoryInputRef}
                             className={styles.inlineInput}
                             value={inlineAddDraft.expenseCategoryName}
                             onChange={(e) => {
@@ -1248,8 +1252,19 @@ export default function ExpensesOperations(): ReactElement {
                             placeholder="Category"
                             autoComplete="off"
                           />
-                          {inlineCategoryDropdownOpen && (
-                            <ul className={styles.dropdownList} role="listbox">
+                          {inlineCategoryDropdownOpen && inlineCategoryInputRef.current && ReactDOM.createPortal(
+                            <ul
+                              className={styles.dropdownList}
+                              role="listbox"
+                              style={{
+                                position: 'fixed',
+                                top: inlineCategoryInputRef.current.getBoundingClientRect().bottom + 4,
+                                left: inlineCategoryInputRef.current.getBoundingClientRect().left,
+                                width: inlineCategoryInputRef.current.getBoundingClientRect().width,
+                                minWidth: 0,
+                                zIndex: 99999,
+                              }}
+                            >
                               {inlineCategorySuggestions.length === 0 ? (
                                 <li className={styles.dropdownEmpty}>No categories found</li>
                               ) : (
@@ -1275,7 +1290,8 @@ export default function ExpensesOperations(): ReactElement {
                                   </li>
                                 ))
                               )}
-                            </ul>
+                            </ul>,
+                            document.body
                           )}
                         </div>
                       </td>
@@ -1342,6 +1358,7 @@ export default function ExpensesOperations(): ReactElement {
                                 ref={isEditing ? inlineCategoryFieldRef : null}
                               >
                                 <input
+                                  ref={isEditing ? editingCategoryInputRef : null}
                                   className={styles.inlineInput}
                                   value={draft?.expenseCategoryName ?? ''}
                                   onChange={(event) => {
@@ -1352,8 +1369,19 @@ export default function ExpensesOperations(): ReactElement {
                                   placeholder="Category"
                                   autoComplete="off"
                                 />
-                                {editingCategoryDropdownOpen && editingRowId === key && (
-                                  <ul className={styles.dropdownList} role="listbox">
+                                {editingCategoryDropdownOpen && editingRowId === key && editingCategoryInputRef.current && ReactDOM.createPortal(
+                                  <ul
+                                    className={styles.dropdownList}
+                                    role="listbox"
+                                    style={{
+                                      position: 'fixed',
+                                      top: editingCategoryInputRef.current.getBoundingClientRect().bottom + 4,
+                                      left: editingCategoryInputRef.current.getBoundingClientRect().left,
+                                      width: editingCategoryInputRef.current.getBoundingClientRect().width,
+                                      minWidth: 0,
+                                      zIndex: 99999,
+                                    }}
+                                  >
                                     {editingCategorySuggestions.length === 0 ? (
                                       <li className={styles.dropdownEmpty}>No categories found</li>
                                     ) : (
@@ -1379,7 +1407,8 @@ export default function ExpensesOperations(): ReactElement {
                                         </li>
                                       ))
                                     )}
-                                  </ul>
+                                  </ul>,
+                                  document.body
                                 )}
                               </div>
                             ) : (
@@ -1569,6 +1598,7 @@ export default function ExpensesOperations(): ReactElement {
                                 ) : (expenseAdjustmentsCache.get(key) ?? []).length === 0 ? (
                                   <div className={styles.adjustmentEmpty}>No adjustment details available</div>
                                 ) : (
+                                  <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                                   <table className={styles.adjustmentTable}>
                                     <thead>
                                       <tr>
@@ -1605,6 +1635,7 @@ export default function ExpensesOperations(): ReactElement {
                                       ))}
                                     </tbody>
                                   </table>
+                                  </div>
                                 )}
                               </div>
                             </td>
