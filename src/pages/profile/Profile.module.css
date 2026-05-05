@@ -470,7 +470,6 @@
   background: var(--surface-card);
   border: 1px solid var(--surface-card-border);
   border-radius: 1.25rem;
-  overflow: hidden;
   box-shadow: var(--surface-card-shadow);
   animation: slideIn 0.5s ease-out 0.2s backwards;
 }
@@ -485,10 +484,15 @@
   border: none;
   cursor: pointer;
   transition: background 0.2s ease;
+  border-radius: 1.25rem;
 }
 
 .sectionHeader:hover {
   background: var(--surface-table-hover);
+}
+
+.sectionHeader.expanded {
+  border-radius: 1.25rem 1.25rem 0 0;
 }
 
 .sectionHeaderContent {
