@@ -232,14 +232,13 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     try {
       const allCategories = await fetchUserExpenseCategories(userId)
       setCategories(allCategories)
-      await syncActiveCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'loading categories') })
     } finally {
       setLoadingCategories(false)
     }
-  }, [userId, setStatus, syncActiveCategories])
+  }, [userId, setStatus])
 
   const syncActiveExpenses = useCallback(async () => {
     if (!userId) return
@@ -280,6 +279,7 @@ export default function Profile({ session }: ProfileProps): ReactElement {
       cancelEdit()
       cancelAddCategory()
       await refreshUserCategories()
+      await syncActiveCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'resetting categories') })
@@ -427,6 +427,7 @@ export default function Profile({ session }: ProfileProps): ReactElement {
       setStatus({ type: 'success', message: 'Category updated.' })
       cancelEdit()
       await refreshUserCategories()
+      await syncActiveCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating category') })
@@ -445,6 +446,7 @@ export default function Profile({ session }: ProfileProps): ReactElement {
       await deleteUserExpenseCategory({ userId, id: category.userExpenseCategoryId })
       setStatus({ type: 'success', message: 'Category deleted.' })
       await refreshUserCategories()
+      await syncActiveCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting category') })
@@ -475,6 +477,7 @@ export default function Profile({ session }: ProfileProps): ReactElement {
       setStatus({ type: 'success', message: 'Category added.' })
       cancelAddCategory()
       await refreshUserCategories()
+      await syncActiveCategories()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding category') })
