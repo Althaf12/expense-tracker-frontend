@@ -82,7 +82,7 @@ export default function Header({ session, onLogout, onToggleSidebar, sidebarOpen
         ) : null}
         <div className={styles.brand}>
           <Link to="/dashboard" className={styles.logoLink}>
-            <img src="/logo.png" alt="Eternivity logo" className={styles.logo} />
+            <img src="/expense_tracker.webp" alt="Expense Tracker logo" className={styles.logo} />
           </Link>
           <Link to="/dashboard" className={styles.brandLink}>
             <span className={styles.brandTitle}>Expense Tracker</span>
