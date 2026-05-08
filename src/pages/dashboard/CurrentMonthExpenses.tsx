@@ -1,7 +1,7 @@
 import { Typography } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { ReactElement } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Download } from 'lucide-react'
 import type { Expense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './CurrentMonthExpenses.module.css'
@@ -19,6 +19,10 @@ type Props = {
   expenseFiltersApplied: boolean
   formatCurrency: (value: number) => string
   monthlyTotal: number
+  /** Total for all pages (from API), used when pagination is active */
+  allPagesTotal?: number
+  /** Called when user clicks the export button next to the total */
+  onExportClick?: () => void
   // Pagination props
   currentPage: number
   totalPages: number
@@ -39,6 +43,8 @@ export default function CurrentMonthExpenses({
   expenseFiltersApplied,
   formatCurrency,
   monthlyTotal,
+  allPagesTotal,
+  onExportClick,
   currentPage,
   totalPages,
   totalElements,
@@ -181,13 +187,60 @@ export default function CurrentMonthExpenses({
               )}
             </tbody>
             <tfoot>
-              <tr>
-                <td>Total</td>
-                <td className={styles.numeric}>
-                  <span className={styles.totalPill}>{formatCurrency(monthlyTotal)}</span>
-                </td>
-                <td />
-              </tr>
+              {totalPages > 1 ? (
+                <>
+                  <tr>
+                    <td>Total expenses in this page</td>
+                    <td className={styles.numeric}>
+                      <span className={styles.totalPill}>{formatCurrency(monthlyTotal)}</span>
+                    </td>
+                    <td />
+                  </tr>
+                  <tr>
+                    <td>Total (all pages)</td>
+                    <td className={styles.numeric}>
+                      {allPagesTotal !== undefined ? (
+                        <span className={styles.totalPill}>{formatCurrency(allPagesTotal)}</span>
+                      ) : (
+                        <span className={styles.totalPill}>…</span>
+                      )}
+                    </td>
+                    <td>
+                      {onExportClick && (
+                        <button
+                          type="button"
+                          className={localStyles.exportButton}
+                          onClick={onExportClick}
+                          title="Export current month expenses"
+                        >
+                          <Download size={14} />
+                          Export
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td>Total</td>
+                  <td className={styles.numeric}>
+                    <span className={styles.totalPill}>{formatCurrency(monthlyTotal)}</span>
+                  </td>
+                  <td>
+                    {onExportClick && (
+                      <button
+                        type="button"
+                        className={localStyles.exportButton}
+                        onClick={onExportClick}
+                        title="Export current month expenses"
+                      >
+                        <Download size={14} />
+                        Export
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )}
             </tfoot>
           </table>
           <Pagination

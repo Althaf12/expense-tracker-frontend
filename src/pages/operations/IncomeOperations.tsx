@@ -13,7 +13,7 @@ import {
   Upload,
   ChevronDown
 } from 'lucide-react'
-import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome } from '../../api'
+import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome, fetchAnalyticsSummaryByMonth, fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByYear } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
@@ -129,8 +129,11 @@ export default function IncomeOperations(): ReactElement {
   const initialLoadRef = useRef<boolean>(false)
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
+  const [exportModalDates, setExportModalDates] = useState<{ start?: string; end?: string }>({})
   // Import statement modal state
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false)
+  // All-pages total (fetched from API when pagination is active)
+  const [allPagesTotal, setAllPagesTotal] = useState<number | null>(null)
   // Month dropdown state
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
   const monthDropdownRef = useRef<HTMLDivElement>(null)
@@ -175,34 +178,38 @@ export default function IncomeOperations(): ReactElement {
     setStatus({ type: 'loading', message: 'Fetching income records...' })
     try {
       let response: PagedResponse<Income>
+      let resolvedYear: number | undefined
+      let resolvedMonth: number | undefined
+      let resolvedStart: string | undefined
+      let resolvedEnd: string | undefined
       if (mode === 'current-year') {
-        const currentYear = new Date().getFullYear()
+        resolvedYear = new Date().getFullYear()
         response = await fetchIncomeByRange({
           userId,
           fromMonth: '01',
-          fromYear: String(currentYear),
+          fromYear: String(resolvedYear),
           toMonth: '12',
-          toYear: String(currentYear),
+          toYear: String(resolvedYear),
           page,
           size,
         })
         setLastQuery({ mode })
       } else if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
-        const month = monthPayload?.month ?? monthFilter
-        const year = monthPayload?.year ?? yearFilter
-        response = await fetchIncomeByMonth({ userId, month, year, page, size })
-        setLastQuery({ mode, payload: { month, year } })
+        resolvedMonth = monthPayload?.month ?? monthFilter
+        resolvedYear = monthPayload?.year ?? yearFilter
+        response = await fetchIncomeByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size })
+        setLastQuery({ mode, payload: { month: resolvedMonth, year: resolvedYear } })
       } else {
         const rangePayload = payload as { start: string; end: string } | undefined
-        const start = rangePayload?.start ?? rangeStart
-        const end = rangePayload?.end ?? rangeEnd
-        if (!start || !end) {
+        resolvedStart = rangePayload?.start ?? rangeStart
+        resolvedEnd = rangePayload?.end ?? rangeEnd
+        if (!resolvedStart || !resolvedEnd) {
           throw new Error('Provide both start and end dates to fetch by range.')
         }
         // enforce maximum range of 1 year (365 days)
-        const from = new Date(start)
-        const to = new Date(end)
+        const from = new Date(resolvedStart)
+        const to = new Date(resolvedEnd)
         if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
           throw new Error('Invalid date provided for range.')
         }
@@ -213,14 +220,45 @@ export default function IncomeOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        response = await fetchIncomeByRange({ userId, fromMonth: start.slice(5, 7), fromYear: start.slice(0, 4), toMonth: end.slice(5, 7), toYear: end.slice(0, 4), page, size })
-        setLastQuery({ mode, payload: { start, end } })
+        response = await fetchIncomeByRange({ userId, fromMonth: resolvedStart.slice(5, 7), fromYear: resolvedStart.slice(0, 4), toMonth: resolvedEnd.slice(5, 7), toYear: resolvedEnd.slice(0, 4), page, size })
+        setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
       }
       setResults(response.content)
       setCurrentPage(response.page)
       setTotalElements(response.totalElements)
       setTotalPages(response.totalPages)
       setStatus(null)
+      // Background fetch of all-pages total when paginated
+      if (response.totalPages > 1) {
+        setAllPagesTotal(null)
+        const uid = userId
+        const rm = resolvedMonth
+        const ry = resolvedYear
+        const rs = resolvedStart
+        const re = resolvedEnd
+        void (async () => {
+          try {
+            let total: number
+            if (mode === 'current-year' && ry !== undefined) {
+              const summary = await fetchAnalyticsSummaryByYear({ userId: uid, year: ry })
+              total = summary.totalIncome
+            } else if (mode === 'month' && rm !== undefined && ry !== undefined) {
+              const summary = await fetchAnalyticsSummaryByMonth({ userId: uid, year: ry, month: rm })
+              total = summary.totalIncome
+            } else if (rs && re) {
+              const summary = await fetchAnalyticsSummaryByRange({ userId: uid, start: rs, end: re })
+              total = summary.totalIncome
+            } else {
+              return
+            }
+            setAllPagesTotal(total)
+          } catch {
+            setAllPagesTotal(null)
+          }
+        })()
+      } else {
+        setAllPagesTotal(null)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching income records') })
@@ -474,6 +512,25 @@ export default function IncomeOperations(): ReactElement {
     [filteredResults],
   )
 
+  const exportDateRange = useMemo<{ start: string; end: string } | null>(() => {
+    if (!lastQuery) return null
+    if (lastQuery.mode === 'current-year') {
+      const y = new Date().getFullYear()
+      return { start: `${y}-01-01`, end: `${y}-12-31` }
+    }
+    if (lastQuery.mode === 'month') {
+      const p = lastQuery.payload as { month: number; year: number } | undefined
+      if (!p) return null
+      const lastDay = new Date(p.year, p.month, 0).getDate()
+      const mm = String(p.month).padStart(2, '0')
+      const dd = String(lastDay).padStart(2, '0')
+      return { start: `${p.year}-${mm}-01`, end: `${p.year}-${mm}-${dd}` }
+    }
+    const p = lastQuery.payload as { start: string; end: string } | undefined
+    if (!p) return null
+    return { start: p.start, end: p.end }
+  }, [lastQuery])
+
   const handleFilterChange = (field: keyof TableFilters, value: string) => {
     setTableFilters((previous) => ({ ...previous, [field]: value }))
   }
@@ -527,7 +584,7 @@ export default function IncomeOperations(): ReactElement {
               <button
                 type="button"
                 className={styles.exportButton}
-                onClick={() => setExportModalOpen(true)}
+                onClick={() => { setExportModalDates({}); setExportModalOpen(true) }}
                 title="Export data"
               >
                 <Download size={16} />
@@ -855,13 +912,58 @@ export default function IncomeOperations(): ReactElement {
                   )}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <td>Total</td>
-                    <td className={styles.numeric}>
-                      <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
-                    </td>
-                    <td colSpan={3} />
-                  </tr>
+                  {totalPages > 1 ? (
+                    <>
+                      <tr>
+                        <td>Total income in this page</td>
+                        <td className={styles.numeric}>
+                          <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
+                        </td>
+                        <td colSpan={3} />
+                      </tr>
+                      <tr>
+                        <td>Total (all pages)</td>
+                        <td className={styles.numeric}>
+                          {allPagesTotal !== null ? (
+                            <span className={styles.totalPill}>{formatCurrency(allPagesTotal)}</span>
+                          ) : (
+                            <span className={styles.totalPill}>…</span>
+                          )}
+                        </td>
+                        <td colSpan={2} />
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.exportButton}
+                            onClick={() => { setExportModalDates(exportDateRange ?? {}); setExportModalOpen(true) }}
+                            title="Export income for current selection"
+                          >
+                            <Download size={14} />
+                            Export
+                          </button>
+                        </td>
+                      </tr>
+                    </>
+                  ) : (
+                    <tr>
+                      <td>Total</td>
+                      <td className={styles.numeric}>
+                        <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
+                      </td>
+                      <td colSpan={2} />
+                      <td>
+                        <button
+                          type="button"
+                          className={styles.exportButton}
+                          onClick={() => { setExportModalDates(exportDateRange ?? {}); setExportModalOpen(true) }}
+                          title="Export income for current selection"
+                        >
+                          <Download size={14} />
+                          Export
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             )}
@@ -960,6 +1062,8 @@ export default function IncomeOperations(): ReactElement {
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         defaultExportType="INCOME"
+        defaultStartDate={exportModalDates.start}
+        defaultEndDate={exportModalDates.end}
       />
 
       {/* Import Statement Modal */}
