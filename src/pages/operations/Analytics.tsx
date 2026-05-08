@@ -15,10 +15,9 @@ import {
   Filter,
   Loader2,
   Circle,
-  ArrowRight,
   ChevronDown,
 } from 'lucide-react'
-import { fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByMonth } from '../../api'
+import { fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByMonth, fetchAnalyticsSummaryByYear } from '../../api'
 import type { AnalyticsSummary } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
@@ -106,6 +105,11 @@ const getPreviousMonthDates = (start: Date): { start: Date; end: Date } => {
   const prevStart = new Date(start.getFullYear(), start.getMonth() - 1, 1)
   const prevEnd = new Date(start.getFullYear(), start.getMonth(), 0) // Last day of prev month
   return { start: prevStart, end: prevEnd }
+}
+
+const getPreviousMonthYearMonth = (year: number, month: number): { year: number; month: number } => {
+  if (month === 1) return { year: year - 1, month: 12 }
+  return { year, month: month - 1 }
 }
 
 // Simple Pie/Donut Chart Component
@@ -269,56 +273,62 @@ function TrendChart({
   }
 
   const maxValue = Math.max(...data.flatMap((d) => [d.expenses, d.income, showPrevMonthIncome ? d.prevMonthIncome : 0]), 1)
-  const chartWidth = 100
-  const chartHeight = 100
+  // Use a wide viewBox (600×160) with 10px padding so the SVG scales without heavy distortion
+  const chartWidth = 600
+  const chartHeight = 160
+  const padX = 10
+  const padY = 10
+  const plotW = chartWidth - 2 * padX
+  const plotH = chartHeight - 2 * padY
 
   // For line chart
   const expensesPoints = data
     .map((d, i) => {
-      const x = (i / Math.max(data.length - 1, 1)) * chartWidth
-      const y = chartHeight - (d.expenses / maxValue) * chartHeight
+      const x = padX + (i / Math.max(data.length - 1, 1)) * plotW
+      const y = padY + plotH - (d.expenses / maxValue) * plotH
       return `${x},${y}`
     })
     .join(' ')
 
   const incomePoints = data
     .map((d, i) => {
-      const x = (i / Math.max(data.length - 1, 1)) * chartWidth
-      const y = chartHeight - (d.income / maxValue) * chartHeight
+      const x = padX + (i / Math.max(data.length - 1, 1)) * plotW
+      const y = padY + plotH - (d.income / maxValue) * plotH
       return `${x},${y}`
     })
     .join(' ')
 
   const prevIncomePoints = showPrevMonthIncome ? data
     .map((d, i) => {
-      const x = (i / Math.max(data.length - 1, 1)) * chartWidth
-      const y = chartHeight - (d.prevMonthIncome / maxValue) * chartHeight
+      const x = padX + (i / Math.max(data.length - 1, 1)) * plotW
+      const y = padY + plotH - (d.prevMonthIncome / maxValue) * plotH
       return `${x},${y}`
     })
     .join(' ') : ''
 
   // Bar chart rendering
   if (chartType === 'bar') {
-    const barWidth = chartWidth / (data.length * (showPrevMonthIncome ? 3.5 : 2.5))
+    const barWidth = plotW / (data.length * (showPrevMonthIncome ? 3.5 : 2.5))
     return (
       <div className={styles.trendChart} style={{ height }}>
-        <svg viewBox={`0 0 ${chartWidth} ${chartHeight + 15}`} preserveAspectRatio="none" className={styles.trendSvg}>
+        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className={styles.trendSvg}>
           {/* Grid lines */}
-          {[0, 25, 50, 75, 100].map((y) => (
-            <line key={y} x1="0" y1={y} x2={chartWidth} y2={y} className={styles.gridLine} />
-          ))}
+          {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+            const y = padY + plotH * (1 - frac)
+            return <line key={frac} x1={padX} y1={y} x2={padX + plotW} y2={y} className={styles.gridLine} />
+          })}
           {data.map((d, i) => {
-            const groupX = (i / data.length) * chartWidth + barWidth / 2
-            const incomeHeight = (d.income / maxValue) * chartHeight
-            const expenseHeight = (d.expenses / maxValue) * chartHeight
-            const prevIncomeHeight = (d.prevMonthIncome / maxValue) * chartHeight
+            const groupX = padX + (i / data.length) * plotW + barWidth / 2
+            const incomeHeight = (d.income / maxValue) * plotH
+            const expenseHeight = (d.expenses / maxValue) * plotH
+            const prevIncomeHeight = (d.prevMonthIncome / maxValue) * plotH
             return (
               <g key={i}>
                 {/* Previous month income bar (if enabled) */}
                 {showPrevMonthIncome && (
                   <rect
                     x={groupX}
-                    y={chartHeight - prevIncomeHeight}
+                    y={padY + plotH - prevIncomeHeight}
                     width={barWidth * 0.8}
                     height={prevIncomeHeight}
                     fill="#94a3b8"
@@ -331,7 +341,7 @@ function TrendChart({
                 {/* Current income bar */}
                 <rect
                   x={groupX + (showPrevMonthIncome ? barWidth : 0)}
-                  y={chartHeight - incomeHeight}
+                  y={padY + plotH - incomeHeight}
                   width={barWidth * 0.8}
                   height={incomeHeight}
                   fill="#34d399"
@@ -342,7 +352,7 @@ function TrendChart({
                 {/* Expense bar */}
                 <rect
                   x={groupX + (showPrevMonthIncome ? barWidth * 2 : barWidth)}
-                  y={chartHeight - expenseHeight}
+                  y={padY + plotH - expenseHeight}
                   width={barWidth * 0.8}
                   height={expenseHeight}
                   fill="#f472b6"
@@ -369,19 +379,20 @@ function TrendChart({
       <div className={styles.trendChart} style={{ height }}>
         <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className={styles.trendSvg}>
           {/* Grid lines */}
-          {[0, 25, 50, 75, 100].map((y) => (
-            <line key={y} x1="0" y1={y} x2={chartWidth} y2={y} className={styles.gridLine} />
-          ))}
+          {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+            const y = padY + plotH * (1 - frac)
+            return <line key={frac} x1={padX} y1={y} x2={padX + plotW} y2={y} className={styles.gridLine} />
+          })}
           {/* Data points only - larger circles */}
           {data.map((d, i) => {
-            const x = (i / Math.max(data.length - 1, 1)) * chartWidth
-            const yExpense = chartHeight - (d.expenses / maxValue) * chartHeight
-            const yIncome = chartHeight - (d.income / maxValue) * chartHeight
-            const yPrevIncome = chartHeight - (d.prevMonthIncome / maxValue) * chartHeight
+            const x = padX + (i / Math.max(data.length - 1, 1)) * plotW
+            const yExpense = padY + plotH - (d.expenses / maxValue) * plotH
+            const yIncome = padY + plotH - (d.income / maxValue) * plotH
+            const yPrevIncome = padY + plotH - (d.prevMonthIncome / maxValue) * plotH
             return (
               <g key={i}>
                 {/* Vertical guideline */}
-                <line x1={x} y1={0} x2={x} y2={chartHeight} stroke="var(--surface-border)" strokeWidth="0.5" strokeDasharray="2,2" />
+                <line x1={x} y1={padY} x2={x} y2={padY + plotH} stroke="var(--surface-border)" strokeWidth="0.5" strokeDasharray="2,2" />
                 {/* Previous month income point */}
                 {showPrevMonthIncome && (
                   <circle cx={x} cy={yPrevIncome} r="5" fill="#94a3b8" className={styles.dataPoint}>
@@ -414,16 +425,19 @@ function TrendChart({
     <div className={styles.trendChart} style={{ height }}>
       <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className={styles.trendSvg}>
         {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map((y) => (
-          <line
-            key={y}
-            x1="0"
-            y1={y}
-            x2={chartWidth}
-            y2={y}
-            className={styles.gridLine}
-          />
-        ))}
+        {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+          const y = padY + plotH * (1 - frac)
+          return (
+            <line
+              key={frac}
+              x1={padX}
+              y1={y}
+              x2={padX + plotW}
+              y2={y}
+              className={styles.gridLine}
+            />
+          )
+        })}
         {/* Previous month income line (if enabled) */}
         {showPrevMonthIncome && prevIncomePoints && (
           <polyline
@@ -453,21 +467,21 @@ function TrendChart({
         />
         {/* Data points */}
         {data.map((d, i) => {
-          const x = (i / Math.max(data.length - 1, 1)) * chartWidth
-          const yExpense = chartHeight - (d.expenses / maxValue) * chartHeight
-          const yIncome = chartHeight - (d.income / maxValue) * chartHeight
-          const yPrevIncome = chartHeight - (d.prevMonthIncome / maxValue) * chartHeight
+          const x = padX + (i / Math.max(data.length - 1, 1)) * plotW
+          const yExpense = padY + plotH - (d.expenses / maxValue) * plotH
+          const yIncome = padY + plotH - (d.income / maxValue) * plotH
+          const yPrevIncome = padY + plotH - (d.prevMonthIncome / maxValue) * plotH
           return (
             <g key={i}>
               {showPrevMonthIncome && (
-                <circle cx={x} cy={yPrevIncome} r="3" fill="#94a3b8" className={styles.dataPoint}>
+                <circle cx={x} cy={yPrevIncome} r="4" fill="#94a3b8" className={styles.dataPoint}>
                   <title>{`${d.month} Prev Income: ${d.prevMonthIncome.toFixed(0)}`}</title>
                 </circle>
               )}
-              <circle cx={x} cy={yIncome} r="3" fill="#34d399" className={styles.dataPoint}>
+              <circle cx={x} cy={yIncome} r="4" fill="#34d399" className={styles.dataPoint}>
                 <title>{`${d.month} Income: ${d.income.toFixed(0)}`}</title>
               </circle>
-              <circle cx={x} cy={yExpense} r="3" fill="#f472b6" className={styles.dataPoint}>
+              <circle cx={x} cy={yExpense} r="4" fill="#f472b6" className={styles.dataPoint}>
                 <title>{`${d.month} Expenses: ${d.expenses.toFixed(0)}`}</title>
               </circle>
             </g>
@@ -541,11 +555,9 @@ export default function Analytics(): ReactElement {
   const [timeRangeDropdownOpen, setTimeRangeDropdownOpen] = useState(false)
   const timeRangeDropdownRef = useRef<HTMLDivElement>(null)
   
-  // Analytics summary data from new API
+  // Analytics summary data from API
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [prevMonthSummary, setPrevMonthSummary] = useState<AnalyticsSummary | null>(null)
-  // Income summary for when incomeMonth preference is 'P' (previous month)
-  const [incomeSummary, setIncomeSummary] = useState<AnalyticsSummary | null>(null)
   
   // Chart type states
   const [expenseChartType, setExpenseChartType] = useState<ChartType>('donut')
@@ -553,7 +565,7 @@ export default function Analytics(): ReactElement {
   const [trendChartType, setTrendChartType] = useState<'line' | 'bar' | 'point'>('line')
   const [showPrevMonthIncome, setShowPrevMonthIncome] = useState(false)
 
-  // Load data based on time range using new Analytics API
+  // Load data based on time range using Analytics summary API
   useEffect(() => {
     if (!session) return
 
@@ -562,53 +574,51 @@ export default function Analytics(): ReactElement {
       setStatus({ type: 'loading', message: 'Loading analytics data...' })
 
       try {
-        // Calculate date range
-        let start: Date, end: Date
-        if (timeRange === 'custom' && customStart && customEnd) {
-          start = new Date(customStart)
-          end = new Date(customEnd)
+        let fetchCurrentSummary: Promise<AnalyticsSummary>
+        let fetchPrevSummary: Promise<AnalyticsSummary>
+        const now = new Date()
+
+        if (timeRange === 'thisMonth') {
+          const year = now.getFullYear()
+          const month = now.getMonth() + 1
+          const prev = getPreviousMonthYearMonth(year, month)
+          fetchCurrentSummary = fetchAnalyticsSummaryByMonth({ userId: session.userId, year, month })
+          fetchPrevSummary = fetchAnalyticsSummaryByMonth({ userId: session.userId, year: prev.year, month: prev.month })
+        } else if (timeRange === 'lastMonth') {
+          const prev = getPreviousMonthYearMonth(now.getFullYear(), now.getMonth() + 1)
+          const prevPrev = getPreviousMonthYearMonth(prev.year, prev.month)
+          fetchCurrentSummary = fetchAnalyticsSummaryByMonth({ userId: session.userId, year: prev.year, month: prev.month })
+          fetchPrevSummary = fetchAnalyticsSummaryByMonth({ userId: session.userId, year: prevPrev.year, month: prevPrev.month })
+        } else if (timeRange === 'thisYear') {
+          const year = now.getFullYear()
+          fetchCurrentSummary = fetchAnalyticsSummaryByYear({ userId: session.userId, year })
+          fetchPrevSummary = fetchAnalyticsSummaryByYear({ userId: session.userId, year: year - 1 })
         } else {
-          const dates = getTimeRangeDates(timeRange)
-          start = dates.start
-          end = dates.end
+          // last3Months, last6Months, custom
+          let start: Date, end: Date
+          if (timeRange === 'custom' && customStart && customEnd) {
+            start = new Date(customStart)
+            end = new Date(customEnd)
+          } else {
+            const dates = getTimeRangeDates(timeRange)
+            start = dates.start
+            end = dates.end
+          }
+          const startStr = formatDateForApi(start)
+          const endStr = formatDateForApi(end)
+          const prevDates = getPreviousMonthDates(start)
+          fetchCurrentSummary = fetchAnalyticsSummaryByRange({ userId: session.userId, start: startStr, end: endStr })
+          fetchPrevSummary = fetchAnalyticsSummaryByRange({
+            userId: session.userId,
+            start: formatDateForApi(prevDates.start),
+            end: formatDateForApi(prevDates.end),
+          })
         }
 
-        const startStr = formatDateForApi(start)
-        const endStr = formatDateForApi(end)
-
-        // Get previous month dates for comparison and income (when incomeMonth is 'P')
-        const prevMonthDates = getPreviousMonthDates(start)
-        const prevStartStr = formatDateForApi(prevMonthDates.start)
-        const prevEndStr = formatDateForApi(prevMonthDates.end)
-
-        // Fetch summaries in parallel
-        // When incomeMonth is 'P', we fetch income from the previous month relative to the current range
-        const [currentSummary, prevSummary, incomeMonthSummary] = await Promise.all([
-          fetchAnalyticsSummaryByRange({
-            userId: session.userId,
-            start: startStr,
-            end: endStr,
-          }),
-          fetchAnalyticsSummaryByRange({
-            userId: session.userId,
-            start: prevStartStr,
-            end: prevEndStr,
-          }),
-          // For income, if preference is 'P' (previous month), fetch prev month income
-          // This handles cases like "thisMonth" where we need last month's income
-          incomeMonth === 'P' 
-            ? fetchAnalyticsSummaryByRange({
-                userId: session.userId,
-                start: prevStartStr,
-                end: prevEndStr,
-              })
-            : Promise.resolve(null),
-        ])
+        const [currentSummary, prevSummary] = await Promise.all([fetchCurrentSummary, fetchPrevSummary])
 
         setSummary(currentSummary)
         setPrevMonthSummary(prevSummary)
-        // Store income summary - use prev month summary if incomeMonth is 'P', otherwise use current
-        setIncomeSummary(incomeMonth === 'P' ? incomeMonthSummary : currentSummary)
         setStatus(null)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -619,7 +629,7 @@ export default function Analytics(): ReactElement {
     }
 
     void loadData()
-  }, [session, timeRange, customStart, customEnd, setStatus, incomeMonth])
+  }, [session, timeRange, customStart, customEnd, setStatus])
 
   // Click outside to close time range dropdown
   useEffect(() => {
@@ -650,68 +660,89 @@ export default function Analytics(): ReactElement {
       .sort((a, b) => b.amount - a.amount)
   }, [summary])
 
-  // Monthly trend data with previous month income comparison
+  // Monthly trend data - use expense months as X-axis, map income to correct months
   const monthlyTrendData = useMemo((): MonthlyData[] => {
     if (!summary) return []
-    
-    const monthKeys = new Set<string>()
-    
-    // Collect all month keys from both expense and income trends
-    if (summary.monthlyExpenseTrend) {
-      Object.keys(summary.monthlyExpenseTrend).forEach(k => monthKeys.add(k))
+
+    const expenseKeys = Object.keys(summary.monthlyExpenseTrend ?? {}).sort()
+    // Determine if income is shifted back one month (P preference)
+    const isPrevPref =
+      summary.incomeMonthPreference === 'P' ||
+      (incomeMonth === 'P' && !summary.incomeMonthPreference)
+
+    // If no expense data, fall back to income keys
+    if (expenseKeys.length === 0) {
+      return Object.keys(summary.monthlyIncomeTrend ?? {})
+        .sort()
+        .map((key) => {
+          const [yr, monthNum] = key.split('-')
+          const monthIndex = parseInt(monthNum, 10) - 1
+          const income = summary.monthlyIncomeTrend?.[key] ?? 0
+          return {
+            month: `${MONTHS[monthIndex]} ${yr.slice(2)}`,
+            monthKey: key,
+            expenses: 0,
+            income,
+            prevMonthIncome: 0,
+            net: income,
+          }
+        })
     }
-    if (summary.monthlyIncomeTrend) {
-      Object.keys(summary.monthlyIncomeTrend).forEach(k => monthKeys.add(k))
-    }
-    
-    return Array.from(monthKeys)
-      .sort()
-      .map((key) => {
-        const [year, monthNum] = key.split('-')
-        const monthIndex = parseInt(monthNum, 10) - 1
-        
-        // Calculate previous month key
-        const prevMonthDate = new Date(parseInt(year), monthIndex - 1, 1)
-        const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
-        
-        const expenses = summary.monthlyExpenseTrend?.[key] ?? 0
-        const income = summary.monthlyIncomeTrend?.[key] ?? 0
-        // Get previous month income from current summary or prev month summary
-        const prevMonthIncome = summary.monthlyIncomeTrend?.[prevMonthKey] ?? prevMonthSummary?.totalIncome ?? 0
-        
-        return {
-          month: `${MONTHS[monthIndex]} ${year.slice(2)}`,
-          monthKey: key,
-          expenses,
-          income,
-          prevMonthIncome,
-          net: income - expenses,
-        }
-      })
-  }, [summary, prevMonthSummary])
+
+    return expenseKeys.map((key) => {
+      const [yr, monthNum] = key.split('-')
+      const monthIndex = parseInt(monthNum, 10) - 1
+      const expenses = summary.monthlyExpenseTrend?.[key] ?? 0
+
+      // For 'P' preference, income for this expense month comes from the previous calendar month
+      let incomeKey: string
+      if (isPrevPref) {
+        const prevDate = new Date(parseInt(yr), monthIndex - 1, 1)
+        incomeKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
+      } else {
+        incomeKey = key
+      }
+      const income = summary.monthlyIncomeTrend?.[incomeKey] ?? 0
+
+      // Previous income month key (for the "compare with prev month" overlay line)
+      const [iYr, iMon] = incomeKey.split('-')
+      const prevIncomeDate = new Date(parseInt(iYr), parseInt(iMon) - 2, 1)
+      const prevIncomeKey = `${prevIncomeDate.getFullYear()}-${String(prevIncomeDate.getMonth() + 1).padStart(2, '0')}`
+      const prevMonthIncome =
+        summary.monthlyIncomeTrend?.[prevIncomeKey] ?? prevMonthSummary?.totalIncome ?? 0
+
+      return {
+        month: `${MONTHS[monthIndex]} ${yr.slice(2)}`,
+        monthKey: key,
+        expenses,
+        income,
+        prevMonthIncome,
+        net: income - expenses,
+      }
+    })
+  }, [summary, prevMonthSummary, incomeMonth])
 
   // Summary metrics from API
-  // Use incomeSummary for income metrics (respects incomeMonth preference)
   const totalExpenses = summary?.totalExpenses ?? 0
-  const totalIncome = incomeSummary?.totalIncome ?? 0
+  const totalIncome = summary?.totalIncome ?? 0
   const netSavings = totalIncome - totalExpenses
   const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0
   const totalExpenseCount = summary?.totalExpenseCount ?? 0
-  const totalIncomeCount = incomeSummary?.totalIncomeCount ?? 0
+  const totalIncomeCount = summary?.totalIncomeCount ?? 0
 
-  // Previous month comparison - compare against the month before incomeSummary
+  // Previous period comparison for income card
   const prevMonthIncome = prevMonthSummary?.totalIncome ?? 0
-  const incomeChangeFromPrev = prevMonthIncome > 0 
-    ? ((totalIncome - prevMonthIncome) / prevMonthIncome) * 100 
+  const incomeChangeFromPrev = prevMonthIncome > 0
+    ? ((totalIncome - prevMonthIncome) / prevMonthIncome) * 100
     : 0
 
-  // Income source data should also use incomeSummary
+  // Income source data uses summary directly (backend already applies preference)
   const incomeSourceData = useMemo((): CategoryData[] => {
-    if (!incomeSummary?.incomesBySource) return []
-    
-    const entries = Object.entries(incomeSummary.incomesBySource)
+    if (!summary?.incomesBySource) return []
+
+    const entries = Object.entries(summary.incomesBySource)
     const total = entries.reduce((sum, [, amount]) => sum + amount, 0)
-    
+
     return entries
       .map(([name, amount], index) => ({
         name,
@@ -720,11 +751,7 @@ export default function Analytics(): ReactElement {
         percentage: total > 0 ? (amount / total) * 100 : 0,
       }))
       .sort((a, b) => b.amount - a.amount)
-  }, [incomeSummary])
-
-  // Top items
-  const topExpenseCategory = expenseCategoryData[0]
-  const topIncomeSource = incomeSourceData[0]
+  }, [summary])
 
   // Render chart based on type
   const renderExpenseChart = () => {
@@ -1091,104 +1118,6 @@ export default function Analytics(): ReactElement {
               chartType={trendChartType}
               showPrevMonthIncome={showPrevMonthIncome}
             />
-          )}
-        </section>
-      </Grid>
-
-      {/* Statistics Grid */}
-      <Grid size={{ xs: 12, md: 6 }}>
-        <section className={styles.card}>
-          <header className={styles.cardHeader}>
-            <div className={styles.cardTitleGroup}>
-              <Receipt size={20} className={styles.cardIcon} />
-              <Typography variant="h6" component="h2" className={styles.cardTitle}>
-                Expense Insights
-              </Typography>
-            </div>
-          </header>
-          
-          {loading ? (
-            <LoadingPlaceholder height={180} />
-          ) : (
-            <div className={styles.insightsList}>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Total Categories</span>
-                <span className={styles.insightValue}>{expenseCategoryData.length}</span>
-              </div>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Total Transactions</span>
-                <span className={styles.insightValue}>{totalExpenseCount}</span>
-              </div>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Avg. per Transaction</span>
-                <span className={styles.insightValue}>{formatCurrency(totalExpenseCount > 0 ? totalExpenses / totalExpenseCount : 0)}</span>
-              </div>
-              {topExpenseCategory && (
-                <div className={styles.insightItem}>
-                  <span className={styles.insightLabel}>Top Category</span>
-                  <span className={styles.insightValue}>
-                    {topExpenseCategory.name}
-                    <span className={styles.insightPercent}>
-                      ({topExpenseCategory.percentage.toFixed(1)}%)
-                    </span>
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-      </Grid>
-
-      <Grid size={{ xs: 12, md: 6 }}>
-        <section className={styles.card}>
-          <header className={styles.cardHeader}>
-            <div className={styles.cardTitleGroup}>
-              <Wallet size={20} className={styles.cardIcon} />
-              <Typography variant="h6" component="h2" className={styles.cardTitle}>
-                Income Insights
-              </Typography>
-            </div>
-          </header>
-          
-          {loading ? (
-            <LoadingPlaceholder height={180} />
-          ) : (
-            <div className={styles.insightsList}>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Income Sources</span>
-                <span className={styles.insightValue}>{incomeSourceData.length}</span>
-              </div>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Total Transactions</span>
-                <span className={styles.insightValue}>{totalIncomeCount}</span>
-              </div>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Avg. per Transaction</span>
-                <span className={styles.insightValue}>{formatCurrency(totalIncomeCount > 0 ? totalIncome / totalIncomeCount : 0)}</span>
-              </div>
-              <div className={styles.insightItem}>
-                <span className={styles.insightLabel}>Prev Month Income</span>
-                <span className={styles.insightValue}>
-                  {formatCurrency(prevMonthIncome)}
-                  {incomeChangeFromPrev !== 0 && (
-                    <span className={`${styles.insightPercent} ${incomeChangeFromPrev >= 0 ? styles.positive : styles.negative}`}>
-                      ({incomeChangeFromPrev >= 0 ? '+' : ''}{incomeChangeFromPrev.toFixed(1)}%)
-                    </span>
-                  )}
-                </span>
-              </div>
-              {topIncomeSource && (
-                <div className={styles.insightItem}>
-                  <span className={styles.insightLabel}>Top Source</span>
-                  <span className={styles.insightValue}>
-                    {topIncomeSource.name}
-                    <span className={styles.insightPercent}>
-                      ({topIncomeSource.percentage.toFixed(1)}%)
-                    </span>
-                  </span>
-                </div>
-              )}
-            </div>
           )}
         </section>
       </Grid>

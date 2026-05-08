@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate, HdfcImportResponse } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, AnalyticsCategorySummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate, HdfcImportResponse } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -1366,6 +1366,93 @@ function buildGuestAnalyticsSummary(start: string, end: string): AnalyticsSummar
   }
 }
 
+/**
+ * Helper to build category analytics summary from guest store data
+ */
+function buildGuestCategorySummary(start: string, end: string): AnalyticsCategorySummary {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+
+  const expenses = guestStore.getExpenses().filter((e) => {
+    if (!e.expenseDate) return false
+    const d = new Date(e.expenseDate)
+    return d >= startDate && d <= endDate
+  })
+
+  const categoryTotals: Record<string, number> = {}
+  const categoryGrossTotals: Record<string, number> = {}
+  const categoryAdjustments: Record<string, number> = {}
+  const categoryRecordCounts: Record<string, number> = {}
+  let totalExpenses = 0
+
+  expenses.forEach((e) => {
+    const amount = Number(e.expenseAmount ?? e.amount ?? 0)
+    const cat = e.expenseCategoryName ?? 'Uncategorized'
+    categoryTotals[cat] = (categoryTotals[cat] ?? 0) + amount
+    categoryGrossTotals[cat] = (categoryGrossTotals[cat] ?? 0) + amount
+    categoryRecordCounts[cat] = (categoryRecordCounts[cat] ?? 0) + 1
+    totalExpenses += amount
+  })
+
+  return {
+    totalExpenses,
+    totalAdjustments: 0,
+    netExpenses: totalExpenses,
+    totalRecords: expenses.length,
+    categoryTotals,
+    categoryGrossTotals,
+    categoryAdjustments,
+    categoryRecordCounts,
+  }
+}
+
+/**
+ * Get category totals by date range for analytics
+ */
+export async function fetchAnalyticsCategoriesByRange(payload: {
+  userId: string
+  start: string
+  end: string
+}): Promise<AnalyticsCategorySummary> {
+  if (isGuestUserId(payload.userId)) {
+    return buildGuestCategorySummary(payload.start, payload.end)
+  }
+  const result = await request('/analytics/categories/range', { method: 'POST', body: payload })
+  return result as AnalyticsCategorySummary
+}
+
+/**
+ * Get category totals for a specific month for analytics
+ */
+export async function fetchAnalyticsCategoriesByMonth(payload: {
+  userId: string
+  year: number
+  month: number
+}): Promise<AnalyticsCategorySummary> {
+  if (isGuestUserId(payload.userId)) {
+    const endDate = new Date(payload.year, payload.month, 0)
+    const start = `${payload.year}-${String(payload.month).padStart(2, '0')}-01`
+    const end = `${payload.year}-${String(payload.month).padStart(2, '0')}-${endDate.getDate()}`
+    return buildGuestCategorySummary(start, end)
+  }
+  const result = await request('/analytics/categories/month', { method: 'POST', body: payload })
+  return result as AnalyticsCategorySummary
+}
+
+/**
+ * Get category totals for a specific year for analytics
+ */
+export async function fetchAnalyticsCategoriesByYear(payload: {
+  userId: string
+  year: number
+}): Promise<AnalyticsCategorySummary> {
+  if (isGuestUserId(payload.userId)) {
+    return buildGuestCategorySummary(`${payload.year}-01-01`, `${payload.year}-12-31`)
+  }
+  const result = await request('/analytics/categories/year', { method: 'POST', body: payload })
+  return result as AnalyticsCategorySummary
+}
+
 // ============================================================================
 // Health Check
 // ============================================================================
@@ -1868,6 +1955,9 @@ export default {
   fetchAnalyticsSummaryByRange,
   fetchAnalyticsSummaryByMonth,
   fetchAnalyticsSummaryByYear,
+  fetchAnalyticsCategoriesByRange,
+  fetchAnalyticsCategoriesByMonth,
+  fetchAnalyticsCategoriesByYear,
   // Expense Adjustment APIs
   createExpenseAdjustment,
   updateExpenseAdjustment,

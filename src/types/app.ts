@@ -240,6 +240,27 @@ export type AnalyticsSummary = {
   incomesBySource: Record<string, number>
   monthlyExpenseTrend: Record<string, number>
   monthlyIncomeTrend: Record<string, number>
+  /** Actual income date range start used (may differ from requested, e.g. for 'P' preference) */
+  incomeRangeStart?: string
+  /** Actual income date range end used */
+  incomeRangeEnd?: string
+  /** Income month preference the backend applied: 'C' = current, 'P' = previous month */
+  incomeMonthPreference?: string
+}
+
+export type AnalyticsCategorySummary = {
+  totalExpenses: number
+  totalAdjustments: number
+  netExpenses: number
+  totalRecords: number
+  /** Net totals per category (after adjustments) */
+  categoryTotals: Record<string, number>
+  /** Gross totals per category (before adjustments) */
+  categoryGrossTotals: Record<string, number>
+  /** Adjustment amounts per category */
+  categoryAdjustments: Record<string, number>
+  /** Record counts per category */
+  categoryRecordCounts: Record<string, number>
 }
 
 // ============================================================================

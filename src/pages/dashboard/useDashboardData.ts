@@ -8,7 +8,9 @@ import {
   fetchPreviousMonthlyBalance,
   resolveUserExpenseCategoryId,
   updateUserExpense,
+  fetchAnalyticsCategoriesByMonth,
 } from '../../api'
+import type { AnalyticsCategorySummary } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { usePreferences } from '../../context/PreferencesContext'
 import type { Expense, Income, UserExpense, UserExpenseCategory } from '../../types/app'
@@ -141,6 +143,7 @@ export default function useDashboardData() {
   const [twoMonthsAgoIncome, setTwoMonthsAgoIncome] = useState<Income[]>([])
   const [monthlyBalanceBase, setMonthlyBalanceBase] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
+  const [categoriesApiData, setCategoriesApiData] = useState<AnalyticsCategorySummary | null>(null)
   const [expenseTableFilters, setExpenseTableFilters] = useState({ name: '', amount: '', date: '' })
   const [categoryTableFilters, setCategoryTableFilters] = useState({ name: '', total: '' })
   const [templateCategoryOrder, setTemplateCategoryOrder] = useState<string[]>([])
@@ -176,6 +179,7 @@ export default function useDashboardData() {
       setCurrentMonthExpenseTotalFromApi(null)
       setPreviousMonthExpenseTotalFromApi(null)
       setCurrentClosingBalance(null)
+      setCategoriesApiData(null)
       lastLoadKeyRef.current = null
       inflightLoadKeyRef.current = null
       return
@@ -205,6 +209,7 @@ export default function useDashboardData() {
           currentExpenseTotal,
           previousExpenseTotal,
           currentBalanceResult,
+          categoriesResult,
         ] = await Promise.all([
           fetchExpensesByMonth({ userId, month, year, page: expenseCurrentPage, size: expensePageSize }),
           fetchExpensesByMonth({ userId, month: previousContext.month, year: previousContext.year }),
@@ -215,6 +220,7 @@ export default function useDashboardData() {
           fetchExpenseTotalByMonth({ userId, month, year }),
           fetchExpenseTotalByMonth({ userId, month: previousContext.month, year: previousContext.year }),
           fetchCurrentBalance(userId),
+          fetchAnalyticsCategoriesByMonth({ userId, year, month }),
         ])
 
         await Promise.all([ensureExpenseCategories(), ensureUserExpenses(), ensureActiveUserExpenses()])
@@ -226,6 +232,7 @@ export default function useDashboardData() {
         setPreviousMonthExpenses(sortExpensesByDateDesc(previousExpensesResponse.content))
         setCurrentMonthExpenseTotalFromApi(currentExpenseTotal)
         setPreviousMonthExpenseTotalFromApi(previousExpenseTotal)
+        setCategoriesApiData(categoriesResult)
 
         // For guest users only show previous month income (exclude earlier or current month incomes)
         const isGuest = session.userId === 'guest-user'
@@ -682,6 +689,14 @@ export default function useDashboardData() {
   }, [ensureActiveUserExpenses, ensureUserExpenses, session, setStatus, visibleTemplates])
 
   const categorySummary = useMemo(() => {
+    // Use API-provided category totals (net of adjustments) when available
+    if (categoriesApiData) {
+      return Object.entries(categoriesApiData.categoryTotals)
+        .map(([name, total]) => ({ name, total }))
+        .sort((a, b) => b.total - a.total)
+    }
+
+    // Fallback: compute from in-memory expense list
     const totals = new Map<string, { name: string; total: number }>()
 
     monthlyExpenses.forEach((expense) => {
@@ -713,7 +728,7 @@ export default function useDashboardData() {
     })
 
     return Array.from(totals.values()).sort((a, b) => b.total - a.total)
-  }, [monthlyExpenses, categoryNameMap, categoryNameLookup])
+  }, [categoriesApiData, monthlyExpenses, categoryNameMap, categoryNameLookup])
 
   const filteredCategorySummary = useMemo(() => {
     const nameQuery = categoryTableFilters.name.trim().toLowerCase()
