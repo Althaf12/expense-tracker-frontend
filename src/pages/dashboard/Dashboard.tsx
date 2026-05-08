@@ -16,6 +16,7 @@ import SummaryGrid from './SummaryGrid'
 import PlannedExpenses from './PlannedExpenses'
 import SpendByCategory from './SpendByCategory'
 import CurrentMonthExpenses from './CurrentMonthExpenses'
+import ExportModal from '../../components/ExportModal'
 
 const getCurrentMonthContext = () => {
   const current = new Date()
@@ -214,7 +215,18 @@ export default function Dashboard(): ReactElement {
     handleExpensePageChange,
     handleExpensePageSizeChange,
   } = useDashboardData()
- 
+
+  const [dashboardExportOpen, setDashboardExportOpen] = useState(false)
+
+  // Current month date range for export
+  const currentMonthExportDates = useMemo(() => {
+    const lastDay = new Date(year, month, 0).getDate()
+    const mm = String(month).padStart(2, '0')
+    return {
+      start: `${year}-${mm}-01`,
+      end: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+    }
+  }, [month, year])
   const renderTrend = (trend: TrendSummary | null) => {
     if (!trend || trend.percentage === null) {
       return (
@@ -314,6 +326,8 @@ export default function Dashboard(): ReactElement {
           expenseFiltersApplied={expenseFiltersApplied}
           formatCurrency={formatCurrency}
           monthlyTotal={monthlyTotal}
+          allPagesTotal={expenseTotalPages > 1 ? currentMonthExpenseTotal : undefined}
+          onExportClick={() => setDashboardExportOpen(true)}
           currentPage={expenseCurrentPage}
           totalPages={expenseTotalPages}
           totalElements={expenseTotalElements}
@@ -322,6 +336,14 @@ export default function Dashboard(): ReactElement {
           onPageSizeChange={handleExpensePageSizeChange}
         />
       </div>
+
+      <ExportModal
+        open={dashboardExportOpen}
+        onClose={() => setDashboardExportOpen(false)}
+        defaultExportType="EXPENSES"
+        defaultStartDate={currentMonthExportDates.start}
+        defaultEndDate={currentMonthExportDates.end}
+      />
     </section>
   )
 }

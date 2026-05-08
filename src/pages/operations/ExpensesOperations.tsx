@@ -24,6 +24,8 @@ import {
   deleteExpense,
   fetchExpensesByMonth,
   fetchExpensesByRange,
+  fetchExpenseTotalByMonth,
+  fetchAnalyticsSummaryByRange,
   updateExpense,
   fetchExpenseAdjustmentsByExpense,
   createExpenseAdjustment,
@@ -183,8 +185,11 @@ export default function ExpensesOperations(): ReactElement {
   const [totalPages, setTotalPages] = useState<number>(1)
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
+  const [exportModalDates, setExportModalDates] = useState<{ start?: string; end?: string }>({})
   // Import statement modal state
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false)
+  // All-pages total (fetched from API when pagination is active)
+  const [allPagesTotal, setAllPagesTotal] = useState<number | null>(null)
   // Expense adjustments inline state
   const [expandedExpenseIds, setExpandedExpenseIds] = useState<Set<string>>(new Set())
   const [expenseAdjustmentsCache, setExpenseAdjustmentsCache] = useState<Map<string, ExpenseAdjustment[]>>(new Map())
@@ -247,6 +252,20 @@ export default function ExpensesOperations(): ReactElement {
         setTotalPages(response.totalPages)
         setLastQuery({ mode: 'month', payload: { month: defaultMonth, year: defaultYear } })
         setStatus(null)
+        // Background fetch of all-pages total when paginated
+        if (response.totalPages > 1) {
+          const uid = session.userId
+          const m = defaultMonth
+          const y = defaultYear
+          void (async () => {
+            try {
+              const total = await fetchExpenseTotalByMonth({ userId: uid, month: m, year: y })
+              setAllPagesTotal(total)
+            } catch {
+              setAllPagesTotal(null)
+            }
+          })()
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching expenses') })
@@ -582,22 +601,26 @@ export default function ExpensesOperations(): ReactElement {
 
     try {
       let response: PagedResponse<Expense>
+      let resolvedMonth: number | undefined
+      let resolvedYear: number | undefined
+      let resolvedStart: string | undefined
+      let resolvedEnd: string | undefined
       if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
-        const month = monthPayload?.month ?? selectedMonth
-        const year = monthPayload?.year ?? selectedYear
-        response = await fetchExpensesByMonth({ userId, month, year, page, size })
-        setLastQuery({ mode, payload: { month, year } })
+        resolvedMonth = monthPayload?.month ?? selectedMonth
+        resolvedYear = monthPayload?.year ?? selectedYear
+        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size })
+        setLastQuery({ mode, payload: { month: resolvedMonth, year: resolvedYear } })
       } else if (mode === 'range') {
         const rangePayload = payload as { start: string; end: string } | undefined
-        const start = rangePayload?.start ?? rangeStart
-        const end = rangePayload?.end ?? rangeEnd
-        if (!start || !end) {
+        resolvedStart = rangePayload?.start ?? rangeStart
+        resolvedEnd = rangePayload?.end ?? rangeEnd
+        if (!resolvedStart || !resolvedEnd) {
           throw new Error('Please provide both start and end dates for range search.')
         }
         // enforce maximum range of 1 year (365 days)
-        const from = new Date(start)
-        const to = new Date(end)
+        const from = new Date(resolvedStart)
+        const to = new Date(resolvedEnd)
         if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
           throw new Error('Invalid date provided for range.')
         }
@@ -608,20 +631,48 @@ export default function ExpensesOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        response = await fetchExpensesByRange({ userId, start, end, page, size })
-        setLastQuery({ mode, payload: { start, end } })
+        response = await fetchExpensesByRange({ userId, start: resolvedStart, end: resolvedEnd, page, size })
+        setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
       } else {
         // The backend will remove the 'fetch all' endpoint. Use month API as a safe default.
-        const month = selectedMonth
-        const year = selectedYear
-        response = await fetchExpensesByMonth({ userId, month, year, page, size })
-        setLastQuery({ mode: 'month', payload: { month, year } })
+        resolvedMonth = selectedMonth
+        resolvedYear = selectedYear
+        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size })
+        setLastQuery({ mode: 'month', payload: { month: resolvedMonth, year: resolvedYear } })
       }
       setResults(sortExpensesByDateDesc(response.content))
       setCurrentPage(response.page)
       setTotalElements(response.totalElements)
       setTotalPages(response.totalPages)
       setStatus(null)
+      // Background fetch of all-pages total when paginated
+      if (response.totalPages > 1) {
+        setAllPagesTotal(null)
+        const uid = userId
+        const rm = resolvedMonth
+        const ry = resolvedYear
+        const rs = resolvedStart
+        const re = resolvedEnd
+        const resolvedMode = mode === 'range' ? 'range' : 'month'
+        void (async () => {
+          try {
+            let total: number
+            if (resolvedMode === 'month' && rm !== undefined && ry !== undefined) {
+              total = await fetchExpenseTotalByMonth({ userId: uid, month: rm, year: ry })
+            } else if (resolvedMode === 'range' && rs && re) {
+              const summary = await fetchAnalyticsSummaryByRange({ userId: uid, start: rs, end: re })
+              total = summary.netExpenses ?? summary.totalExpenses
+            } else {
+              return
+            }
+            setAllPagesTotal(total)
+          } catch {
+            setAllPagesTotal(null)
+          }
+        })()
+      } else {
+        setAllPagesTotal(null)
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'fetching expenses') })
@@ -1001,6 +1052,21 @@ export default function ExpensesOperations(): ReactElement {
     [filteredResults],
   )
 
+  const exportDateRange = useMemo<{ start: string; end: string } | null>(() => {
+    if (!lastQuery) return null
+    if (lastQuery.mode === 'month') {
+      const p = lastQuery.payload as { month: number; year: number } | undefined
+      if (!p) return null
+      const lastDay = new Date(p.year, p.month, 0).getDate()
+      const mm = String(p.month).padStart(2, '0')
+      const dd = String(lastDay).padStart(2, '0')
+      return { start: `${p.year}-${mm}-01`, end: `${p.year}-${mm}-${dd}` }
+    }
+    const p = lastQuery.payload as { start: string; end: string } | undefined
+    if (!p) return null
+    return { start: p.start, end: p.end }
+  }, [lastQuery])
+
   const handleFilterChange = (field: keyof TableFilters, value: string) => {
     setTableFilters((previous) => ({ ...previous, [field]: value }))
   }
@@ -1039,7 +1105,7 @@ export default function ExpensesOperations(): ReactElement {
               <button
                 type="button"
                 className={styles.exportButton}
-                onClick={() => setExportModalOpen(true)}
+                onClick={() => { setExportModalDates({}); setExportModalOpen(true) }}
                 title="Export data"
               >
                 <Download size={16} />
@@ -1646,15 +1712,60 @@ export default function ExpensesOperations(): ReactElement {
                   })
                 )}
               </tbody>
-                <tfoot>
+              <tfoot>
+                {totalPages > 1 ? (
+                  <>
+                    <tr>
+                      <td colSpan={2}>Total expenses in this page</td>
+                      <td className={styles.numeric}>
+                        <span className={styles.totalPill}>{formatCurrency(totalAmount)}</span>
+                      </td>
+                      <td colSpan={2} />
+                    </tr>
+                    <tr>
+                      <td colSpan={2}>Total (all pages)</td>
+                      <td className={styles.numeric}>
+                        {allPagesTotal !== null ? (
+                          <span className={styles.totalPill}>{formatCurrency(allPagesTotal)}</span>
+                        ) : (
+                          <span className={styles.totalPill}>…</span>
+                        )}
+                      </td>
+                      <td />
+                      <td>
+                        <button
+                          type="button"
+                          className={styles.exportButton}
+                          onClick={() => { setExportModalDates(exportDateRange ?? {}); setExportModalOpen(true) }}
+                          title="Export expenses for current selection"
+                        >
+                          <Download size={14} />
+                          Export
+                        </button>
+                      </td>
+                    </tr>
+                  </>
+                ) : (
                   <tr>
                     <td colSpan={2}>Total</td>
                     <td className={styles.numeric}>
                       <span className={styles.totalPill}>{formatCurrency(totalAmount)}</span>
                     </td>
-                    <td colSpan={2} />
+                    <td />
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.exportButton}
+                        onClick={() => { setExportModalDates(exportDateRange ?? {}); setExportModalOpen(true) }}
+                        title="Export expenses for current selection"
+                      >
+                        <Download size={14} />
+                        Export
+                      </button>
+                    </td>
                   </tr>
-                </tfoot>
+                )}
+              </tfoot>
               </table>
             )}
           </div>
@@ -1783,6 +1894,8 @@ export default function ExpensesOperations(): ReactElement {
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         defaultExportType="EXPENSES"
+        defaultStartDate={exportModalDates.start}
+        defaultEndDate={exportModalDates.end}
       />
 
       {/* Import Statement Modal */}
