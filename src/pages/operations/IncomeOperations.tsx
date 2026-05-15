@@ -11,12 +11,13 @@ import {
   X,
   Download,
   Upload,
-  ChevronDown
+  ChevronDown,
 } from 'lucide-react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome, fetchAnalyticsSummaryByMonth, fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByYear } from '../../api'
 import type { Income, PagedResponse } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
+import { FilterDropdown } from './FilterDropdown'
 import { usePreferences } from '../../context/PreferencesContext'
 import styles from './IncomeOperations.module.css'
 import Skeleton from '../../components/Skeleton'
@@ -37,8 +38,17 @@ type IncomeFormState = {
 type TableFilters = {
   source: string
   amount: string
+  amountOperator: 'contains' | 'gt' | 'lt'
   date: string
+  dateFilterMode: 'contains' | 'month' | 'year'
+  dateMonth: string
+  dateYear: string
   monthYear: string
+}
+
+type SortConfig = {
+  field: 'source' | 'amount' | 'date' | 'monthYear' | null
+  direction: 'asc' | 'desc' | null
 }
 
 const initialForm: IncomeFormState = {
@@ -116,9 +126,17 @@ export default function IncomeOperations(): ReactElement {
   const [tableFilters, setTableFilters] = useState<TableFilters>({
     source: '',
     amount: '',
+    amountOperator: 'contains',
     date: '',
+    dateFilterMode: 'contains',
+    dateMonth: '',
+    dateYear: '',
     monthYear: '',
   })
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: null, direction: null })
+  const [allResultsForFilter, setAllResultsForFilter] = useState<Income[]>([])
+  const [loadingAllResults, setLoadingAllResults] = useState(false)
+  const fetchingAllResultsRef = useRef(false)
   const [addingInline, setAddingInline] = useState<boolean>(false)
   const [inlineAddDraft, setInlineAddDraft] = useState<IncomeFormState | null>(null)
   // Pagination state
@@ -269,50 +287,114 @@ export default function IncomeOperations(): ReactElement {
 
   const filteredResults = useMemo(() => {
     const sourceQuery = tableFilters.source.trim().toLowerCase()
-    const amountQuery = tableFilters.amount.trim().toLowerCase()
+    const amountQuery = tableFilters.amount.trim()
     const dateQuery = tableFilters.date.trim().toLowerCase()
+    const dateMonth = tableFilters.dateMonth.trim()
+    const dateYear = tableFilters.dateYear.trim()
     const monthYearQuery = tableFilters.monthYear.trim().toLowerCase()
 
-    if (!sourceQuery && !amountQuery && !dateQuery && !monthYearQuery) {
-      return results
+    const hasFilters = !!(sourceQuery || amountQuery || dateQuery || dateMonth || dateYear || monthYearQuery)
+
+    // Use all-pages data when available and filters are active
+    const baseResults = (hasFilters && allResultsForFilter.length > 0) ? allResultsForFilter : results
+
+    let filtered: Income[]
+    if (!hasFilters) {
+      filtered = baseResults
+    } else {
+      filtered = baseResults.filter((income) => {
+        const sourceValue = (income.source ?? '').toString().toLowerCase()
+
+        const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
+        const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
+        const formattedAmount = formatCurrency(numericAmount).toLowerCase()
+
+        const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
+        const formattedDate = formatDate(income.receivedDate).toLowerCase()
+
+        const derived = income.receivedDate ? deriveMonthYear(String(income.receivedDate)) : null
+        const normalizedMonth =
+          typeof income.month === 'number' ? MONTHS[income.month - 1] ?? String(income.month) : income.month
+        const monthDisplay = (normalizedMonth ?? derived?.monthName ?? '').toString().toLowerCase()
+        const yearDisplay = String(income.year ?? derived?.year ?? '').toLowerCase()
+        const monthYearDisplay = `${monthDisplay}, ${yearDisplay}`.toLowerCase()
+
+        if (sourceQuery && !sourceValue.includes(sourceQuery)) return false
+
+        // Amount filter with operator
+        if (amountQuery) {
+          const filterNum = parseFloat(amountQuery)
+          if (!isNaN(filterNum)) {
+            if (tableFilters.amountOperator === 'gt' && numericAmount <= filterNum) return false
+            if (tableFilters.amountOperator === 'lt' && numericAmount >= filterNum) return false
+            if (tableFilters.amountOperator === 'contains' && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery.toLowerCase())) return false
+          } else if (!amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery.toLowerCase())) {
+            return false
+          }
+        }
+
+        // Date filter based on mode
+        if (tableFilters.dateFilterMode === 'month' && dateMonth) {
+          const d = income.receivedDate ? new Date(income.receivedDate) : null
+          const expMonth = d ? d.getMonth() + 1 : null
+          if (expMonth === null || String(expMonth) !== dateMonth) return false
+        } else if (tableFilters.dateFilterMode === 'year' && dateYear) {
+          const d = income.receivedDate ? new Date(income.receivedDate) : null
+          const expYear = d ? d.getFullYear() : null
+          if (expYear === null || String(expYear) !== dateYear) return false
+        } else if (tableFilters.dateFilterMode === 'contains' && dateQuery) {
+          if (!rawDate.includes(dateQuery) && !formattedDate.includes(dateQuery)) return false
+        }
+
+        if (monthYearQuery && !monthYearDisplay.includes(monthYearQuery)) return false
+
+        return true
+      })
     }
 
-    return results.filter((income) => {
-      const sourceValue = (income.source ?? '').toString().toLowerCase()
+    // Apply sorting
+    if (sortConfig.field && sortConfig.direction) {
+      filtered = [...filtered].sort((a, b) => {
+        let aVal: string | number = ''
+        let bVal: string | number = ''
+        switch (sortConfig.field) {
+          case 'source':
+            aVal = (a.source ?? '').toLowerCase()
+            bVal = (b.source ?? '').toLowerCase()
+            break
+          case 'amount':
+            aVal = typeof a.amount === 'number' ? a.amount : Number(a.amount ?? 0)
+            bVal = typeof b.amount === 'number' ? b.amount : Number(b.amount ?? 0)
+            break
+          case 'date':
+            aVal = a.receivedDate ? new Date(a.receivedDate).getTime() : 0
+            bVal = b.receivedDate ? new Date(b.receivedDate).getTime() : 0
+            break
+          case 'monthYear': {
+            const da = a.receivedDate ? deriveMonthYear(String(a.receivedDate)) : null
+            const db = b.receivedDate ? deriveMonthYear(String(b.receivedDate)) : null
+            aVal = da ? da.year * 100 + da.monthNumber : 0
+            bVal = db ? db.year * 100 + db.monthNumber : 0
+            break
+          }
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    }
 
-      const numericAmount = typeof income.amount === 'number' ? income.amount : Number(income.amount ?? 0)
-      const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatCurrency(numericAmount).toLowerCase()
-
-      const rawDate = (income.receivedDate ?? '').toString().toLowerCase()
-      const formattedDate = formatDate(income.receivedDate).toLowerCase()
-
-      const derived = income.receivedDate ? deriveMonthYear(String(income.receivedDate)) : null
-      const normalizedMonth =
-        typeof income.month === 'number' ? MONTHS[income.month - 1] ?? String(income.month) : income.month
-      const monthDisplay = (normalizedMonth ?? derived?.monthName ?? '').toString().toLowerCase()
-      const yearDisplay = String(income.year ?? derived?.year ?? '').toLowerCase()
-      const monthYearDisplay = `${monthDisplay}, ${yearDisplay}`.toLowerCase()
-
-      if (sourceQuery && !sourceValue.includes(sourceQuery)) {
-        return false
-      }
-      if (amountQuery && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery)) {
-        return false
-      }
-      if (dateQuery && !rawDate.includes(dateQuery) && !formattedDate.includes(dateQuery)) {
-        return false
-      }
-      if (monthYearQuery && !monthYearDisplay.includes(monthYearQuery)) {
-        return false
-      }
-
-      return true
-    })
-  }, [results, tableFilters])
+    return filtered
+  }, [results, allResultsForFilter, tableFilters, sortConfig])
 
   const filtersApplied = useMemo(
-    () => Object.values(tableFilters).some((value) => value.trim().length > 0),
+    () =>
+      tableFilters.source.trim().length > 0 ||
+      tableFilters.amount.trim().length > 0 ||
+      tableFilters.date.trim().length > 0 ||
+      tableFilters.dateMonth.trim().length > 0 ||
+      tableFilters.dateYear.trim().length > 0 ||
+      tableFilters.monthYear.trim().length > 0,
     [tableFilters],
   )
 
@@ -536,8 +618,63 @@ export default function IncomeOperations(): ReactElement {
   }
 
   const clearFilters = () => {
-    setTableFilters({ source: '', amount: '', date: '', monthYear: '' })
+    setTableFilters({ source: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '', monthYear: '' })
   }
+
+  const handleSort = (field: NonNullable<SortConfig['field']>) => {
+    setSortConfig((prev) => {
+      if (prev.field !== field) return { field, direction: 'asc' }
+      if (prev.direction === 'asc') return { field, direction: 'desc' }
+      return { field: null, direction: null }
+    })
+  }
+
+  // Clear all-results cache whenever the active query changes
+  useEffect(() => {
+    setAllResultsForFilter([])
+    fetchingAllResultsRef.current = false
+  }, [lastQuery])
+
+  // Fetch ALL records for the current query when filters are active and results span multiple pages
+  useEffect(() => {
+    const hasFilters =
+      tableFilters.source.trim().length > 0 ||
+      tableFilters.amount.trim().length > 0 ||
+      tableFilters.date.trim().length > 0 ||
+      tableFilters.dateMonth.trim().length > 0 ||
+      tableFilters.dateYear.trim().length > 0 ||
+      tableFilters.monthYear.trim().length > 0
+    if (!hasFilters || totalPages <= 1 || !lastQuery || !session) return
+    if (allResultsForFilter.length > 0) return
+    if (fetchingAllResultsRef.current) return
+
+    fetchingAllResultsRef.current = true
+    setLoadingAllResults(true)
+    const userId = session.userId
+    const query = lastQuery
+    const size = Math.min(totalElements, 5000)
+    ;(async () => {
+      try {
+        let response: PagedResponse<Income>
+        if (query.mode === 'current-year') {
+          const y = new Date().getFullYear()
+          response = await fetchIncomeByRange({ userId, fromMonth: '01', fromYear: String(y), toMonth: '12', toYear: String(y), page: 0, size })
+        } else if (query.mode === 'month') {
+          const p = query.payload as { month: number; year: number }
+          response = await fetchIncomeByMonth({ userId, month: p.month, year: p.year, page: 0, size })
+        } else {
+          const p = query.payload as { start: string; end: string }
+          response = await fetchIncomeByRange({ userId, fromMonth: p.start.slice(5, 7), fromYear: p.start.slice(0, 4), toMonth: p.end.slice(5, 7), toYear: p.end.slice(0, 4), page: 0, size })
+        }
+        setAllResultsForFilter(response.content)
+      } catch {
+        fetchingAllResultsRef.current = false
+      } finally {
+        setLoadingAllResults(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableFilters, totalPages, lastQuery, session, totalElements, allResultsForFilter.length])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -720,10 +857,18 @@ export default function IncomeOperations(): ReactElement {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th scope="col">Source</th>
-                    <th scope="col" className={styles.numeric}>Amount</th>
-                    <th scope="col">Received</th>
-                    <th scope="col">Month &amp; Year</th>
+                    <th scope="col" className={styles.sortableHeader} onClick={() => handleSort('source')}>
+                      Source{sortConfig.field === 'source' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                    <th scope="col" className={`${styles.numeric} ${styles.sortableHeader}`} onClick={() => handleSort('amount')}>
+                      Amount{sortConfig.field === 'amount' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                    <th scope="col" className={styles.sortableHeader} onClick={() => handleSort('date')}>
+                      Received{sortConfig.field === 'date' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                    <th scope="col" className={styles.sortableHeader} onClick={() => handleSort('monthYear')}>
+                      Month &amp; Year{sortConfig.field === 'monthYear' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
                     <th scope="col" className={styles.actions}>Actions</th>
                   </tr>
                   <tr className={styles.tableFilterRow}>
@@ -737,34 +882,68 @@ export default function IncomeOperations(): ReactElement {
                       />
                     </th>
                     <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter amount"
-                        value={tableFilters.amount}
-                        onChange={(event) => handleFilterChange('amount', event.target.value)}
-                      />
+                      <div className={styles.filterCell}>
+                        <FilterDropdown
+                          value={tableFilters.amountOperator}
+                          options={[
+                            { value: 'lt', label: '< Less than', triggerLabel: '<' },
+                            { value: 'contains', label: '= Equals', triggerLabel: '=' },
+                            { value: 'gt', label: '> Greater than', triggerLabel: '>' },
+                          ]}
+                          onChange={(v) => handleFilterChange('amountOperator', v)}
+                        />
+                        <input
+                          className={styles.tableFilterInput}
+                          type="number"
+                          placeholder="Amount"
+                          min="0"
+                          step="0.01"
+                          value={tableFilters.amount}
+                          onChange={(event) => handleFilterChange('amount', event.target.value)}
+                        />
+                      </div>
+                    </th>
+                    <th scope="col">
+                      <div className={styles.filterCell}>
+                        <FilterDropdown
+                          value={tableFilters.dateFilterMode}
+                          options={[
+                            { value: 'contains', label: 'Date' },
+                            { value: 'month', label: 'Month' },
+                            { value: 'year', label: 'Year' },
+                          ]}
+                          onChange={(v) => {
+                            const mode = v as 'contains' | 'month' | 'year';
+                            if (mode === 'contains') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, dateMonth: '', dateYear: '' }));
+                            else if (mode === 'month') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateYear: '' }));
+                            else setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateMonth: '' }));
+                          }}
+                        />
+                        {tableFilters.dateFilterMode === 'contains' && (
+                          <input className={styles.tableFilterInput} type="search" placeholder="Filter date" value={tableFilters.date} onChange={(event) => handleFilterChange('date', event.target.value)} />
+                        )}
+                        {tableFilters.dateFilterMode === 'month' && (
+                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => handleFilterChange('dateMonth', event.target.value)}>
+                            <option value="">All months</option>
+                            {MONTHS.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
+                          </select>
+                        )}
+                        {tableFilters.dateFilterMode === 'year' && (
+                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear} onChange={(event) => handleFilterChange('dateYear', event.target.value)} />
+                        )}
+                      </div>
                     </th>
                     <th scope="col">
                       <input
                         className={styles.tableFilterInput}
                         type="search"
-                        placeholder="Filter date"
-                        value={tableFilters.date}
-                        onChange={(event) => handleFilterChange('date', event.target.value)}
-                      />
-                    </th>
-                    <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter month & year"
+                        placeholder="Filter month &amp; year"
                         value={tableFilters.monthYear}
                         onChange={(event) => handleFilterChange('monthYear', event.target.value)}
                       />
                     </th>
                     <th scope="col">
-                      <div style={{display:'flex',gap:8,justifyContent:'center',alignItems:'center'}}>
+                      <div className={styles.filterActions}>
                         <button
                           type="button"
                           className={styles.primaryButton}
@@ -773,8 +952,13 @@ export default function IncomeOperations(): ReactElement {
                           {addingInline ? 'Close' : 'Add Income'}
                         </button>
                         {filtersApplied && (
-                          <button type="button" onClick={clearFilters}>
-                            Clear
+                          <button type="button" className={styles.clearFilterBtn} onClick={clearFilters} title="Clear all filters">
+                            Clear Filters
+                          </button>
+                        )}
+                        {sortConfig.field && (
+                          <button type="button" className={styles.clearFilterBtn} onClick={() => setSortConfig({ field: null, direction: null })} title="Clear sort">
+                            Clear Sort
                           </button>
                         )}
                       </div>
@@ -912,7 +1096,7 @@ export default function IncomeOperations(): ReactElement {
                   )}
                 </tbody>
                 <tfoot>
-                  {totalPages > 1 ? (
+                  {totalPages > 1 && !(filtersApplied && allResultsForFilter.length > 0) ? (
                     <>
                       <tr>
                         <td>Total income in this page</td>
@@ -946,7 +1130,7 @@ export default function IncomeOperations(): ReactElement {
                     </>
                   ) : (
                     <tr>
-                      <td>Total</td>
+                      <td>{filtersApplied && allResultsForFilter.length > 0 ? 'Filtered total' : 'Total'}</td>
                       <td className={styles.numeric}>
                         <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
                       </td>
@@ -969,15 +1153,28 @@ export default function IncomeOperations(): ReactElement {
             )}
           </div>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            loading={loading}
-          />
+          {loadingAllResults && (
+            <div className={styles.allResultsBanner}>
+              Loading all records for cross-page filtering…
+            </div>
+          )}
+          {filtersApplied && allResultsForFilter.length > 0 && (
+            <div className={styles.allResultsNote}>
+              Showing {filteredResults.length} of {allResultsForFilter.length} records · filters applied across all pages
+            </div>
+          )}
+
+          {!(filtersApplied && allResultsForFilter.length > 0) && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              loading={loading}
+            />
+          )}
 
           
         </section>

@@ -17,7 +17,7 @@ import {
   Upload,
   RefreshCcw,
   Eye,
-  EyeOff
+  EyeOff,
 } from 'lucide-react'
 import {
   addExpense,
@@ -33,6 +33,7 @@ import {
 import type { Expense, UserExpenseCategory, PagedResponse, ExpenseAdjustment, AdjustmentType } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
+import { FilterDropdown } from './FilterDropdown'
 import { usePreferences } from '../../context/PreferencesContext'
 import { guestStore } from '../../utils/guestStore'
 import styles from './ExpensesOperations.module.css'
@@ -65,7 +66,16 @@ type TableFilters = {
   expenseName: string
   category: string
   amount: string
+  amountOperator: 'contains' | 'gt' | 'lt'
   date: string
+  dateFilterMode: 'contains' | 'month' | 'year'
+  dateMonth: string
+  dateYear: string
+}
+
+type SortConfig = {
+  field: 'expenseName' | 'category' | 'amount' | 'date' | null
+  direction: 'asc' | 'desc' | null
 }
 
 const MONTHS = [
@@ -177,7 +187,11 @@ export default function ExpensesOperations(): ReactElement {
   const inlineCategoryFieldRef = useRef<HTMLDivElement | null>(null)
   const initialLoadRef = useRef<boolean>(false)
   const [editingCategoryDropdownOpen, setEditingCategoryDropdownOpen] = useState<boolean>(false)
-  const [tableFilters, setTableFilters] = useState<TableFilters>({ expenseName: '', category: '', amount: '', date: '' })
+  const [tableFilters, setTableFilters] = useState<TableFilters>({ expenseName: '', category: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '' })
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: null, direction: null })
+  const [allResultsForFilter, setAllResultsForFilter] = useState<Expense[]>([])
+  const [loadingAllResults, setLoadingAllResults] = useState(false)
+  const fetchingAllResultsRef = useRef(false)
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(0)
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
@@ -457,6 +471,50 @@ export default function ExpensesOperations(): ReactElement {
       document.removeEventListener('mousedown', handleClickAway)
     }
   }, [monthDropdownOpen])
+
+  // Clear all-results cache whenever the active query changes (new month/range/year selected)
+  useEffect(() => {
+    setAllResultsForFilter([])
+    fetchingAllResultsRef.current = false
+  }, [lastQuery])
+
+  // Fetch ALL records for the current query when filters are active and results span multiple pages
+  useEffect(() => {
+    const hasFilters =
+      tableFilters.expenseName.trim().length > 0 ||
+      tableFilters.category.trim().length > 0 ||
+      tableFilters.amount.trim().length > 0 ||
+      tableFilters.date.trim().length > 0 ||
+      tableFilters.dateMonth.trim().length > 0 ||
+      tableFilters.dateYear.trim().length > 0
+    if (!hasFilters || totalPages <= 1 || !lastQuery || !session) return
+    if (allResultsForFilter.length > 0) return   // already loaded
+    if (fetchingAllResultsRef.current) return     // fetch in progress
+
+    fetchingAllResultsRef.current = true
+    setLoadingAllResults(true)
+    const userId = session.userId
+    const query = lastQuery
+    const size = Math.min(totalElements, 5000)
+    ;(async () => {
+      try {
+        let response: PagedResponse<Expense>
+        if (query.mode === 'month') {
+          const p = query.payload as { month: number; year: number }
+          response = await fetchExpensesByMonth({ userId, month: p.month, year: p.year, page: 0, size })
+        } else {
+          const p = query.payload as { start: string; end: string }
+          response = await fetchExpensesByRange({ userId, start: p.start, end: p.end, page: 0, size })
+        }
+        setAllResultsForFilter(sortExpensesByDateDesc(response.content))
+      } catch {
+        fetchingAllResultsRef.current = false
+      } finally {
+        setLoadingAllResults(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableFilters, totalPages, lastQuery, session, totalElements, allResultsForFilter.length])
 
   const beginInlineAdd = () => {
     setAddingInline(true)
@@ -842,45 +900,105 @@ export default function ExpensesOperations(): ReactElement {
   const filteredResults = useMemo(() => {
     const nameQuery = tableFilters.expenseName.trim().toLowerCase()
     const categoryQuery = tableFilters.category.trim().toLowerCase()
-    const amountQuery = tableFilters.amount.trim().toLowerCase()
+    const amountQuery = tableFilters.amount.trim()
     const dateQuery = tableFilters.date.trim().toLowerCase()
+    const dateMonth = tableFilters.dateMonth.trim()
+    const dateYear = tableFilters.dateYear.trim()
 
-    if (!nameQuery && !categoryQuery && !amountQuery && !dateQuery) {
-      return results
+    const hasFilters = !!(nameQuery || categoryQuery || amountQuery || dateQuery || dateMonth || dateYear)
+
+    // Use all-pages data when available and filters are active
+    const baseResults = (hasFilters && allResultsForFilter.length > 0) ? allResultsForFilter : results
+
+    let filtered: Expense[]
+    if (!hasFilters) {
+      filtered = baseResults
+    } else {
+      filtered = baseResults.filter((expense) => {
+        const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
+        const derivedCategoryName =
+          extractExpenseCategoryName(expense as ExpenseWithUserCategory, activeCategories) || 'Uncategorised'
+        const categoryName = derivedCategoryName.toLowerCase()
+
+        const numericAmount = getAmount(expense)
+        const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
+        const formattedAmount = formatCurrency(numericAmount).toLowerCase()
+
+        const rawDate = (expense.expenseDate ?? '').toString().toLowerCase()
+        const prettyDate = formatDate(expense.expenseDate).toLowerCase()
+
+        if (nameQuery && !expenseName.includes(nameQuery)) return false
+        if (categoryQuery && !categoryName.includes(categoryQuery)) return false
+
+        // Amount filter with operator
+        if (amountQuery) {
+          const filterNum = parseFloat(amountQuery)
+          if (!isNaN(filterNum)) {
+            if (tableFilters.amountOperator === 'gt' && numericAmount <= filterNum) return false
+            if (tableFilters.amountOperator === 'lt' && numericAmount >= filterNum) return false
+            if (tableFilters.amountOperator === 'contains' && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery.toLowerCase())) return false
+          } else if (!amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery.toLowerCase())) {
+            return false
+          }
+        }
+
+        // Date filter based on mode
+        if (tableFilters.dateFilterMode === 'month' && dateMonth) {
+          const d = expense.expenseDate ? new Date(expense.expenseDate) : null
+          const expMonth = d ? d.getMonth() + 1 : null
+          if (expMonth === null || String(expMonth) !== dateMonth) return false
+        } else if (tableFilters.dateFilterMode === 'year' && dateYear) {
+          const d = expense.expenseDate ? new Date(expense.expenseDate) : null
+          const expYear = d ? d.getFullYear() : null
+          if (expYear === null || String(expYear) !== dateYear) return false
+        } else if (tableFilters.dateFilterMode === 'contains' && dateQuery) {
+          if (!rawDate.includes(dateQuery) && !prettyDate.includes(dateQuery)) return false
+        }
+
+        return true
+      })
     }
 
-    return results.filter((expense) => {
-      const expenseName = (expense.expenseName ?? expense.description ?? '').toString().toLowerCase()
-      const derivedCategoryName =
-        extractExpenseCategoryName(expense as ExpenseWithUserCategory, activeCategories) || 'Uncategorised'
-      const categoryName = derivedCategoryName.toLowerCase()
+    // Apply sorting
+    if (sortConfig.field && sortConfig.direction) {
+      filtered = [...filtered].sort((a, b) => {
+        let aVal: string | number = ''
+        let bVal: string | number = ''
+        switch (sortConfig.field) {
+          case 'expenseName':
+            aVal = (a.expenseName ?? a.description ?? '').toLowerCase()
+            bVal = (b.expenseName ?? b.description ?? '').toLowerCase()
+            break
+          case 'category':
+            aVal = (extractExpenseCategoryName(a as ExpenseWithUserCategory, activeCategories) || 'Uncategorised').toLowerCase()
+            bVal = (extractExpenseCategoryName(b as ExpenseWithUserCategory, activeCategories) || 'Uncategorised').toLowerCase()
+            break
+          case 'amount':
+            aVal = getAmount(a)
+            bVal = getAmount(b)
+            break
+          case 'date':
+            aVal = a.expenseDate ? new Date(a.expenseDate).getTime() : 0
+            bVal = b.expenseDate ? new Date(b.expenseDate).getTime() : 0
+            break
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    }
 
-      const numericAmount = getAmount(expense)
-      const amountString = Number.isFinite(numericAmount) ? numericAmount.toFixed(2) : ''
-      const formattedAmount = formatCurrency(numericAmount).toLowerCase()
-
-      const rawDate = (expense.expenseDate ?? '').toString().toLowerCase()
-      const prettyDate = formatDate(expense.expenseDate).toLowerCase()
-
-      if (nameQuery && !expenseName.includes(nameQuery)) {
-        return false
-      }
-      if (categoryQuery && !categoryName.includes(categoryQuery)) {
-        return false
-      }
-      if (amountQuery && !amountString.includes(amountQuery) && !formattedAmount.includes(amountQuery)) {
-        return false
-      }
-      if (dateQuery && !rawDate.includes(dateQuery) && !prettyDate.includes(dateQuery)) {
-        return false
-      }
-
-      return true
-    })
-  }, [results, tableFilters, activeCategories])
+    return filtered
+  }, [results, allResultsForFilter, tableFilters, activeCategories, sortConfig])
 
   const filtersApplied = useMemo(
-    () => Object.values(tableFilters).some((value) => value.trim().length > 0),
+    () =>
+      tableFilters.expenseName.trim().length > 0 ||
+      tableFilters.category.trim().length > 0 ||
+      tableFilters.amount.trim().length > 0 ||
+      tableFilters.date.trim().length > 0 ||
+      tableFilters.dateMonth.trim().length > 0 ||
+      tableFilters.dateYear.trim().length > 0,
     [tableFilters],
   )
 
@@ -1072,7 +1190,15 @@ export default function ExpensesOperations(): ReactElement {
   }
 
   const clearFilters = () => {
-    setTableFilters({ expenseName: '', category: '', amount: '', date: '' })
+    setTableFilters({ expenseName: '', category: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '' })
+  }
+
+  const handleSort = (field: NonNullable<SortConfig['field']>) => {
+    setSortConfig((prev) => {
+      if (prev.field !== field) return { field, direction: 'asc' }
+      if (prev.direction === 'asc') return { field, direction: 'desc' }
+      return { field: null, direction: null }
+    })
   }
 
   return (
@@ -1232,10 +1358,18 @@ export default function ExpensesOperations(): ReactElement {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th scope="col">Expense</th>
-                    <th scope="col">Category</th>
-                    <th scope="col" className={styles.numeric}>Amount</th>
-                    <th scope="col" className={styles.date}>Date</th>
+                    <th scope="col" className={styles.sortableHeader} onClick={() => handleSort('expenseName')}>
+                      Expense{sortConfig.field === 'expenseName' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                    <th scope="col" className={styles.sortableHeader} onClick={() => handleSort('category')}>
+                      Category{sortConfig.field === 'category' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                    <th scope="col" className={`${styles.numeric} ${styles.sortableHeader}`} onClick={() => handleSort('amount')}>
+                      Amount{sortConfig.field === 'amount' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                    <th scope="col" className={`${styles.date} ${styles.sortableHeader}`} onClick={() => handleSort('date')}>
+                      Date{sortConfig.field === 'date' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
                     <th scope="col" className={styles.actions}>Actions</th>
                   </tr>
                   <tr className={styles.tableFilterRow}>
@@ -1258,25 +1392,59 @@ export default function ExpensesOperations(): ReactElement {
                       />
                     </th>
                     <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter amount"
-                        value={tableFilters.amount}
-                        onChange={(event) => handleFilterChange('amount', event.target.value)}
-                      />
+                      <div className={styles.filterCell}>
+                        <FilterDropdown
+                          value={tableFilters.amountOperator}
+                          options={[
+                            { value: 'lt', label: '< Less than', triggerLabel: '<' },
+                            { value: 'contains', label: '= Equals', triggerLabel: '=' },
+                            { value: 'gt', label: '> Greater than', triggerLabel: '>' },
+                          ]}
+                          onChange={(v) => handleFilterChange('amountOperator', v)}
+                        />
+                        <input
+                          className={styles.tableFilterInput}
+                          type="number"
+                          placeholder="Amount"
+                          min="0"
+                          step="0.01"
+                          value={tableFilters.amount}
+                          onChange={(event) => handleFilterChange('amount', event.target.value)}
+                        />
+                      </div>
                     </th>
                     <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter date"
-                        value={tableFilters.date}
-                        onChange={(event) => handleFilterChange('date', event.target.value)}
-                      />
+                      <div className={styles.filterCell}>
+                        <FilterDropdown
+                          value={tableFilters.dateFilterMode}
+                          options={[
+                            { value: 'contains', label: 'Date' },
+                            { value: 'month', label: 'Month' },
+                            { value: 'year', label: 'Year' },
+                          ]}
+                          onChange={(v) => {
+                            const mode = v as 'contains' | 'month' | 'year';
+                            if (mode === 'contains') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, dateMonth: '', dateYear: '' }));
+                            else if (mode === 'month') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateYear: '' }));
+                            else setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateMonth: '' }));
+                          }}
+                        />
+                        {tableFilters.dateFilterMode === 'contains' && (
+                          <input className={styles.tableFilterInput} type="search" placeholder="Filter date" value={tableFilters.date} onChange={(event) => handleFilterChange('date', event.target.value)} />
+                        )}
+                        {tableFilters.dateFilterMode === 'month' && (
+                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => handleFilterChange('dateMonth', event.target.value)}>
+                            <option value="">All months</option>
+                            {MONTHS.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
+                          </select>
+                        )}
+                        {tableFilters.dateFilterMode === 'year' && (
+                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear} onChange={(event) => handleFilterChange('dateYear', event.target.value)} />
+                        )}
+                      </div>
                     </th>
                     <th scope="col">
-                      <div style={{display:'flex',gap:8,justifyContent:'center',alignItems:'center'}}>
+                      <div className={styles.filterActions}>
                         <button
                           type="button"
                           className={styles.primaryButton}
@@ -1285,8 +1453,13 @@ export default function ExpensesOperations(): ReactElement {
                           {addingInline ? 'Close' : 'Add Expense'}
                         </button>
                         {filtersApplied && (
-                          <button type="button" onClick={clearFilters}>
-                            Clear
+                          <button type="button" className={styles.clearFilterBtn} onClick={clearFilters} title="Clear all filters">
+                            Clear Filters
+                          </button>
+                        )}
+                        {sortConfig.field && (
+                          <button type="button" className={styles.clearFilterBtn} onClick={() => setSortConfig({ field: null, direction: null })} title="Clear sort">
+                            Clear Sort
                           </button>
                         )}
                       </div>
@@ -1713,7 +1886,7 @@ export default function ExpensesOperations(): ReactElement {
                 )}
               </tbody>
               <tfoot>
-                {totalPages > 1 ? (
+                {totalPages > 1 && !(filtersApplied && allResultsForFilter.length > 0) ? (
                   <>
                     <tr>
                       <td colSpan={2}>Total expenses in this page</td>
@@ -1747,7 +1920,7 @@ export default function ExpensesOperations(): ReactElement {
                   </>
                 ) : (
                   <tr>
-                    <td colSpan={2}>Total</td>
+                    <td colSpan={2}>{filtersApplied && allResultsForFilter.length > 0 ? 'Filtered total' : 'Total'}</td>
                     <td className={styles.numeric}>
                       <span className={styles.totalPill}>{formatCurrency(totalAmount)}</span>
                     </td>
@@ -1770,15 +1943,28 @@ export default function ExpensesOperations(): ReactElement {
             )}
           </div>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            loading={loading}
-          />
+          {loadingAllResults && (
+            <div className={styles.allResultsBanner}>
+              Loading all records for cross-page filtering…
+            </div>
+          )}
+          {filtersApplied && allResultsForFilter.length > 0 && (
+            <div className={styles.allResultsNote}>
+              Showing {filteredResults.length} of {allResultsForFilter.length} records · filters applied across all pages
+            </div>
+          )}
+
+          {!(filtersApplied && allResultsForFilter.length > 0) && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              loading={loading}
+            />
+          )}
 
           
         </section>
