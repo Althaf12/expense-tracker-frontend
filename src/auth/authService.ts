@@ -27,7 +27,8 @@ export type LoginResult = {
 }
 
 // Track if a refresh is in progress to prevent multiple simultaneous refresh calls
-let refreshPromise: Promise<boolean> | null = null
+export type RefreshStatus = 'success' | 'token_rotated' | 'error'
+let refreshPromise: Promise<RefreshStatus> | null = null
 
 /**
  * Login with username and password
@@ -168,10 +169,16 @@ export async function checkAuth(): Promise<AuthUser | null> {
 }
 
 /**
- * Attempt to refresh the authentication token
- * Returns true if refresh succeeded, false otherwise
+ * Attempt to refresh the authentication token.
+ * Returns:
+ *   'success'       — refresh succeeded, new tokens are set in cookies
+ *   'token_rotated' — refresh endpoint returned 401, meaning the refresh token was
+ *                     already consumed (likely by another tab). The caller should
+ *                     retry the original request once; the other tab's refresh may
+ *                     have already set fresh cookies.
+ *   'error'         — network or server error, redirect to login
  */
-export async function refreshAuth(): Promise<boolean> {
+export async function refreshAuth(): Promise<RefreshStatus> {
   // If a refresh is already in progress, wait for it
   if (refreshPromise) {
     return refreshPromise
@@ -188,10 +195,14 @@ export async function refreshAuth(): Promise<boolean> {
         },
       })
 
-      return response.ok
+      if (response.status === 401) {
+        // Refresh token was already rotated (likely consumed by another tab)
+        return 'token_rotated'
+      }
+      return response.ok ? 'success' : 'error'
     } catch (error) {
       console.error('Token refresh error:', error)
-      return false
+      return 'error'
     } finally {
       refreshPromise = null
     }

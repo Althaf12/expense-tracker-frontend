@@ -7,7 +7,7 @@
  * - If refresh fails, redirects to login
  */
 
-import { refreshAuth, redirectToLogin } from './authService'
+import { refreshAuth, redirectToLogin, type RefreshStatus } from './authService'
 import { API_BASE_URL } from './config'
 
 type RequestOptions = {
@@ -78,16 +78,28 @@ export async function authFetch(
       if (!isRefreshing) {
         isRefreshing = true
         
-        const refreshed = await refreshAuth()
+        const refreshStatus: RefreshStatus = await refreshAuth()
         isRefreshing = false
         
-        if (refreshed) {
-          // Retry original request
+        if (refreshStatus === 'success') {
+          // Refresh succeeded — retry the original request
           response = await fetch(url, fetchOptions)
-          // Process any queued requests
+          processQueue(true)
+        } else if (refreshStatus === 'token_rotated') {
+          // Refresh token was already rotated by another tab.
+          // The other tab's refresh may have already set fresh cookies,
+          // so retry the original request once before giving up.
+          const retryResponse = await fetch(url, fetchOptions)
+          if (retryResponse.status === 401) {
+            // Still failing after retry — session is truly expired
+            processQueue(false)
+            redirectToLogin()
+            throw new Error('Session expired')
+          }
+          response = retryResponse
           processQueue(true)
         } else {
-          // Refresh failed - redirect to login
+          // Refresh failed (network/server error) — redirect to login
           processQueue(false)
           redirectToLogin()
           throw new Error('Session expired')
