@@ -14,7 +14,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome, fetchAnalyticsSummaryByMonth, fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByYear } from '../../api'
-import type { Income, PagedResponse } from '../../types/app'
+import type { Income, PagedResponse, IncomeServerParams } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
 import { FilterDropdown } from './FilterDropdown'
@@ -49,6 +49,41 @@ type TableFilters = {
 type SortConfig = {
   field: 'source' | 'amount' | 'date' | 'monthYear' | null
   direction: 'asc' | 'desc' | null
+}
+
+const INCOME_SORT_MAP: Partial<Record<NonNullable<SortConfig['field']>, IncomeServerParams['sortBy']>> = {
+  source: 'source',
+  amount: 'amount',
+  date: 'receivedDate',
+  monthYear: 'receivedDate',
+}
+
+function buildIncomeServerParams(filters: TableFilters, sort: SortConfig): IncomeServerParams {
+  const params: IncomeServerParams = {}
+  if (sort.field && sort.direction) {
+    params.sortBy = INCOME_SORT_MAP[sort.field]
+    params.sortDir = sort.direction.toUpperCase() as 'ASC' | 'DESC'
+  }
+  if (filters.source.trim()) params.filterSource = filters.source.trim()
+  if (filters.amount.trim()) {
+    const num = parseFloat(filters.amount)
+    if (!isNaN(num) && num >= 0) {
+      const opMap = { gt: 'GT', lt: 'LT', contains: 'EQ' } as const
+      params.filterAmountOp = opMap[filters.amountOperator as keyof typeof opMap] ?? 'EQ'
+      params.filterAmountValue = num
+    }
+  }
+  if (filters.dateFilterMode === 'month' && filters.dateMonth) {
+    params.filterDateType = 'Month'
+    params.filterDateValue = filters.dateMonth
+  } else if (filters.dateFilterMode === 'year' && filters.dateYear) {
+    params.filterDateType = 'Year'
+    params.filterDateValue = filters.dateYear
+  } else if (filters.dateFilterMode === 'contains' && /^\d{4}-\d{2}-\d{2}$/.test(filters.date.trim())) {
+    params.filterDateType = 'Date'
+    params.filterDateValue = filters.date.trim()
+  }
+  return params
 }
 
 const initialForm: IncomeFormState = {
@@ -134,9 +169,7 @@ export default function IncomeOperations(): ReactElement {
     monthYear: '',
   })
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: null, direction: null })
-  const [allResultsForFilter, setAllResultsForFilter] = useState<Income[]>([])
-  const [loadingAllResults, setLoadingAllResults] = useState(false)
-  const fetchingAllResultsRef = useRef(false)
+  const [pendingAmount, setPendingAmount] = useState<string>('')
   const [addingInline, setAddingInline] = useState<boolean>(false)
   const [inlineAddDraft, setInlineAddDraft] = useState<IncomeFormState | null>(null)
   // Pagination state
@@ -189,7 +222,7 @@ export default function IncomeOperations(): ReactElement {
     return Array.from(unique).slice(0, 10)
   }, [formState.source, incomesCache])
 
-  const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
+  const loadIncomes = async (mode: IncomeViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize, serverParams: IncomeServerParams = {}) => {
     if (!session) return
     const userId = session.userId
     setLoading(true)
@@ -210,13 +243,14 @@ export default function IncomeOperations(): ReactElement {
           toYear: String(resolvedYear),
           page,
           size,
+          ...serverParams,
         })
         setLastQuery({ mode })
       } else if (mode === 'month') {
         const monthPayload = payload as { month: number; year: number } | undefined
         resolvedMonth = monthPayload?.month ?? monthFilter
         resolvedYear = monthPayload?.year ?? yearFilter
-        response = await fetchIncomeByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size })
+        response = await fetchIncomeByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size, ...serverParams })
         setLastQuery({ mode, payload: { month: resolvedMonth, year: resolvedYear } })
       } else {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -238,10 +272,10 @@ export default function IncomeOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        response = await fetchIncomeByRange({ userId, fromMonth: resolvedStart.slice(5, 7), fromYear: resolvedStart.slice(0, 4), toMonth: resolvedEnd.slice(5, 7), toYear: resolvedEnd.slice(0, 4), page, size })
+        response = await fetchIncomeByRange({ userId, fromMonth: resolvedStart.slice(5, 7), fromYear: resolvedStart.slice(0, 4), toMonth: resolvedEnd.slice(5, 7), toYear: resolvedEnd.slice(0, 4), page, size, ...serverParams })
         setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
       }
-      setResults(response.content)
+      setResults(serverParams.sortBy ? response.content : response.content)
       setCurrentPage(response.page)
       setTotalElements(response.totalElements)
       setTotalPages(response.totalPages)
@@ -296,7 +330,8 @@ export default function IncomeOperations(): ReactElement {
     const hasFilters = !!(sourceQuery || amountQuery || dateQuery || dateMonth || dateYear || monthYearQuery)
 
     // Use all-pages data when available and filters are active
-    const baseResults = (hasFilters && allResultsForFilter.length > 0) ? allResultsForFilter : results
+    // Server handles cross-page filtering; client-side filter here refines the current page
+    const baseResults = results
 
     let filtered: Income[]
     if (!hasFilters) {
@@ -385,7 +420,7 @@ export default function IncomeOperations(): ReactElement {
     }
 
     return filtered
-  }, [results, allResultsForFilter, tableFilters, sortConfig])
+  }, [results, tableFilters, sortConfig])
 
   const filtersApplied = useMemo(
     () =>
@@ -618,68 +653,34 @@ export default function IncomeOperations(): ReactElement {
   }
 
   const clearFilters = () => {
-    setTableFilters({ source: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '', monthYear: '' })
+    const emptyFilters = { source: '', amount: '', amountOperator: 'contains' as const, date: '', dateFilterMode: 'contains' as const, dateMonth: '', dateYear: '', monthYear: '' }
+    setTableFilters(emptyFilters)
+    setPendingAmount('')
+    setCurrentPage(0)
+    if (lastQuery) {
+      void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, {})
+    }
   }
 
   const handleSort = (field: NonNullable<SortConfig['field']>) => {
-    setSortConfig((prev) => {
-      if (prev.field !== field) return { field, direction: 'asc' }
-      if (prev.direction === 'asc') return { field, direction: 'desc' }
+    const newSort: SortConfig = (() => {
+      if (sortConfig.field !== field) return { field, direction: 'asc' }
+      if (sortConfig.direction === 'asc') return { field, direction: 'desc' }
       return { field: null, direction: null }
-    })
-  }
-
-  // Clear all-results cache whenever the active query changes
-  useEffect(() => {
-    setAllResultsForFilter([])
-    fetchingAllResultsRef.current = false
-  }, [lastQuery])
-
-  // Fetch ALL records for the current query when filters are active and results span multiple pages
-  useEffect(() => {
-    const hasFilters =
-      tableFilters.source.trim().length > 0 ||
-      tableFilters.amount.trim().length > 0 ||
-      tableFilters.date.trim().length > 0 ||
-      tableFilters.dateMonth.trim().length > 0 ||
-      tableFilters.dateYear.trim().length > 0 ||
-      tableFilters.monthYear.trim().length > 0
-    if (!hasFilters || totalPages <= 1 || !lastQuery || !session) return
-    if (allResultsForFilter.length > 0) return
-    if (fetchingAllResultsRef.current) return
-
-    fetchingAllResultsRef.current = true
-    setLoadingAllResults(true)
-    const userId = session.userId
-    const query = lastQuery
-    const size = Math.min(totalElements, 5000)
-    ;(async () => {
-      try {
-        let response: PagedResponse<Income>
-        if (query.mode === 'current-year') {
-          const y = new Date().getFullYear()
-          response = await fetchIncomeByRange({ userId, fromMonth: '01', fromYear: String(y), toMonth: '12', toYear: String(y), page: 0, size })
-        } else if (query.mode === 'month') {
-          const p = query.payload as { month: number; year: number }
-          response = await fetchIncomeByMonth({ userId, month: p.month, year: p.year, page: 0, size })
-        } else {
-          const p = query.payload as { start: string; end: string }
-          response = await fetchIncomeByRange({ userId, fromMonth: p.start.slice(5, 7), fromYear: p.start.slice(0, 4), toMonth: p.end.slice(5, 7), toYear: p.end.slice(0, 4), page: 0, size })
-        }
-        setAllResultsForFilter(response.content)
-      } catch {
-        fetchingAllResultsRef.current = false
-      } finally {
-        setLoadingAllResults(false)
-      }
     })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableFilters, totalPages, lastQuery, session, totalElements, allResultsForFilter.length])
+    setSortConfig(newSort)
+    setCurrentPage(0)
+    if (lastQuery) {
+      const sp = buildIncomeServerParams(tableFilters, newSort)
+      void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, sp)
+    }
+  }
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
     if (lastQuery) {
-      void loadIncomes(lastQuery.mode, lastQuery.payload, page, pageSize)
+      const sp = buildIncomeServerParams(tableFilters, sortConfig)
+      void loadIncomes(lastQuery.mode, lastQuery.payload, page, pageSize, sp)
     }
   }
 
@@ -687,7 +688,8 @@ export default function IncomeOperations(): ReactElement {
     setPageSize(size)
     setCurrentPage(0) // Reset to first page when page size changes
     if (lastQuery) {
-      void loadIncomes(lastQuery.mode, lastQuery.payload, 0, size)
+      const sp = buildIncomeServerParams(tableFilters, sortConfig)
+      void loadIncomes(lastQuery.mode, lastQuery.payload, 0, size, sp)
     }
   }
 
@@ -735,7 +737,8 @@ export default function IncomeOperations(): ReactElement {
             onSubmit={(event) => {
               event.preventDefault()
               setCurrentPage(0) // Reset to first page on new search
-              void loadIncomes(viewMode, undefined, 0, pageSize)
+              const sp = buildIncomeServerParams(tableFilters, sortConfig)
+              void loadIncomes(viewMode, undefined, 0, pageSize, sp)
             }}
           >
             <div className={styles.modeSelector}>
@@ -879,6 +882,12 @@ export default function IncomeOperations(): ReactElement {
                         placeholder="Filter source"
                         value={tableFilters.source}
                         onChange={(event) => handleFilterChange('source', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            setCurrentPage(0)
+                            if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, buildIncomeServerParams(tableFilters, sortConfig))
+                          }
+                        }}
                       />
                     </th>
                     <th scope="col">
@@ -895,11 +904,19 @@ export default function IncomeOperations(): ReactElement {
                         <input
                           className={styles.tableFilterInput}
                           type="number"
-                          placeholder="Amount"
+                          placeholder="Amount (Enter)"
                           min="0"
                           step="0.01"
-                          value={tableFilters.amount}
-                          onChange={(event) => handleFilterChange('amount', event.target.value)}
+                          value={pendingAmount}
+                          onChange={(event) => setPendingAmount(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              const newFilters = { ...tableFilters, amount: pendingAmount }
+                              setTableFilters(newFilters)
+                              setCurrentPage(0)
+                              if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, buildIncomeServerParams(newFilters, sortConfig))
+                            }
+                          }}
                         />
                       </div>
                     </th>
@@ -914,22 +931,39 @@ export default function IncomeOperations(): ReactElement {
                           ]}
                           onChange={(v) => {
                             const mode = v as 'contains' | 'month' | 'year';
-                            if (mode === 'contains') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, dateMonth: '', dateYear: '' }));
-                            else if (mode === 'month') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateYear: '' }));
-                            else setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateMonth: '' }));
+                            let newFilters: TableFilters;
+                            if (mode === 'contains') newFilters = { ...tableFilters, dateFilterMode: mode, dateMonth: '', dateYear: '' };
+                            else if (mode === 'month') newFilters = { ...tableFilters, dateFilterMode: mode, date: '', dateYear: '' };
+                            else newFilters = { ...tableFilters, dateFilterMode: mode, date: '', dateMonth: '' };
+                            setTableFilters(newFilters);
+                            setCurrentPage(0);
+                            if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, buildIncomeServerParams(newFilters, sortConfig));
                           }}
                         />
                         {tableFilters.dateFilterMode === 'contains' && (
                           <input className={styles.tableFilterInput} type="search" placeholder="Filter date" value={tableFilters.date} onChange={(event) => handleFilterChange('date', event.target.value)} />
                         )}
                         {tableFilters.dateFilterMode === 'month' && (
-                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => handleFilterChange('dateMonth', event.target.value)}>
+                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => {
+                            const newFilters = { ...tableFilters, dateMonth: event.target.value }
+                            setTableFilters(newFilters)
+                            setCurrentPage(0)
+                            if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, buildIncomeServerParams(newFilters, sortConfig))
+                          }}>
                             <option value="">All months</option>
                             {MONTHS.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
                           </select>
                         )}
                         {tableFilters.dateFilterMode === 'year' && (
-                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear} onChange={(event) => handleFilterChange('dateYear', event.target.value)} />
+                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear}
+                            onChange={(event) => handleFilterChange('dateYear', event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                setCurrentPage(0)
+                                if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, buildIncomeServerParams(tableFilters, sortConfig))
+                              }
+                            }}
+                          />
                         )}
                       </div>
                     </th>
@@ -957,7 +991,12 @@ export default function IncomeOperations(): ReactElement {
                           </button>
                         )}
                         {sortConfig.field && (
-                          <button type="button" className={styles.clearFilterBtn} onClick={() => setSortConfig({ field: null, direction: null })} title="Clear sort">
+                          <button type="button" className={styles.clearFilterBtn} onClick={() => {
+                            const newSort: SortConfig = { field: null, direction: null }
+                            setSortConfig(newSort)
+                            setCurrentPage(0)
+                            if (lastQuery) void loadIncomes(lastQuery.mode, lastQuery.payload, 0, pageSize, buildIncomeServerParams(tableFilters, newSort))
+                          }} title="Clear sort">
                             Clear Sort
                           </button>
                         )}
@@ -1096,7 +1135,7 @@ export default function IncomeOperations(): ReactElement {
                   )}
                 </tbody>
                 <tfoot>
-                  {totalPages > 1 && !(filtersApplied && allResultsForFilter.length > 0) ? (
+                  {totalPages > 1 ? (
                     <>
                       <tr>
                         <td>Total income in this page</td>
@@ -1130,7 +1169,7 @@ export default function IncomeOperations(): ReactElement {
                     </>
                   ) : (
                     <tr>
-                      <td>{filtersApplied && allResultsForFilter.length > 0 ? 'Filtered total' : 'Total'}</td>
+                      <td>Total</td>
                       <td className={styles.numeric}>
                         <span className={styles.totalPill}>{formatCurrency(totalIncome)}</span>
                       </td>
@@ -1153,28 +1192,15 @@ export default function IncomeOperations(): ReactElement {
             )}
           </div>
 
-          {loadingAllResults && (
-            <div className={styles.allResultsBanner}>
-              Loading all records for cross-page filtering…
-            </div>
-          )}
-          {filtersApplied && allResultsForFilter.length > 0 && (
-            <div className={styles.allResultsNote}>
-              Showing {filteredResults.length} of {allResultsForFilter.length} records · filters applied across all pages
-            </div>
-          )}
-
-          {!(filtersApplied && allResultsForFilter.length > 0) && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalElements={totalElements}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              loading={loading}
-            />
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            loading={loading}
+          />
 
           
         </section>

@@ -30,7 +30,7 @@ import {
   fetchExpenseAdjustmentsByExpense,
   createExpenseAdjustment,
 } from '../../api'
-import type { Expense, UserExpenseCategory, PagedResponse, ExpenseAdjustment, AdjustmentType } from '../../types/app'
+import type { Expense, UserExpenseCategory, PagedResponse, ExpenseAdjustment, AdjustmentType, ExpenseServerParams } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
 import { FilterDropdown } from './FilterDropdown'
@@ -76,6 +76,42 @@ type TableFilters = {
 type SortConfig = {
   field: 'expenseName' | 'category' | 'amount' | 'date' | null
   direction: 'asc' | 'desc' | null
+}
+
+const EXPENSE_SORT_MAP: Record<NonNullable<SortConfig['field']>, ExpenseServerParams['sortBy']> = {
+  expenseName: 'expenseName',
+  category: 'categoryName',
+  amount: 'expenseAmount',
+  date: 'expenseDate',
+}
+
+function buildExpenseServerParams(filters: TableFilters, sort: SortConfig): ExpenseServerParams {
+  const params: ExpenseServerParams = {}
+  if (sort.field && sort.direction) {
+    params.sortBy = EXPENSE_SORT_MAP[sort.field]
+    params.sortDir = sort.direction.toUpperCase() as 'ASC' | 'DESC'
+  }
+  if (filters.expenseName.trim()) params.filterName = filters.expenseName.trim()
+  if (filters.category.trim()) params.filterCategory = filters.category.trim()
+  if (filters.amount.trim()) {
+    const num = parseFloat(filters.amount)
+    if (!isNaN(num) && num >= 0) {
+      const opMap = { gt: 'GT', lt: 'LT', contains: 'EQ' } as const
+      params.filterAmountOp = opMap[filters.amountOperator as keyof typeof opMap] ?? 'EQ'
+      params.filterAmountValue = num
+    }
+  }
+  if (filters.dateFilterMode === 'month' && filters.dateMonth) {
+    params.filterDateType = 'Month'
+    params.filterDateValue = filters.dateMonth
+  } else if (filters.dateFilterMode === 'year' && filters.dateYear) {
+    params.filterDateType = 'Year'
+    params.filterDateValue = filters.dateYear
+  } else if (filters.dateFilterMode === 'contains' && /^\d{4}-\d{2}-\d{2}$/.test(filters.date.trim())) {
+    params.filterDateType = 'Date'
+    params.filterDateValue = filters.date.trim()
+  }
+  return params
 }
 
 const MONTHS = [
@@ -189,9 +225,7 @@ export default function ExpensesOperations(): ReactElement {
   const [editingCategoryDropdownOpen, setEditingCategoryDropdownOpen] = useState<boolean>(false)
   const [tableFilters, setTableFilters] = useState<TableFilters>({ expenseName: '', category: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '' })
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: null, direction: null })
-  const [allResultsForFilter, setAllResultsForFilter] = useState<Expense[]>([])
-  const [loadingAllResults, setLoadingAllResults] = useState(false)
-  const fetchingAllResultsRef = useRef(false)
+  const [pendingAmount, setPendingAmount] = useState<string>('')
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(0)
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE)
@@ -472,50 +506,6 @@ export default function ExpensesOperations(): ReactElement {
     }
   }, [monthDropdownOpen])
 
-  // Clear all-results cache whenever the active query changes (new month/range/year selected)
-  useEffect(() => {
-    setAllResultsForFilter([])
-    fetchingAllResultsRef.current = false
-  }, [lastQuery])
-
-  // Fetch ALL records for the current query when filters are active and results span multiple pages
-  useEffect(() => {
-    const hasFilters =
-      tableFilters.expenseName.trim().length > 0 ||
-      tableFilters.category.trim().length > 0 ||
-      tableFilters.amount.trim().length > 0 ||
-      tableFilters.date.trim().length > 0 ||
-      tableFilters.dateMonth.trim().length > 0 ||
-      tableFilters.dateYear.trim().length > 0
-    if (!hasFilters || totalPages <= 1 || !lastQuery || !session) return
-    if (allResultsForFilter.length > 0) return   // already loaded
-    if (fetchingAllResultsRef.current) return     // fetch in progress
-
-    fetchingAllResultsRef.current = true
-    setLoadingAllResults(true)
-    const userId = session.userId
-    const query = lastQuery
-    const size = Math.min(totalElements, 5000)
-    ;(async () => {
-      try {
-        let response: PagedResponse<Expense>
-        if (query.mode === 'month') {
-          const p = query.payload as { month: number; year: number }
-          response = await fetchExpensesByMonth({ userId, month: p.month, year: p.year, page: 0, size })
-        } else {
-          const p = query.payload as { start: string; end: string }
-          response = await fetchExpensesByRange({ userId, start: p.start, end: p.end, page: 0, size })
-        }
-        setAllResultsForFilter(sortExpensesByDateDesc(response.content))
-      } catch {
-        fetchingAllResultsRef.current = false
-      } finally {
-        setLoadingAllResults(false)
-      }
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableFilters, totalPages, lastQuery, session, totalElements, allResultsForFilter.length])
-
   const beginInlineAdd = () => {
     setAddingInline(true)
     setInlineAddDraft({
@@ -651,7 +641,7 @@ export default function ExpensesOperations(): ReactElement {
     )
   }
 
-  const loadExpenses = async (mode: ViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize) => {
+  const loadExpenses = async (mode: ViewMode, payload?: Record<string, unknown>, page: number = 0, size: number = pageSize, serverParams: ExpenseServerParams = {}) => {
     if (!session) return
     const userId = session.userId
     setLoading(true)
@@ -667,7 +657,7 @@ export default function ExpensesOperations(): ReactElement {
         const monthPayload = payload as { month: number; year: number } | undefined
         resolvedMonth = monthPayload?.month ?? selectedMonth
         resolvedYear = monthPayload?.year ?? selectedYear
-        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size })
+        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size, ...serverParams })
         setLastQuery({ mode, payload: { month: resolvedMonth, year: resolvedYear } })
       } else if (mode === 'range') {
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -689,16 +679,17 @@ export default function ExpensesOperations(): ReactElement {
         if (diffDays > 365) {
           throw new Error('Range cannot exceed 1 year.')
         }
-        response = await fetchExpensesByRange({ userId, start: resolvedStart, end: resolvedEnd, page, size })
+        response = await fetchExpensesByRange({ userId, start: resolvedStart, end: resolvedEnd, page, size, ...serverParams })
         setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
       } else {
         // The backend will remove the 'fetch all' endpoint. Use month API as a safe default.
         resolvedMonth = selectedMonth
         resolvedYear = selectedYear
-        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size })
+        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size, ...serverParams })
         setLastQuery({ mode: 'month', payload: { month: resolvedMonth, year: resolvedYear } })
       }
-      setResults(sortExpensesByDateDesc(response.content))
+      // Preserve date-desc default order only when no explicit server sort is requested
+      setResults(serverParams.sortBy ? response.content : sortExpensesByDateDesc(response.content))
       setCurrentPage(response.page)
       setTotalElements(response.totalElements)
       setTotalPages(response.totalPages)
@@ -878,14 +869,16 @@ export default function ExpensesOperations(): ReactElement {
     if (!session) return
     await reloadExpensesCache(session.userId)
     if (lastQuery) {
-      await loadExpenses(lastQuery.mode, lastQuery.payload, currentPage, pageSize)
+      const sp = buildExpenseServerParams(tableFilters, sortConfig)
+      await loadExpenses(lastQuery.mode, lastQuery.payload, currentPage, pageSize, sp)
     }
   }
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
     if (lastQuery) {
-      void loadExpenses(lastQuery.mode, lastQuery.payload, page, pageSize)
+      const sp = buildExpenseServerParams(tableFilters, sortConfig)
+      void loadExpenses(lastQuery.mode, lastQuery.payload, page, pageSize, sp)
     }
   }
 
@@ -893,7 +886,8 @@ export default function ExpensesOperations(): ReactElement {
     setPageSize(size)
     setCurrentPage(0) // Reset to first page when page size changes
     if (lastQuery) {
-      void loadExpenses(lastQuery.mode, lastQuery.payload, 0, size)
+      const sp = buildExpenseServerParams(tableFilters, sortConfig)
+      void loadExpenses(lastQuery.mode, lastQuery.payload, 0, size, sp)
     }
   }
 
@@ -907,8 +901,8 @@ export default function ExpensesOperations(): ReactElement {
 
     const hasFilters = !!(nameQuery || categoryQuery || amountQuery || dateQuery || dateMonth || dateYear)
 
-    // Use all-pages data when available and filters are active
-    const baseResults = (hasFilters && allResultsForFilter.length > 0) ? allResultsForFilter : results
+    // Server handles cross-page filtering; client-side filter here refines the current page
+    const baseResults = results
 
     let filtered: Expense[]
     if (!hasFilters) {
@@ -989,7 +983,7 @@ export default function ExpensesOperations(): ReactElement {
     }
 
     return filtered
-  }, [results, allResultsForFilter, tableFilters, activeCategories, sortConfig])
+  }, [results, tableFilters, activeCategories, sortConfig])
 
   const filtersApplied = useMemo(
     () =>
@@ -1190,15 +1184,27 @@ export default function ExpensesOperations(): ReactElement {
   }
 
   const clearFilters = () => {
-    setTableFilters({ expenseName: '', category: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '' })
+    const emptyFilters: TableFilters = { expenseName: '', category: '', amount: '', amountOperator: 'contains', date: '', dateFilterMode: 'contains', dateMonth: '', dateYear: '' }
+    setTableFilters(emptyFilters)
+    setPendingAmount('')
+    setCurrentPage(0)
+    if (lastQuery) {
+      void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, {})
+    }
   }
 
   const handleSort = (field: NonNullable<SortConfig['field']>) => {
-    setSortConfig((prev) => {
-      if (prev.field !== field) return { field, direction: 'asc' }
-      if (prev.direction === 'asc') return { field, direction: 'desc' }
+    const newSort: SortConfig = (() => {
+      if (sortConfig.field !== field) return { field, direction: 'asc' }
+      if (sortConfig.direction === 'asc') return { field, direction: 'desc' }
       return { field: null, direction: null }
-    })
+    })()
+    setSortConfig(newSort)
+    setCurrentPage(0)
+    if (lastQuery) {
+      const sp = buildExpenseServerParams(tableFilters, newSort)
+      void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, sp)
+    }
   }
 
   return (
@@ -1245,7 +1251,8 @@ export default function ExpensesOperations(): ReactElement {
             onSubmit={(event) => {
               event.preventDefault()
               setCurrentPage(0) // Reset to first page on new search
-              void loadExpenses(viewMode, undefined, 0, pageSize)
+              const sp = buildExpenseServerParams(tableFilters, sortConfig)
+              void loadExpenses(viewMode, undefined, 0, pageSize, sp)
             }}
           >
             <div className={styles.modeSelector}>
@@ -1380,6 +1387,12 @@ export default function ExpensesOperations(): ReactElement {
                         placeholder="Filter expense"
                         value={tableFilters.expenseName}
                         onChange={(event) => handleFilterChange('expenseName', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            setCurrentPage(0)
+                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                          }
+                        }}
                       />
                     </th>
                     <th scope="col">
@@ -1389,6 +1402,12 @@ export default function ExpensesOperations(): ReactElement {
                         placeholder="Filter category"
                         value={tableFilters.category}
                         onChange={(event) => handleFilterChange('category', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            setCurrentPage(0)
+                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                          }
+                        }}
                       />
                     </th>
                     <th scope="col">
@@ -1405,11 +1424,19 @@ export default function ExpensesOperations(): ReactElement {
                         <input
                           className={styles.tableFilterInput}
                           type="number"
-                          placeholder="Amount"
+                          placeholder="Amount (Enter)"
                           min="0"
                           step="0.01"
-                          value={tableFilters.amount}
-                          onChange={(event) => handleFilterChange('amount', event.target.value)}
+                          value={pendingAmount}
+                          onChange={(event) => setPendingAmount(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              const newFilters = { ...tableFilters, amount: pendingAmount }
+                              setTableFilters(newFilters)
+                              setCurrentPage(0)
+                              if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(newFilters, sortConfig))
+                            }
+                          }}
                         />
                       </div>
                     </th>
@@ -1424,22 +1451,39 @@ export default function ExpensesOperations(): ReactElement {
                           ]}
                           onChange={(v) => {
                             const mode = v as 'contains' | 'month' | 'year';
-                            if (mode === 'contains') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, dateMonth: '', dateYear: '' }));
-                            else if (mode === 'month') setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateYear: '' }));
-                            else setTableFilters((prev) => ({ ...prev, dateFilterMode: mode, date: '', dateMonth: '' }));
+                            let newFilters: TableFilters;
+                            if (mode === 'contains') newFilters = { ...tableFilters, dateFilterMode: mode, dateMonth: '', dateYear: '' };
+                            else if (mode === 'month') newFilters = { ...tableFilters, dateFilterMode: mode, date: '', dateYear: '' };
+                            else newFilters = { ...tableFilters, dateFilterMode: mode, date: '', dateMonth: '' };
+                            setTableFilters(newFilters);
+                            setCurrentPage(0);
+                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(newFilters, sortConfig));
                           }}
                         />
                         {tableFilters.dateFilterMode === 'contains' && (
                           <input className={styles.tableFilterInput} type="search" placeholder="Filter date" value={tableFilters.date} onChange={(event) => handleFilterChange('date', event.target.value)} />
                         )}
                         {tableFilters.dateFilterMode === 'month' && (
-                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => handleFilterChange('dateMonth', event.target.value)}>
+                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => {
+                            const newFilters = { ...tableFilters, dateMonth: event.target.value }
+                            setTableFilters(newFilters)
+                            setCurrentPage(0)
+                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(newFilters, sortConfig))
+                          }}>
                             <option value="">All months</option>
                             {MONTHS.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
                           </select>
                         )}
                         {tableFilters.dateFilterMode === 'year' && (
-                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear} onChange={(event) => handleFilterChange('dateYear', event.target.value)} />
+                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear}
+                            onChange={(event) => handleFilterChange('dateYear', event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                setCurrentPage(0)
+                                if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                              }
+                            }}
+                          />
                         )}
                       </div>
                     </th>
@@ -1458,7 +1502,12 @@ export default function ExpensesOperations(): ReactElement {
                           </button>
                         )}
                         {sortConfig.field && (
-                          <button type="button" className={styles.clearFilterBtn} onClick={() => setSortConfig({ field: null, direction: null })} title="Clear sort">
+                          <button type="button" className={styles.clearFilterBtn} onClick={() => {
+                            const newSort: SortConfig = { field: null, direction: null }
+                            setSortConfig(newSort)
+                            setCurrentPage(0)
+                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, newSort))
+                          }} title="Clear sort">
                             Clear Sort
                           </button>
                         )}
@@ -1886,7 +1935,7 @@ export default function ExpensesOperations(): ReactElement {
                 )}
               </tbody>
               <tfoot>
-                {totalPages > 1 && !(filtersApplied && allResultsForFilter.length > 0) ? (
+                {totalPages > 1 ? (
                   <>
                     <tr>
                       <td colSpan={2}>Total expenses in this page</td>
@@ -1920,7 +1969,7 @@ export default function ExpensesOperations(): ReactElement {
                   </>
                 ) : (
                   <tr>
-                    <td colSpan={2}>{filtersApplied && allResultsForFilter.length > 0 ? 'Filtered total' : 'Total'}</td>
+                    <td colSpan={2}>Total</td>
                     <td className={styles.numeric}>
                       <span className={styles.totalPill}>{formatCurrency(totalAmount)}</span>
                     </td>
@@ -1943,28 +1992,15 @@ export default function ExpensesOperations(): ReactElement {
             )}
           </div>
 
-          {loadingAllResults && (
-            <div className={styles.allResultsBanner}>
-              Loading all records for cross-page filtering…
-            </div>
-          )}
-          {filtersApplied && allResultsForFilter.length > 0 && (
-            <div className={styles.allResultsNote}>
-              Showing {filteredResults.length} of {allResultsForFilter.length} records · filters applied across all pages
-            </div>
-          )}
-
-          {!(filtersApplied && allResultsForFilter.length > 0) && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalElements={totalElements}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              loading={loading}
-            />
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            loading={loading}
+          />
 
           
         </section>

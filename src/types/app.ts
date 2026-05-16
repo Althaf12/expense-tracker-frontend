@@ -157,6 +157,27 @@ export type PagedResponse<T> = {
   size: number
 }
 
+export type ExpenseServerParams = {
+  sortBy?: 'expenseName' | 'expenseAmount' | 'expenseDate' | 'categoryName'
+  sortDir?: 'ASC' | 'DESC'
+  filterName?: string
+  filterCategory?: string
+  filterAmountOp?: 'LT' | 'EQ' | 'GT'
+  filterAmountValue?: number
+  filterDateType?: 'Date' | 'Month' | 'Year'
+  filterDateValue?: string
+}
+
+export type IncomeServerParams = {
+  sortBy?: 'source' | 'amount' | 'receivedDate'
+  sortDir?: 'ASC' | 'DESC'
+  filterSource?: string
+  filterAmountOp?: 'LT' | 'EQ' | 'GT'
+  filterAmountValue?: number
+  filterDateType?: 'Date' | 'Month' | 'Year'
+  filterDateValue?: string
+}
+
 // ============================================================================
 // Export/Report Types
 // ============================================================================

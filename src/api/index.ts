@@ -1,4 +1,4 @@
-import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, AnalyticsCategorySummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate, HdfcImportResponse } from '../types/app'
+import type { Expense, Income, MonthlyBalance, MonthlyBalanceUpdateRequest, MonthlyBalanceUpdateResponse, UserExpense, UserExpenseCategory, UserPreferences, FontSize, CurrencyCode, ThemeCode, IncomeMonth, ShowHideInfo, PagedResponse, ExportType, ExportFormat, EmailExportResponse, AnalyticsDataResponse, AnalyticsExpenseRecord, AnalyticsIncomeRecord, AnalyticsSummary, AnalyticsCategorySummary, ExpenseAdjustment, ExpenseAdjustmentRequest, ExpenseAdjustmentDateRangeRequest, TotalAdjustmentResponse, AllowedPageSizesResponse, UserExpensesEstimate, UserCreditCardEstimate, IncomeEstimate, HdfcImportResponse, ExpenseServerParams, IncomeServerParams } from '../types/app'
 import { guestStore } from '../utils/guestStore'
 import { authFetch } from '../auth'
 
@@ -336,13 +336,19 @@ export async function fetchExpenses(userId: string): Promise<Expense[]> {
   throw new Error('fetchExpenses: unexpected response format')
 }
 
-export async function fetchExpensesByRange(payload: { userId: string; start: string; end: string; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+export async function fetchExpensesByRange(payload: { userId: string; start: string; end: string; page?: number; size?: number } & ExpenseServerParams): Promise<PagedResponse<Expense>> {
   if (isGuestUserId(payload.userId)) {
     return guestStore.getExpensesByRange(payload.start, payload.end)
   }
   const body: Record<string, unknown> = { userId: payload.userId, start: payload.start, end: payload.end }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
+  if (payload.sortBy) body.sortBy = payload.sortBy
+  if (payload.sortDir) body.sortDir = payload.sortDir
+  if (payload.filterName) body.filterName = payload.filterName
+  if (payload.filterCategory) body.filterCategory = payload.filterCategory
+  if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
+  if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
   const result = await request('/expense/range', { body })
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Expense>
@@ -351,13 +357,19 @@ export async function fetchExpensesByRange(payload: { userId: string; start: str
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchExpensesByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Expense>> {
+export async function fetchExpensesByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number } & ExpenseServerParams): Promise<PagedResponse<Expense>> {
   if (isGuestUserId(payload.userId)) {
     return guestStore.getExpensesByMonth(payload.month, payload.year)
   }
   const body: Record<string, unknown> = { userId: payload.userId, month: payload.month, year: payload.year }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
+  if (payload.sortBy) body.sortBy = payload.sortBy
+  if (payload.sortDir) body.sortDir = payload.sortDir
+  if (payload.filterName) body.filterName = payload.filterName
+  if (payload.filterCategory) body.filterCategory = payload.filterCategory
+  if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
+  if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
   const result = await request('/expense/month', { body })
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Expense>
@@ -504,7 +516,7 @@ export async function fetchIncomeByRange(payload: {
   toYear: string | number
   page?: number
   size?: number
-}): Promise<PagedResponse<Income>> {
+} & IncomeServerParams): Promise<PagedResponse<Income>> {
   if (isGuestUserId(payload.userId)) {
     return guestStore.getIncomesByRange(
       Number(payload.fromMonth),
@@ -522,6 +534,11 @@ export async function fetchIncomeByRange(payload: {
   }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
+  if (payload.sortBy) body.sortBy = payload.sortBy
+  if (payload.sortDir) body.sortDir = payload.sortDir
+  if (payload.filterSource) body.filterSource = payload.filterSource
+  if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
+  if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
   const result = await request('/income/range', { body })
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Income>
@@ -530,13 +547,18 @@ export async function fetchIncomeByRange(payload: {
   return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
-export async function fetchIncomeByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number }): Promise<PagedResponse<Income>> {
+export async function fetchIncomeByMonth(payload: { userId: string; month: number; year: number; page?: number; size?: number } & IncomeServerParams): Promise<PagedResponse<Income>> {
   if (isGuestUserId(payload.userId)) {
     return guestStore.getIncomesByMonth(payload.month, payload.year)
   }
   const body: Record<string, unknown> = { userId: payload.userId, month: payload.month, year: payload.year }
   if (typeof payload.page === 'number') body.page = payload.page
   if (typeof payload.size === 'number') body.size = payload.size
+  if (payload.sortBy) body.sortBy = payload.sortBy
+  if (payload.sortDir) body.sortDir = payload.sortDir
+  if (payload.filterSource) body.filterSource = payload.filterSource
+  if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
+  if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
   const result = await request('/income/month', { body })
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Income>
