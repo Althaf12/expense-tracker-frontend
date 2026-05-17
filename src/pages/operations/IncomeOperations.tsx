@@ -931,23 +931,6 @@ export default function IncomeOperations(): ReactElement {
           </form>
 
           <div className={styles.tableContainer}>
-            {loading && results.length === 0 ? (
-              <div style={{padding:16}}>
-                {[0,1,2,3].map((i) => (
-                  <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 120px 120px 120px 80px',gap:12,alignItems:'center',marginBottom:12}}>
-                    <div><Skeleton /></div>
-                    <div><Skeleton /></div>
-                    <div><Skeleton /></div>
-                    <div><Skeleton /></div>
-                    <div><Skeleton /></div>
-                  </div>
-                ))}
-              </div>
-            ) : results.length === 0 ? (
-              <Typography variant="body2" component="p" className={styles.placeholder}>
-                {filtersApplied ? 'No income entries match the current filters.' : 'No income entries to display.'}
-              </Typography>
-            ) : (
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -1156,6 +1139,21 @@ export default function IncomeOperations(): ReactElement {
                   </tr>
                 </thead>
                 <tbody>
+                  {loading && results.length === 0 ? (
+                    [0,1,2,3].map((i) => (
+                      <tr key={`sk-${i}`}>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td><Skeleton /></td>
+                        <td></td>
+                      </tr>
+                    ))
+                  ) : results.length === 0 ? (
+                    <tr className={styles.emptyRow}>
+                      <td colSpan={5}>{filtersApplied ? 'No income entries match the current filters.' : 'No income entries to display.'}</td>
+                    </tr>
+                  ) : (<>
                   {addingInline && inlineAddDraft && (
                     <tr key="__inline_add">
                       <td>
@@ -1284,6 +1282,7 @@ export default function IncomeOperations(): ReactElement {
                       )
                     })
                   )}
+                  </>)}
                 </tbody>
                 <tfoot>
                   {totalPages > 1 ? (
@@ -1340,7 +1339,6 @@ export default function IncomeOperations(): ReactElement {
                   )}
                 </tfoot>
               </table>
-            )}
           </div>
 
           <Pagination

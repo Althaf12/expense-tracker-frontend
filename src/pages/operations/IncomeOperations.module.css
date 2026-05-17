@@ -206,7 +206,16 @@
   background: var(--input-background);
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+/* Show when the filterCell is focused or has a value */
+.filterCell:focus-within .filterSearchBtn,
+.filterCell:has(input:not(:placeholder-shown)) .filterSearchBtn {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .filterSearchBtn:hover {
