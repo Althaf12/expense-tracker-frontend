@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import styles from './FilterDropdown.module.css'
 
 export interface FilterDropdownOption {
@@ -14,38 +15,57 @@ interface Props {
   options: FilterDropdownOption[]
   onChange: (value: string) => void
   className?: string
+  triggerClassName?: string
 }
 
-export function FilterDropdown({ value, options, onChange, className }: Props) {
+export function FilterDropdown({ value, options, onChange, className, triggerClassName }: Props) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({})
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLUListElement>(null)
 
   const selected = options.find((o) => o.value === value)
 
   useEffect(() => {
     if (!open) return
     function onMouseDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (menuRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [open])
 
+  const handleToggle = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setMenuStyle({
+        position: 'fixed',
+        top: rect.bottom + 5,
+        left: rect.left,
+        zIndex: 99999,
+        minWidth: rect.width,
+      })
+    }
+    setOpen((prev) => !prev)
+  }
+
   return (
-    <div ref={rootRef} className={`${styles.root}${className ? ` ${className}` : ''}`}>
+    <div className={`${styles.root}${className ? ` ${className}` : ''}`}>
       <button
+        ref={triggerRef}
         type="button"
-        className={`${styles.trigger}${open ? ` ${styles.triggerOpen}` : ''}`}
-        onClick={() => setOpen((prev) => !prev)}
+        className={`${styles.trigger}${open ? ` ${styles.triggerOpen}` : ''}${triggerClassName ? ` ${triggerClassName}` : ''}`}
+        onClick={handleToggle}
       >
         <span>{selected?.triggerLabel ?? selected?.label ?? value}</span>
         <span className={`${styles.arrow}${open ? ` ${styles.arrowOpen}` : ''}`}>▾</span>
       </button>
 
-      {open && (
-        <ul className={styles.menu} role="listbox">
+      {open && ReactDOM.createPortal(
+        <ul ref={menuRef} className={styles.menu} role="listbox" style={menuStyle}>
           {options.map((opt) => (
             <li
               key={opt.value}
@@ -60,7 +80,8 @@ export function FilterDropdown({ value, options, onChange, className }: Props) {
               {opt.label}
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   )

@@ -44,7 +44,42 @@ import ImportStatementModal from '../../components/ImportStatementModal'
 
 const DEFAULT_PAGE_SIZE = 20
 
-type ViewMode = 'month' | 'range'
+type ViewMode = 'month' | 'range' | 'current-year' | 'last-year' | 'financial-year' | 'last-financial-year'
+
+const VIEW_MODE_OPTIONS: { value: ViewMode; label: string }[] = [
+  { value: 'month', label: 'Month' },
+  { value: 'range', label: 'Range' },
+  { value: 'current-year', label: 'Current Year' },
+  { value: 'last-year', label: 'Last Year' },
+  { value: 'financial-year', label: 'Financial Year' },
+  { value: 'last-financial-year', label: 'Last Fin. Year' },
+]
+
+function getDateRangeForMode(mode: ViewMode): { start: string; end: string } | null {
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+  const year = today.getFullYear()
+  const month = today.getMonth() + 1
+  switch (mode) {
+    case 'current-year':
+      return { start: `${year}-01-01`, end: todayStr }
+    case 'last-year': {
+      const y = year - 1
+      return { start: `${y}-01-01`, end: `${y}-12-31` }
+    }
+    case 'financial-year': {
+      const fyStart = month >= 4 ? year : year - 1
+      return { start: `${fyStart}-04-01`, end: `${fyStart + 1}-03-31` }
+    }
+    case 'last-financial-year': {
+      const currFyStart = month >= 4 ? year : year - 1
+      const lastFyStart = currFyStart - 1
+      return { start: `${lastFyStart}-04-01`, end: `${lastFyStart + 1}-03-31` }
+    }
+    default:
+      return null
+  }
+}
 
 type ExpenseFormState = {
   expenseCategoryId: string
@@ -255,6 +290,10 @@ export default function ExpensesOperations(): ReactElement {
   // Month dropdown state for view mode
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
   const monthDropdownRef = useRef<HTMLDivElement | null>(null)
+  // View mode dropdown state
+  const [viewModeDropdownOpen, setViewModeDropdownOpen] = useState(false)
+  const viewModeDropdownBtnRef = useRef<HTMLButtonElement | null>(null)
+  const viewModeDropdownMenuRef = useRef<HTMLUListElement | null>(null)
 
   useEffect(() => {
     if (!session) return
@@ -506,6 +545,19 @@ export default function ExpensesOperations(): ReactElement {
     }
   }, [monthDropdownOpen])
 
+  // Close view mode dropdown when clicking outside
+  useEffect(() => {
+    if (!viewModeDropdownOpen) return
+    const handleClickAway = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (viewModeDropdownBtnRef.current?.contains(target)) return
+      if (viewModeDropdownMenuRef.current?.contains(target)) return
+      setViewModeDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickAway)
+    return () => document.removeEventListener('mousedown', handleClickAway)
+  }, [viewModeDropdownOpen])
+
   const beginInlineAdd = () => {
     setAddingInline(true)
     setInlineAddDraft({
@@ -682,11 +734,16 @@ export default function ExpensesOperations(): ReactElement {
         response = await fetchExpensesByRange({ userId, start: resolvedStart, end: resolvedEnd, page, size, ...serverParams })
         setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
       } else {
-        // The backend will remove the 'fetch all' endpoint. Use month API as a safe default.
-        resolvedMonth = selectedMonth
-        resolvedYear = selectedYear
-        response = await fetchExpensesByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size, ...serverParams })
-        setLastQuery({ mode: 'month', payload: { month: resolvedMonth, year: resolvedYear } })
+        // Fixed date-range modes: current-year, last-year, financial-year, last-financial-year
+        const rangePayload = payload as { start: string; end: string } | undefined
+        const computed = getDateRangeForMode(mode)
+        resolvedStart = rangePayload?.start ?? computed?.start
+        resolvedEnd = rangePayload?.end ?? computed?.end
+        if (!resolvedStart || !resolvedEnd) {
+          throw new Error('Could not compute date range for selected mode.')
+        }
+        response = await fetchExpensesByRange({ userId, start: resolvedStart, end: resolvedEnd, page, size, ...serverParams })
+        setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
       }
       // Preserve date-desc default order only when no explicit server sort is requested
       setResults(serverParams.sortBy ? response.content : sortExpensesByDateDesc(response.content))
@@ -702,13 +759,12 @@ export default function ExpensesOperations(): ReactElement {
         const ry = resolvedYear
         const rs = resolvedStart
         const re = resolvedEnd
-        const resolvedMode = mode === 'range' ? 'range' : 'month'
         void (async () => {
           try {
             let total: number
-            if (resolvedMode === 'month' && rm !== undefined && ry !== undefined) {
+            if (mode === 'month' && rm !== undefined && ry !== undefined) {
               total = await fetchExpenseTotalByMonth({ userId: uid, month: rm, year: ry })
-            } else if (resolvedMode === 'range' && rs && re) {
+            } else if (rs && re) {
               const summary = await fetchAnalyticsSummaryByRange({ userId: uid, start: rs, end: re })
               total = summary.netExpenses ?? summary.totalExpenses
             } else {
@@ -732,6 +788,11 @@ export default function ExpensesOperations(): ReactElement {
 
   const handleModeChange = (mode: ViewMode) => {
     setViewMode(mode)
+    const range = getDateRangeForMode(mode)
+    if (range) {
+      setRangeStart(range.start)
+      setRangeEnd(range.end)
+    }
   }
 
   // Toggle expanded row to show adjustments inline
@@ -1255,28 +1316,43 @@ export default function ExpensesOperations(): ReactElement {
               void loadExpenses(viewMode, undefined, 0, pageSize, sp)
             }}
           >
-            <div className={styles.modeSelector}>
-              <label className={styles.modeOption}>
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="month"
-                  checked={viewMode === 'month'}
-                  onChange={() => handleModeChange('month')}
-                />
-                <span>Month</span>
-              </label>
-              <label className={styles.modeOption}>
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="range"
-                  checked={viewMode === 'range'}
-                  onChange={() => handleModeChange('range')}
-                />
-                <span>Range</span>
-              </label>
-              {/* 'All' option removed — UI supports only Month and Range */}
+            <div className={styles.viewModeDropdown}>
+              <button
+                ref={viewModeDropdownBtnRef}
+                type="button"
+                className={styles.viewModeBtn}
+                onClick={() => setViewModeDropdownOpen((o) => !o)}
+              >
+                <span>{VIEW_MODE_OPTIONS.find(o => o.value === viewMode)?.label ?? viewMode}</span>
+                <ChevronDown size={14} />
+              </button>
+              {viewModeDropdownOpen && viewModeDropdownBtnRef.current && ReactDOM.createPortal(
+                <ul
+                  ref={viewModeDropdownMenuRef}
+                  className={styles.viewModeMenu}
+                  style={{
+                    position: 'fixed',
+                    top: viewModeDropdownBtnRef.current.getBoundingClientRect().bottom + 4,
+                    left: viewModeDropdownBtnRef.current.getBoundingClientRect().left,
+                    zIndex: 99999,
+                    minWidth: viewModeDropdownBtnRef.current.getBoundingClientRect().width,
+                  }}
+                >
+                  {VIEW_MODE_OPTIONS.map(opt => (
+                    <li
+                      key={opt.value}
+                      className={`${styles.viewModeMenuItem}${viewMode === opt.value ? ` ${styles.viewModeMenuItemActive}` : ''}`}
+                      onMouseDown={() => {
+                        handleModeChange(opt.value)
+                        setViewModeDropdownOpen(false)
+                      }}
+                    >
+                      {opt.label}
+                    </li>
+                  ))}
+                </ul>,
+                document.body,
+              )}
             </div>
 
             {viewMode === 'month' && (
@@ -1292,13 +1368,22 @@ export default function ExpensesOperations(): ReactElement {
                       <span>{MONTHS[selectedMonth - 1]}</span>
                       <ChevronDown size={16} />
                     </button>
-                    {monthDropdownOpen && (
-                      <ul className={styles.dropdownList}>
+                    {monthDropdownOpen && ReactDOM.createPortal(
+                      <ul
+                        className={styles.dropdownList}
+                        style={{
+                          position: 'fixed',
+                          top: monthDropdownRef.current ? monthDropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
+                          left: monthDropdownRef.current ? monthDropdownRef.current.getBoundingClientRect().left : 0,
+                          zIndex: 99999,
+                          minWidth: monthDropdownRef.current ? monthDropdownRef.current.getBoundingClientRect().width : 140,
+                        }}
+                      >
                         {MONTHS.map((label, index) => (
                           <li
                             key={label}
                             className={`${styles.dropdownItem} ${selectedMonth === index + 1 ? styles.dropdownItemActive : ''}`}
-                            onClick={() => {
+                            onMouseDown={() => {
                               setSelectedMonth(index + 1)
                               setMonthDropdownOpen(false)
                             }}
@@ -1306,7 +1391,8 @@ export default function ExpensesOperations(): ReactElement {
                             {label}
                           </li>
                         ))}
-                      </ul>
+                      </ul>,
+                      document.body,
                     )}
                   </div>
                 </label>
@@ -1343,24 +1429,22 @@ export default function ExpensesOperations(): ReactElement {
           </form>
 
           <div className={styles.tableContainer}>
-            {results.length === 0 ? (
-              loading ? (
-                <div style={{padding:16}}>
-                  {[0,1,2,3].map((i) => (
-                    <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 120px 120px 80px',gap:12,alignItems:'center',marginBottom:12}}>
-                      <div><Skeleton /></div>
-                      <div><Skeleton /></div>
-                      <div><Skeleton /></div>
-                      <div><Skeleton /></div>
-                      <div><Skeleton /></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Typography variant="body2" component="p" className={styles.placeholder}>
-                  No expenses to display.
-                </Typography>
-              )
+            {loading && results.length === 0 ? (
+              <div style={{padding:16}}>
+                {[0,1,2,3].map((i) => (
+                  <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 120px 120px 80px',gap:12,alignItems:'center',marginBottom:12}}>
+                    <div><Skeleton /></div>
+                    <div><Skeleton /></div>
+                    <div><Skeleton /></div>
+                    <div><Skeleton /></div>
+                    <div><Skeleton /></div>
+                  </div>
+                ))}
+              </div>
+            ) : results.length === 0 ? (
+              <Typography variant="body2" component="p" className={styles.placeholder}>
+                {filtersApplied ? 'No expenses match the current filters.' : 'No expenses to display.'}
+              </Typography>
             ) : (
               <table className={styles.table}>
                 <thead>
@@ -1381,34 +1465,56 @@ export default function ExpensesOperations(): ReactElement {
                   </tr>
                   <tr className={styles.tableFilterRow}>
                     <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter expense"
-                        value={tableFilters.expenseName}
-                        onChange={(event) => handleFilterChange('expenseName', event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
+                      <div className={styles.filterCell}>
+                        <input
+                          className={styles.tableFilterInput}
+                          type="search"
+                          placeholder="Filter expense"
+                          value={tableFilters.expenseName}
+                          onChange={(event) => handleFilterChange('expenseName', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              setCurrentPage(0)
+                              if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className={styles.filterSearchBtn}
+                          onClick={() => {
                             setCurrentPage(0)
                             if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
-                          }
-                        }}
-                      />
+                          }}
+                          title="Search"
+                        ><Search size={13} /></button>
+                      </div>
                     </th>
                     <th scope="col">
-                      <input
-                        className={styles.tableFilterInput}
-                        type="search"
-                        placeholder="Filter category"
-                        value={tableFilters.category}
-                        onChange={(event) => handleFilterChange('category', event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
+                      <div className={styles.filterCell}>
+                        <input
+                          className={styles.tableFilterInput}
+                          type="search"
+                          placeholder="Filter category"
+                          value={tableFilters.category}
+                          onChange={(event) => handleFilterChange('category', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              setCurrentPage(0)
+                              if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className={styles.filterSearchBtn}
+                          onClick={() => {
                             setCurrentPage(0)
                             if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
-                          }
-                        }}
-                      />
+                          }}
+                          title="Search"
+                        ><Search size={13} /></button>
+                      </div>
                     </th>
                     <th scope="col">
                       <div className={styles.filterCell}>
@@ -1424,7 +1530,7 @@ export default function ExpensesOperations(): ReactElement {
                         <input
                           className={styles.tableFilterInput}
                           type="number"
-                          placeholder="Amount (Enter)"
+                          placeholder="Amount"
                           min="0"
                           step="0.01"
                           value={pendingAmount}
@@ -1438,6 +1544,17 @@ export default function ExpensesOperations(): ReactElement {
                             }
                           }}
                         />
+                        <button
+                          type="button"
+                          className={styles.filterSearchBtn}
+                          onClick={() => {
+                            const newFilters = { ...tableFilters, amount: pendingAmount }
+                            setTableFilters(newFilters)
+                            setCurrentPage(0)
+                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(newFilters, sortConfig))
+                          }}
+                          title="Search"
+                        ><Search size={13} /></button>
                       </div>
                     </th>
                     <th scope="col">
@@ -1461,29 +1578,67 @@ export default function ExpensesOperations(): ReactElement {
                           }}
                         />
                         {tableFilters.dateFilterMode === 'contains' && (
-                          <input className={styles.tableFilterInput} type="search" placeholder="Filter date" value={tableFilters.date} onChange={(event) => handleFilterChange('date', event.target.value)} />
-                        )}
-                        {tableFilters.dateFilterMode === 'month' && (
-                          <select className={styles.tableFilterInput} value={tableFilters.dateMonth} onChange={(event) => {
-                            const newFilters = { ...tableFilters, dateMonth: event.target.value }
-                            setTableFilters(newFilters)
-                            setCurrentPage(0)
-                            if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(newFilters, sortConfig))
-                          }}>
-                            <option value="">All months</option>
-                            {MONTHS.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
-                          </select>
-                        )}
-                        {tableFilters.dateFilterMode === 'year' && (
-                          <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear}
-                            onChange={(event) => handleFilterChange('dateYear', event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
+                          <>
+                            <input
+                              className={styles.tableFilterInput}
+                              type="search"
+                              placeholder="Filter date"
+                              value={tableFilters.date}
+                              onChange={(event) => handleFilterChange('date', event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  setCurrentPage(0)
+                                  if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className={styles.filterSearchBtn}
+                              onClick={() => {
                                 setCurrentPage(0)
                                 if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
-                              }
+                              }}
+                              title="Search"
+                            ><Search size={13} /></button>
+                          </>
+                        )}
+                        {tableFilters.dateFilterMode === 'month' && (
+                          <FilterDropdown
+                            value={tableFilters.dateMonth || ''}
+                            options={[
+                              { value: '', label: 'All months' },
+                              ...MONTHS.map((m, i) => ({ value: String(i + 1), label: m })),
+                            ]}
+                            onChange={(v) => {
+                              const newFilters = { ...tableFilters, dateMonth: v }
+                              setTableFilters(newFilters)
+                              setCurrentPage(0)
+                              if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(newFilters, sortConfig))
                             }}
                           />
+                        )}
+                        {tableFilters.dateFilterMode === 'year' && (
+                          <>
+                            <input className={styles.tableFilterInput} type="number" placeholder="Year" min="2000" max="2100" value={tableFilters.dateYear}
+                              onChange={(event) => handleFilterChange('dateYear', event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  setCurrentPage(0)
+                                  if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className={styles.filterSearchBtn}
+                              onClick={() => {
+                                setCurrentPage(0)
+                                if (lastQuery) void loadExpenses(lastQuery.mode, lastQuery.payload, 0, pageSize, buildExpenseServerParams(tableFilters, sortConfig))
+                              }}
+                              title="Search"
+                            ><Search size={13} /></button>
+                          </>
                         )}
                       </div>
                     </th>

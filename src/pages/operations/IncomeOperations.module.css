@@ -131,20 +131,88 @@
   margin-bottom: 1.25rem;
 }
 
-.modeSelector {
-  display: flex;
-  gap: 1rem;
-  background: var(--badge-soft-background);
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--surface-table-border);
-  color: var(--color-text-muted);
+/* ─── View mode dropdown ──────────────────────────────────────────────────── */
+.viewModeDropdown {
+  position: relative;
+  display: inline-flex;
+  align-self: end;
 }
 
-.modeSelector label {
+.viewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  height: 2.6rem;
+  padding: 0 1rem;
+  min-width: 160px;
+  border-radius: 0.75rem;
+  border: 1px solid var(--surface-table-border);
+  background: var(--badge-soft-background);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.viewModeBtn:hover {
+  border-color: var(--color-primary, #2563eb);
+}
+
+.viewModeMenu {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem 0;
+  background: var(--surface-menu, var(--dropdown-background));
+  border: 1px solid var(--surface-menu-border, var(--dropdown-border));
+  border-radius: 0.75rem;
+  box-shadow: var(--surface-menu-shadow, var(--dropdown-shadow));
+  overflow: hidden;
+}
+
+.viewModeMenuItem {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.viewModeMenuItem:hover {
+  background: var(--surface-table-hover);
+}
+
+.viewModeMenuItemActive {
+  color: var(--color-primary, #2563eb);
+  font-weight: 600;
+}
+
+/* ─── Filter search button ──────────────────────────────────────────────── */
+.filterSearchBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 0.5rem;
+  background: var(--input-background);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.filterSearchBtn:hover {
+  background: var(--badge-soft-background);
+  border-color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
 }
 
 .monthInputs,
