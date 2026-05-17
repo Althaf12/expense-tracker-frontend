@@ -162,24 +162,28 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2rem;
+  width: 0;
   height: 2.2rem;
   padding: 0;
-  border: 1px solid var(--input-border);
+  overflow: hidden;
+  border: none;
   border-radius: 0.5rem;
   background: var(--input-background);
   color: var(--color-text-muted);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  transition: opacity 0.15s, width 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 /* Show when the filterCell is focused or has a value */
 .filterCell:focus-within .filterSearchBtn,
 .filterCell:has(input:not(:placeholder-shown)) .filterSearchBtn {
+  width: 2rem;
   opacity: 1;
   pointer-events: auto;
+  border: 1px solid var(--input-border);
+  overflow: visible;
 }
 
 .filterSearchBtn:hover {
