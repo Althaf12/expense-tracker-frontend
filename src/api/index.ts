@@ -396,15 +396,29 @@ export async function fetchExpenseTotalByMonth(payload: { userId: string; month:
   return 0
 }
 
-export async function fetchExpensesByYear(payload: { userId: string; year: number }): Promise<Expense[]> {
+export async function fetchExpensesByYear(payload: { userId: string; year: number; page?: number; size?: number } & ExpenseServerParams): Promise<PagedResponse<Expense>> {
   if (isGuestUserId(payload.userId)) {
-    return guestStore.getExpenses().filter((e) => {
+    const all = guestStore.getExpenses().filter((e) => {
       if (!e.expenseDate) return false
       return new Date(e.expenseDate).getFullYear() === payload.year
     })
+    return { content: all, totalElements: all.length, totalPages: 1, page: 0, size: all.length }
   }
-  const result = await request('/expense/year', { body: payload })
-  return Array.isArray(result) ? (result as Expense[]) : []
+  const body: Record<string, unknown> = { userId: payload.userId, year: payload.year }
+  if (typeof payload.page === 'number') body.page = payload.page
+  if (typeof payload.size === 'number') body.size = payload.size
+  if (payload.sortBy) body.sortBy = payload.sortBy
+  if (payload.sortDir) body.sortDir = payload.sortDir
+  if (payload.filterName) body.filterName = payload.filterName
+  if (payload.filterCategory) body.filterCategory = payload.filterCategory
+  if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
+  if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
+  const result = await request('/expense/year', { body })
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
+    return result as PagedResponse<Expense>
+  }
+  const arr = Array.isArray(result) ? (result as Expense[]) : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
 }
 
 export async function addExpense(payload: {
@@ -560,6 +574,27 @@ export async function fetchIncomeByMonth(payload: { userId: string; month: numbe
   if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
   if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
   const result = await request('/income/month', { body })
+  if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
+    return result as PagedResponse<Income>
+  }
+  const arr = Array.isArray(result) ? (result as Income[]) : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, page: 0, size: arr.length }
+}
+
+export async function fetchIncomeByYear(payload: { userId: string; year: number; page?: number; size?: number } & IncomeServerParams): Promise<PagedResponse<Income>> {
+  if (isGuestUserId(payload.userId)) {
+    const all = guestStore.getIncomesByRange(1, payload.year, 12, payload.year).content
+    return { content: all, totalElements: all.length, totalPages: 1, page: 0, size: all.length }
+  }
+  const body: Record<string, unknown> = { userId: payload.userId, year: payload.year }
+  if (typeof payload.page === 'number') body.page = payload.page
+  if (typeof payload.size === 'number') body.size = payload.size
+  if (payload.sortBy) body.sortBy = payload.sortBy
+  if (payload.sortDir) body.sortDir = payload.sortDir
+  if (payload.filterSource) body.filterSource = payload.filterSource
+  if (payload.filterAmountOp && payload.filterAmountValue != null) { body.filterAmountOp = payload.filterAmountOp; body.filterAmountValue = payload.filterAmountValue }
+  if (payload.filterDateType && payload.filterDateValue) { body.filterDateType = payload.filterDateType; body.filterDateValue = payload.filterDateValue }
+  const result = await request('/income/year', { body })
   if (result && typeof result === 'object' && 'content' in result && Array.isArray((result as any).content)) {
     return result as PagedResponse<Income>
   }
@@ -1947,6 +1982,7 @@ export default {
   updateIncome,
   fetchIncomeByRange,
   fetchIncomeByMonth,
+  fetchIncomeByYear,
   fetchIncomeLastYear,
   fetchPreviousMonthlyBalance,
   fetchCurrentBalance,

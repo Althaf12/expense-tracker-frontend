@@ -14,7 +14,7 @@ import {
   Upload,
   ChevronDown,
 } from 'lucide-react'
-import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, updateIncome, fetchAnalyticsSummaryByMonth, fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByYear } from '../../api'
+import { addIncome, deleteIncome, fetchIncomeByMonth, fetchIncomeByRange, fetchIncomeByYear, updateIncome, fetchAnalyticsSummaryByMonth, fetchAnalyticsSummaryByRange, fetchAnalyticsSummaryByYear } from '../../api'
 import type { Income, PagedResponse, IncomeServerParams } from '../../types/app'
 import { useAppDataContext } from '../../context/AppDataContext'
 import { formatDate, parseAmount, friendlyErrorMessage } from '../../utils/format'
@@ -28,10 +28,11 @@ import ImportStatementModal from '../../components/ImportStatementModal'
 
 const DEFAULT_PAGE_SIZE = 20
 
-type IncomeViewMode = 'month' | 'range' | 'current-year' | 'last-year' | 'financial-year' | 'last-financial-year'
+type IncomeViewMode = 'month' | 'year' | 'range' | 'current-year' | 'last-year' | 'financial-year' | 'last-financial-year'
 
 const VIEW_MODE_OPTIONS: { value: IncomeViewMode; label: string }[] = [
   { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
   { value: 'range', label: 'Range' },
   { value: 'current-year', label: 'Current Year' },
   { value: 'last-year', label: 'Last Year' },
@@ -190,6 +191,7 @@ export default function IncomeOperations(): ReactElement {
   const [lastQuery, setLastQuery] = useState<{ mode: IncomeViewMode; payload?: Record<string, unknown> } | null>(null)
   const [monthFilter, setMonthFilter] = useState<number>(defaultMonth)
   const [yearFilter, setYearFilter] = useState<number>(defaultYear)
+  const [yearOnlyYear, setYearOnlyYear] = useState<number>(new Date().getFullYear())
   const [rangeStart, setRangeStart] = useState<string>('')
   const [rangeEnd, setRangeEnd] = useState<string>('')
   const [editingRowId, setEditingRowId] = useState<string | null>(null)
@@ -314,6 +316,11 @@ export default function IncomeOperations(): ReactElement {
         resolvedYear = monthPayload?.year ?? yearFilter
         response = await fetchIncomeByMonth({ userId, month: resolvedMonth, year: resolvedYear, page, size, ...serverParams })
         setLastQuery({ mode, payload: { month: resolvedMonth, year: resolvedYear } })
+      } else if (mode === 'year') {
+        const yearPayload = payload as { year: number } | undefined
+        resolvedYear = yearPayload?.year ?? yearOnlyYear
+        response = await fetchIncomeByYear({ userId, year: resolvedYear, page, size, ...serverParams })
+        setLastQuery({ mode, payload: { year: resolvedYear } })
       } else if (mode === 'range') {
         const rangePayload = payload as { start: string; end: string } | undefined
         resolvedStart = rangePayload?.start ?? rangeStart
@@ -366,6 +373,9 @@ export default function IncomeOperations(): ReactElement {
             let total: number
             if (mode === 'month' && rm !== undefined && ry !== undefined) {
               const summary = await fetchAnalyticsSummaryByMonth({ userId: uid, year: ry, month: rm })
+              total = summary.totalIncome
+            } else if (mode === 'year' && ry !== undefined) {
+              const summary = await fetchAnalyticsSummaryByYear({ userId: uid, year: ry })
               total = summary.totalIncome
             } else if (rs && re) {
               const summary = await fetchAnalyticsSummaryByRange({ userId: uid, start: rs, end: re })
@@ -906,6 +916,21 @@ export default function IncomeOperations(): ReactElement {
                     min={2000}
                     max={2100}
                     onChange={(event) => setYearFilter(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+            )}
+
+            {viewMode === 'year' && (
+              <div className={styles.monthInputs}>
+                <label>
+                  <span>Year</span>
+                  <input
+                    type="number"
+                    value={yearOnlyYear}
+                    onChange={(event) => setYearOnlyYear(Number(event.target.value))}
+                    min={2000}
+                    max={2100}
                   />
                 </label>
               </div>

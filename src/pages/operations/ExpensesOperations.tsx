@@ -23,6 +23,7 @@ import {
   addExpense,
   deleteExpense,
   fetchExpensesByMonth,
+  fetchExpensesByYear,
   fetchExpensesByRange,
   fetchExpenseTotalByMonth,
   fetchAnalyticsSummaryByRange,
@@ -44,10 +45,11 @@ import ImportStatementModal from '../../components/ImportStatementModal'
 
 const DEFAULT_PAGE_SIZE = 20
 
-type ViewMode = 'month' | 'range' | 'current-year' | 'last-year' | 'financial-year' | 'last-financial-year'
+type ViewMode = 'month' | 'year' | 'range' | 'current-year' | 'last-year' | 'financial-year' | 'last-financial-year'
 
 const VIEW_MODE_OPTIONS: { value: ViewMode; label: string }[] = [
   { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
   { value: 'range', label: 'Range' },
   { value: 'current-year', label: 'Current Year' },
   { value: 'last-year', label: 'Last Year' },
@@ -243,6 +245,7 @@ export default function ExpensesOperations(): ReactElement {
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
+  const [yearOnlyYear, setYearOnlyYear] = useState<number>(new Date().getFullYear())
   const [rangeStart, setRangeStart] = useState<string>('')
   const [rangeEnd, setRangeEnd] = useState<string>('')
   const [results, setResults] = useState<Expense[]>([])
@@ -733,6 +736,11 @@ export default function ExpensesOperations(): ReactElement {
         }
         response = await fetchExpensesByRange({ userId, start: resolvedStart, end: resolvedEnd, page, size, ...serverParams })
         setLastQuery({ mode, payload: { start: resolvedStart, end: resolvedEnd } })
+      } else if (mode === 'year') {
+        const yearPayload = payload as { year: number } | undefined
+        resolvedYear = yearPayload?.year ?? yearOnlyYear
+        response = await fetchExpensesByYear({ userId, year: resolvedYear, page, size, ...serverParams })
+        setLastQuery({ mode, payload: { year: resolvedYear } })
       } else {
         // Fixed date-range modes: current-year, last-year, financial-year, last-financial-year
         const rangePayload = payload as { start: string; end: string } | undefined
@@ -764,6 +772,9 @@ export default function ExpensesOperations(): ReactElement {
             let total: number
             if (mode === 'month' && rm !== undefined && ry !== undefined) {
               total = await fetchExpenseTotalByMonth({ userId: uid, month: rm, year: ry })
+            } else if (mode === 'year' && ry !== undefined) {
+              const summary = await fetchAnalyticsSummaryByRange({ userId: uid, start: `${ry}-01-01`, end: `${ry}-12-31` })
+              total = summary.netExpenses ?? summary.totalExpenses
             } else if (rs && re) {
               const summary = await fetchAnalyticsSummaryByRange({ userId: uid, start: rs, end: re })
               total = summary.netExpenses ?? summary.totalExpenses
@@ -1402,6 +1413,21 @@ export default function ExpensesOperations(): ReactElement {
                     type="number"
                     value={selectedYear}
                     onChange={(event) => setSelectedYear(Number(event.target.value))}
+                    min={2000}
+                    max={2100}
+                  />
+                </label>
+              </div>
+            )}
+
+            {viewMode === 'year' && (
+              <div className={styles.monthInputs}>
+                <label className={styles.inlineField}>
+                  <span>Year</span>
+                  <input
+                    type="number"
+                    value={yearOnlyYear}
+                    onChange={(event) => setYearOnlyYear(Number(event.target.value))}
                     min={2000}
                     max={2100}
                   />
