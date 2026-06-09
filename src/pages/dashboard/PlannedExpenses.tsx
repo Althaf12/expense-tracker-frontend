@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material'
-import { useState, type ReactElement } from 'react'
+import { useState, useEffect, type ReactElement } from 'react'
 import { GripVertical, RefreshCw, ChevronDown } from 'lucide-react'
 import type { UserExpense } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
@@ -48,6 +48,17 @@ export default function PlannedExpenses({
   loading = false,
 }: Props): ReactElement {
   const [collapsed, setCollapsed] = useState(false)
+
+  // Auto-collapse when all planned expenses are paid, auto-expand when any are unpaid
+  useEffect(() => {
+    if (visibleTemplates.length === 0) {
+      return
+    }
+
+    const allPaid = visibleTemplates.every((expense) => (expense.paid ?? 'N') === 'Y')
+    setCollapsed(allPaid)
+  }, [visibleTemplates])
+
   if (loading) {
     return (
       <section className={styles.card} aria-live="polite">
