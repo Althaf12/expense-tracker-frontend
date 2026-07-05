@@ -290,6 +290,11 @@ export default function ExpensesOperations(): ReactElement {
   const [savingAdjustment, setSavingAdjustment] = useState(false)
   const [adjustmentTypeDropdownOpen, setAdjustmentTypeDropdownOpen] = useState(false)
   const adjustmentTypeFieldRef = useRef<HTMLDivElement | null>(null)
+  // Submission / action state to prevent duplicate clicks
+  const [addingForm, setAddingForm] = useState(false)
+  const [savingInlineAdd, setSavingInlineAdd] = useState(false)
+  const [savingInlineEdit, setSavingInlineEdit] = useState(false)
+  const [deletingExpenseIds, setDeletingExpenseIds] = useState<Set<string>>(new Set())
   // Month dropdown state for view mode
   const [monthDropdownOpen, setMonthDropdownOpen] = useState(false)
   const monthDropdownRef = useRef<HTMLDivElement | null>(null)
@@ -611,6 +616,7 @@ export default function ExpensesOperations(): ReactElement {
 
   const confirmInlineAdd = async () => {
     if (!session || !inlineAddDraft) return
+    if (savingInlineAdd) return
 
     if (!inlineAddDraft.expenseName.trim()) {
       setStatus({ type: 'error', message: 'Please provide an expense name.' })
@@ -650,6 +656,7 @@ export default function ExpensesOperations(): ReactElement {
       return
     }
 
+    setSavingInlineAdd(true)
     setStatus({ type: 'loading', message: 'Adding expense...' })
     try {
       await addExpense({
@@ -665,6 +672,8 @@ export default function ExpensesOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding expense') })
+    } finally {
+      setSavingInlineAdd(false)
     }
   }
 
@@ -1103,6 +1112,7 @@ export default function ExpensesOperations(): ReactElement {
 
   const confirmInlineEdit = async (expense: Expense) => {
     if (!session || !editingRowDraft) return
+    if (savingInlineEdit) return
     const expensesId = expense.expensesId ?? expense.expenseId
     if (!expensesId) {
       setStatus({ type: 'error', message: 'Unable to update expense without identifier.' })
@@ -1147,6 +1157,7 @@ export default function ExpensesOperations(): ReactElement {
       return
     }
 
+    setSavingInlineEdit(true)
     setStatus({ type: 'loading', message: 'Updating expense...' })
     try {
       await updateExpense({
@@ -1163,6 +1174,8 @@ export default function ExpensesOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating expense') })
+    } finally {
+      setSavingInlineEdit(false)
     }
   }
 
@@ -1173,9 +1186,12 @@ export default function ExpensesOperations(): ReactElement {
       setStatus({ type: 'error', message: 'Cannot delete expense without an identifier.' })
       return
     }
+    const key = ensureId(expense)
+    if (deletingExpenseIds.has(key)) return
     const confirmed = window.confirm('Delete this expense?')
     if (!confirmed) return
 
+    setDeletingExpenseIds((prev) => new Set(prev).add(key))
     setStatus({ type: 'loading', message: 'Deleting expense...' })
     try {
       await deleteExpense({ userId: session.userId, expensesId })
@@ -1187,12 +1203,20 @@ export default function ExpensesOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting expense') })
+    } finally {
+      setDeletingExpenseIds((prev) => {
+        const next = new Set(prev)
+        next.delete(key)
+        return next
+      })
     }
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!session) return
+
+    if (addingForm) return
 
     const { expenseCategoryId, amount, expenseDate, expenseName } = formState
     if (!expenseName.trim()) {
@@ -1213,6 +1237,7 @@ export default function ExpensesOperations(): ReactElement {
       return
     }
 
+    setAddingForm(true)
     setStatus({ type: 'loading', message: 'Adding expense...' })
     try {
       await addExpense({
@@ -1228,6 +1253,8 @@ export default function ExpensesOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding expense') })
+    } finally {
+      setAddingForm(false)
     }
   }
 
@@ -1781,10 +1808,10 @@ export default function ExpensesOperations(): ReactElement {
                         />
                       </td>
                       <td className={styles.actions}>
-                        <button type="button" onClick={() => void confirmInlineAdd()}>
-                          Confirm
+                        <button type="button" onClick={() => void confirmInlineAdd()} disabled={savingInlineAdd}>
+                          {savingInlineAdd ? 'Adding...' : 'Confirm'}
                         </button>
-                        <button type="button" onClick={cancelInlineAdd}>
+                        <button type="button" onClick={cancelInlineAdd} disabled={savingInlineAdd}>
                           Cancel
                         </button>
                       </td>
@@ -1929,10 +1956,10 @@ export default function ExpensesOperations(): ReactElement {
                           <td className={styles.actions}>
                             {isEditing ? (
                               <>
-                                <button type="button" onClick={() => void confirmInlineEdit(expense)}>
-                                  Confirm
+                                <button type="button" onClick={() => void confirmInlineEdit(expense)} disabled={savingInlineEdit}>
+                                  {savingInlineEdit ? 'Saving...' : 'Confirm'}
                                 </button>
-                                <button type="button" onClick={cancelInlineEdit}>
+                                <button type="button" onClick={cancelInlineEdit} disabled={savingInlineEdit}>
                                   Cancel
                                 </button>
                                 <button
@@ -1947,11 +1974,11 @@ export default function ExpensesOperations(): ReactElement {
                               </>
                             ) : (
                               <>
-                                <button type="button" onClick={() => startInlineEdit(expense)}>
+                                <button type="button" onClick={() => startInlineEdit(expense)} disabled={deletingExpenseIds.has(key) || savingInlineEdit || savingInlineAdd}>
                                   Edit
                                 </button>
-                                <button type="button" onClick={() => void handleDelete(expense)}>
-                                  Delete
+                                <button type="button" onClick={() => void handleDelete(expense)} disabled={deletingExpenseIds.has(key)}>
+                                  {deletingExpenseIds.has(key) ? 'Deleting...' : 'Delete'}
                                 </button>
                               </>
                             )}
@@ -2279,10 +2306,10 @@ export default function ExpensesOperations(): ReactElement {
             </label>
 
             <div className={styles.formActions}>
-              <button className={styles.primaryButton} type="submit">
-                Add Expense
+              <button className={styles.primaryButton} type="submit" disabled={addingForm}>
+                {addingForm ? 'Adding...' : 'Add Expense'}
               </button>
-              <button className={styles.secondaryButton} type="button" onClick={resetForm}>
+              <button className={styles.secondaryButton} type="button" onClick={resetForm} disabled={addingForm}>
                 Clear
               </button>
             </div>

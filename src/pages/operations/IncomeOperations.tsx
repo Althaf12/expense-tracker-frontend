@@ -219,6 +219,11 @@ export default function IncomeOperations(): ReactElement {
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false)
   const [exportModalDates, setExportModalDates] = useState<{ start?: string; end?: string }>({})
+  // Submission / action state to prevent duplicate clicks
+  const [addingIncome, setAddingIncome] = useState(false)
+  const [savingInlineAdd, setSavingInlineAdd] = useState(false)
+  const [savingInlineEdit, setSavingInlineEdit] = useState(false)
+  const [deletingIncomeIds, setDeletingIncomeIds] = useState<Set<string>>(new Set())
   // Import statement modal state
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false)
   // All-pages total (fetched from API when pagination is active)
@@ -537,6 +542,7 @@ export default function IncomeOperations(): ReactElement {
 
   const confirmInlineEdit = async (income: Income) => {
     if (!session || !editingRowDraft) return
+    if (savingInlineEdit) return
     const incomeId = income.incomeId
     if (!incomeId) {
       setStatus({ type: 'error', message: 'Unable to update income without identifier.' })
@@ -559,6 +565,7 @@ export default function IncomeOperations(): ReactElement {
 
   const { monthName, monthNumber, year } = deriveMonthYear(editingRowDraft.receivedDate)
 
+    setSavingInlineEdit(true)
     setStatus({ type: 'loading', message: 'Updating income...' })
     try {
       await updateIncome({
@@ -579,12 +586,15 @@ export default function IncomeOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating income') })
+    } finally {
+      setSavingInlineEdit(false)
     }
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!session) return
+    if (addingIncome) return
     const { source, amount, receivedDate } = formState
     if (!source.trim()) {
       setStatus({ type: 'error', message: 'Provide an income source.' })
@@ -601,6 +611,7 @@ export default function IncomeOperations(): ReactElement {
     }
 
     const { monthName, monthNumber, year } = deriveMonthYear(receivedDate)
+    setAddingIncome(true)
     setStatus({ type: 'loading', message: 'Adding income...' })
     try {
       await addIncome({
@@ -620,6 +631,8 @@ export default function IncomeOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding income') })
+    } finally {
+      setAddingIncome(false)
     }
   }
 
@@ -640,6 +653,7 @@ export default function IncomeOperations(): ReactElement {
 
   const confirmInlineAdd = async () => {
     if (!session || !inlineAddDraft) return
+    if (savingInlineAdd) return
     const { source, amount, receivedDate } = inlineAddDraft
     if (!source.trim()) {
       setStatus({ type: 'error', message: 'Provide an income source.' })
@@ -655,6 +669,7 @@ export default function IncomeOperations(): ReactElement {
       return
     }
     const { monthName, monthNumber, year } = deriveMonthYear(receivedDate)
+    setSavingInlineAdd(true)
     setStatus({ type: 'loading', message: 'Adding income...' })
     try {
       await addIncome({
@@ -674,6 +689,8 @@ export default function IncomeOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding income') })
+    } finally {
+      setSavingInlineAdd(false)
     }
   }
 
@@ -684,8 +701,11 @@ export default function IncomeOperations(): ReactElement {
       return
     }
     const rowKey = ensureIncomeId(income)
+    if (deletingIncomeIds.has(rowKey)) return
     const confirmed = window.confirm('Delete this income entry?')
     if (!confirmed) return
+
+    setDeletingIncomeIds((prev) => new Set(prev).add(rowKey))
     setStatus({ type: 'loading', message: 'Deleting income...' })
     try {
       await deleteIncome({ userId: session.userId, incomeId: income.incomeId })
@@ -700,6 +720,12 @@ export default function IncomeOperations(): ReactElement {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting income') })
+    } finally {
+      setDeletingIncomeIds((prev) => {
+        const next = new Set(prev)
+        next.delete(rowKey)
+        return next
+      })
     }
   }
 
@@ -1210,10 +1236,10 @@ export default function IncomeOperations(): ReactElement {
                       </td>
                       <td />
                       <td className={styles.actions}>
-                        <button type="button" onClick={() => void confirmInlineAdd()}>
-                          Confirm
+                        <button type="button" onClick={() => void confirmInlineAdd()} disabled={savingInlineAdd}>
+                          {savingInlineAdd ? 'Adding...' : 'Confirm'}
                         </button>
-                        <button type="button" onClick={cancelInlineAdd}>
+                        <button type="button" onClick={cancelInlineAdd} disabled={savingInlineAdd}>
                           Cancel
                         </button>
                       </td>
@@ -1285,20 +1311,20 @@ export default function IncomeOperations(): ReactElement {
                           <td className={styles.actions}>
                             {isEditing ? (
                               <>
-                                <button type="button" onClick={() => void confirmInlineEdit(income)}>
-                                  Confirm
+                                <button type="button" onClick={() => void confirmInlineEdit(income)} disabled={savingInlineEdit}>
+                                  {savingInlineEdit ? 'Saving...' : 'Confirm'}
                                 </button>
-                                <button type="button" onClick={cancelInlineEdit}>
+                                <button type="button" onClick={cancelInlineEdit} disabled={savingInlineEdit}>
                                   Cancel
                                 </button>
                               </>
                             ) : (
                               <>
-                                <button type="button" onClick={() => startInlineEdit(income)}>
+                                <button type="button" onClick={() => startInlineEdit(income)} disabled={deletingIncomeIds.has(key) || savingInlineEdit || savingInlineAdd}>
                                   Edit
                                 </button>
-                                <button type="button" onClick={() => void handleDelete(income)}>
-                                  Delete
+                                <button type="button" onClick={() => void handleDelete(income)} disabled={deletingIncomeIds.has(key)}>
+                                  {deletingIncomeIds.has(key) ? 'Deleting...' : 'Delete'}
                                 </button>
                               </>
                             )}
@@ -1437,8 +1463,8 @@ export default function IncomeOperations(): ReactElement {
             </label>
 
             <div className={styles.formActions}>
-              <button className={styles.primaryButton} type="submit">
-                Add Income
+              <button className={styles.primaryButton} type="submit" disabled={addingIncome}>
+                {addingIncome ? 'Adding...' : 'Add Income'}
               </button>
               <button
                 className={styles.secondaryButton}
@@ -1446,6 +1472,7 @@ export default function IncomeOperations(): ReactElement {
                 onClick={() => {
                   setFormState(initialForm)
                 }}
+                disabled={addingIncome}
               >
                 Clear
               </button>
