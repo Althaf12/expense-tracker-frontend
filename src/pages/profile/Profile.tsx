@@ -106,10 +106,12 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     fontSize,
     currencyCode,
     incomeMonth,
+    monthlyCycleDate,
     showHideInfo,
     setFontSize,
     setCurrencyCode,
     setIncomeMonth,
+    setMonthlyCycleDate,
     setShowHideInfo,
     formatCurrency,
   } = usePreferences()
@@ -744,7 +746,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                 Choose previous income if you receive salary. Otherwise, if you want to track income from your current month, choose current income option. Monthly Balance sheet will be updated accordingly.
               </span>
             </div>
-          </div>
+            </div>
+
+            {/* Monthly Cycle Date */}
+            <div className={`${styles.settingCard} ${styles.monthlyCycleCard}`}>
+              <div className={styles.settingHeader}>
+                <CalendarArrowUp size={20} />
+                <span>Monthly Cycle Date</span>
+              </div>
+              <div className={styles.monthlyCycleBody}>
+                <label className={styles.monthlyCycleLabel}>
+                  <span>Select Monthly Cycle Date</span>
+                  <span className={styles.infoSuper}>
+                    <Info size={12} />
+                    <span className={styles.tooltip}>Consider the date of your salary to match your balance accurately.</span>
+                  </span>
+                </label>
+                <select
+                  className={styles.monthlyCycleSelect}
+                  value={monthlyCycleDate}
+                  onChange={(e) => setMonthlyCycleDate(Number(e.target.value))}
+                >
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
           {/* Show/Hide Amount Info */}
           <div className={`${styles.settingCard} ${styles.showHideInfoCard}`}>

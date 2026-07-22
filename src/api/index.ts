@@ -772,6 +772,8 @@ export async function updateUserPreferences(payload: {
   currencyCode?: CurrencyCode
   theme?: ThemeCode
   incomeMonth?: IncomeMonth
+  /** Day of month (1-31) when user's monthly cycle starts */
+  monthlyCycleDate?: number
   showHideInfo?: ShowHideInfo
 }): Promise<void> {
   if (isGuestUserId(payload.userId)) {
@@ -780,6 +782,7 @@ export async function updateUserPreferences(payload: {
       currencyCode: payload.currencyCode,
       theme: payload.theme,
       incomeMonth: payload.incomeMonth,
+      monthlyCycleDate: payload.monthlyCycleDate,
       showHideInfo: payload.showHideInfo,
     })
     return
@@ -789,6 +792,7 @@ export async function updateUserPreferences(payload: {
   if (payload.currencyCode !== undefined) body.currencyCode = payload.currencyCode
   if (payload.theme !== undefined) body.theme = payload.theme
   if (payload.incomeMonth !== undefined) body.incomeMonth = payload.incomeMonth
+  if (payload.monthlyCycleDate !== undefined) body.monthlyCycleDate = payload.monthlyCycleDate
   if (payload.showHideInfo !== undefined) body.showHideInfo = payload.showHideInfo
   await request('/user/preferences', { method: 'POST', body })
 }

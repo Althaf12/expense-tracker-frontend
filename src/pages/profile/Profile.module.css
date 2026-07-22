@@ -407,6 +407,75 @@
   margin-top: 0.1rem;
 }
 
+/* Monthly Cycle Date */
+.monthlyCycleCard {
+  margin-top: 1rem;
+}
+
+.monthlyCycleBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.monthlyCycleLabel {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.infoSuper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4rem;
+  cursor: default;
+  color: var(--color-text-muted);
+}
+
+.infoSuper svg {
+  opacity: 0.9;
+}
+
+.infoSuper .tooltip {
+  display: none;
+  position: absolute;
+  top: -110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-card);
+  border: 1px solid var(--dropdown-border);
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: var(--dropdown-shadow);
+  color: var(--color-text-primary);
+}
+
+.infoSuper:hover .tooltip {
+  display: block;
+}
+
+.monthlyCycleSelect {
+  width: 120px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--input-border);
+  border-radius: 0.75rem;
+  background: var(--input-background);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .monthlyCycleSelect {
+    width: 100%;
+  }
+}
+
 /* Show/Hide Info Card */
 .showHideInfoCard {
   margin-top: 1rem;

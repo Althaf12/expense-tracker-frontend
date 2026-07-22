@@ -79,6 +79,8 @@ export type UserPreferences = {
   currencyCode: CurrencyCode
   theme: ThemeCode
   incomeMonth: IncomeMonth
+  /** Day of month (1-31) when user's monthly cycle starts */
+  monthlyCycleDate?: number
   showHideInfo: ShowHideInfo
   lastUpdateTmstp?: string
 }
