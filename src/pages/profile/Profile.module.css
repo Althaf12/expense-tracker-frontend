@@ -476,6 +476,48 @@
   }
 }
 
+.monthlyCycleControls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.saveCycleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.6rem;
+  border: none;
+  background: var(--accent-primary);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.saveCycleButton:hover:not(:disabled) {
+  background: var(--accent-primary-strong);
+  transform: translateY(-1px);
+}
+
+.saveCycleButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--secondary-button-background);
+  color: var(--secondary-button-text);
+}
+
+@media (max-width: 640px) {
+  .monthlyCycleControls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .saveCycleButton {
+    width: 100%;
+  }
+}
+
 /* Show/Hide Info Card */
 .showHideInfoCard {
   margin-top: 1rem;

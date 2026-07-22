@@ -118,6 +118,33 @@ export default function Profile({ session }: ProfileProps): ReactElement {
 
   const { theme, setTheme } = useTheme()
 
+  // Local draft state for monthly cycle - only submit updates preference
+  const [monthlyCycleDraft, setMonthlyCycleDraft] = useState<number>(monthlyCycleDate ?? 1)
+  const [savingMonthlyCycle, setSavingMonthlyCycle] = useState(false)
+
+  useEffect(() => {
+    setMonthlyCycleDraft(monthlyCycleDate ?? 1)
+  }, [monthlyCycleDate])
+
+  const handleSubmitMonthlyCycle = async () => {
+    // No-op if unchanged
+    if (monthlyCycleDraft === monthlyCycleDate) {
+      setStatus({ type: 'info', message: 'No changes to save.' })
+      return
+    }
+    setSavingMonthlyCycle(true)
+    setStatus({ type: 'loading', message: 'Saving monthly cycle date…' })
+    try {
+      await setMonthlyCycleDate(monthlyCycleDraft)
+      setStatus({ type: 'success', message: 'Monthly cycle date updated.' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'saving monthly cycle date') })
+    } finally {
+      setSavingMonthlyCycle(false)
+    }
+  }
+
   // Preference tab state
   const [activeTab, setActiveTab] = useState<PreferenceTab | null>(null)
 
@@ -762,15 +789,26 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                     <span className={styles.tooltip}>Consider the date of your salary to match your balance accurately.</span>
                   </span>
                 </label>
-                <select
-                  className={styles.monthlyCycleSelect}
-                  value={monthlyCycleDate}
-                  onChange={(e) => setMonthlyCycleDate(Number(e.target.value))}
-                >
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+                <div className={styles.monthlyCycleControls}>
+                  <select
+                    className={styles.monthlyCycleSelect}
+                    value={monthlyCycleDraft}
+                    onChange={(e) => setMonthlyCycleDraft(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className={styles.saveCycleButton}
+                    onClick={handleSubmitMonthlyCycle}
+                    disabled={savingMonthlyCycle || monthlyCycleDraft === monthlyCycleDate}
+                    aria-label="Save monthly cycle date"
+                  >
+                    <Check size={14} />
+                  </button>
+                </div>
               </div>
             </div>
 
