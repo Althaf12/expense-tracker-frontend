@@ -8,6 +8,8 @@ import {
   fetchPreviousMonthlyBalance,
   resolveUserExpenseCategoryId,
   updateUserExpense,
+  createUserExpense,
+  deleteUserExpense,
   fetchAnalyticsCategoriesByMonth,
 } from '../../api'
 import type { AnalyticsCategorySummary } from '../../types/app'
@@ -688,6 +690,76 @@ export default function useDashboardData() {
     }
   }, [ensureActiveUserExpenses, ensureUserExpenses, session, setStatus, visibleTemplates])
 
+  const handleAddUserExpense = useCallback(async (payload: {
+    userExpenseName: string
+    userExpenseCategoryId: string | number
+    amount: number
+    status?: 'A' | 'I'
+  }) => {
+    if (!session) {
+      setStatus({ type: 'error', message: 'You need to be signed in to add a planned expense.' })
+      return
+    }
+    try {
+      await createUserExpense({
+        userId: session.userId,
+        userExpenseName: payload.userExpenseName,
+        userExpenseCategoryId: payload.userExpenseCategoryId,
+        amount: payload.amount,
+        status: payload.status ?? 'A',
+      })
+      await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
+      setStatus({ type: 'success', message: 'Planned expense added.' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'adding planned expense') })
+      throw error
+    }
+  }, [ensureActiveUserExpenses, ensureUserExpenses, session, setStatus])
+
+  const handleEditUserExpense = useCallback(async (payload: {
+    id: string | number
+    userExpenseName?: string
+    amount?: number
+    status?: 'A' | 'I'
+  }) => {
+    if (!session) {
+      setStatus({ type: 'error', message: 'You need to be signed in to edit a planned expense.' })
+      return
+    }
+    try {
+      await updateUserExpense({
+        userId: session.userId,
+        id: payload.id,
+        userExpenseName: payload.userExpenseName,
+        amount: payload.amount,
+        status: payload.status,
+      })
+      await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
+      setStatus({ type: 'success', message: 'Planned expense updated.' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'updating planned expense') })
+      throw error
+    }
+  }, [ensureActiveUserExpenses, ensureUserExpenses, session, setStatus])
+
+  const handleDeleteUserExpense = useCallback(async (id: string | number) => {
+    if (!session) {
+      setStatus({ type: 'error', message: 'You need to be signed in to delete a planned expense.' })
+      return
+    }
+    try {
+      await deleteUserExpense({ userId: session.userId, id })
+      await Promise.all([ensureActiveUserExpenses(), ensureUserExpenses()])
+      setStatus({ type: 'success', message: 'Planned expense deleted.' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'deleting planned expense') })
+      throw error
+    }
+  }, [ensureActiveUserExpenses, ensureUserExpenses, session, setStatus])
+
   const categorySummary = useMemo(() => {
     // Use API-provided category totals (net of adjustments) when available
     if (categoriesApiData) {
@@ -850,6 +922,10 @@ export default function useDashboardData() {
     handleCategoryDragEnd,
     handleTemplateMarkPaid,
     handleResetMonthlyStatus,
+    handleAddUserExpense,
+    handleEditUserExpense,
+    handleDeleteUserExpense,
+    expenseCategories,
     handleExpenseFilterChange,
     handleCategoryFilterChange,
     clearExpenseFilters,

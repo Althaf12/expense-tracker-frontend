@@ -1,10 +1,11 @@
 import { Typography } from '@mui/material'
 import { useState, useEffect, type ReactElement } from 'react'
-import { GripVertical, RefreshCw, ChevronDown } from 'lucide-react'
-import type { UserExpense } from '../../types/app'
+import { GripVertical, RefreshCw, ChevronDown, Settings } from 'lucide-react'
+import type { UserExpense, UserExpenseCategory } from '../../types/app'
 import styles from './Dashboard.shared.module.css'
 import localStyles from './PlannedExpenses.module.css'
 import Skeleton from '../../components/Skeleton'
+import PlannedExpensesModal from './PlannedExpensesModal'
 
 type TemplateGroup = {
   categoryId: string
@@ -28,6 +29,10 @@ type Props = {
   expenseTemplatesTotal: number
   formatCurrency: (n: number) => string
   userExpenses: UserExpense[]
+  expenseCategories: UserExpenseCategory[]
+  onAddUserExpense: (payload: { userExpenseName: string; userExpenseCategoryId: string | number; amount: number }) => Promise<void>
+  onEditUserExpense: (payload: { id: string | number; userExpenseName: string; amount: number }) => Promise<void>
+  onDeleteUserExpense: (id: string | number) => Promise<void>
 }
 
 export default function PlannedExpenses({
@@ -45,9 +50,14 @@ export default function PlannedExpenses({
   expenseTemplatesTotal,
   formatCurrency,
   userExpenses,
+  expenseCategories,
+  onAddUserExpense,
+  onEditUserExpense,
+  onDeleteUserExpense,
   loading = false,
 }: Props): ReactElement {
   const [collapsed, setCollapsed] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
 
   // Auto-collapse when all planned expenses are paid, auto-expand when any are unpaid
   useEffect(() => {
@@ -102,6 +112,15 @@ export default function PlannedExpenses({
         </div>
         <div className={styles.headerActions}>
           <span className={styles.cardBadge}>{completedMonthlyTemplates}/{visibleTemplates.length} completed</span>
+          <button
+            type="button"
+            className={localStyles.manageButton}
+            onClick={() => setManageOpen(true)}
+            aria-label="Manage planned expenses"
+          >
+            <Settings size={15} />
+            Manage
+          </button>
           <button type="button" className={localStyles.resetButton} onClick={handleResetMonthlyStatus} disabled={visibleTemplates.length === 0}>
             <RefreshCw size={16} />
             Reset month
@@ -205,6 +224,16 @@ export default function PlannedExpenses({
           )}
         </div>
       </div>
+      <PlannedExpensesModal
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        groupedUserExpenses={groupedUserExpenses}
+        expenseCategories={expenseCategories}
+        formatCurrency={formatCurrency}
+        onAdd={onAddUserExpense}
+        onEdit={onEditUserExpense}
+        onDelete={onDeleteUserExpense}
+      />
     </section>
   )
 }

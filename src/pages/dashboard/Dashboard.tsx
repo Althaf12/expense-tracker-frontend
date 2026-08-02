@@ -200,6 +200,10 @@ export default function Dashboard(): ReactElement {
     handleCategoryDragEnd,
     handleTemplateMarkPaid,
     handleResetMonthlyStatus,
+    handleAddUserExpense,
+    handleEditUserExpense,
+    handleDeleteUserExpense,
+    expenseCategories,
     handleExpenseFilterChange,
     handleCategoryFilterChange,
     clearExpenseFilters,
@@ -300,6 +304,10 @@ export default function Dashboard(): ReactElement {
             expenseTemplatesTotal={expenseTemplatesTotal}
             formatCurrency={formatCurrency}
             userExpenses={userExpenses}
+            expenseCategories={expenseCategories}
+            onAddUserExpense={handleAddUserExpense}
+            onEditUserExpense={handleEditUserExpense}
+            onDeleteUserExpense={handleDeleteUserExpense}
             loading={loading}
           />
           <SpendByCategory
