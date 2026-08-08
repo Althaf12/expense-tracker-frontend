@@ -82,6 +82,8 @@
   border: 1px solid var(--surface-table-border);
   border-radius: 0.65rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .categoryGroupHeader {
@@ -133,8 +135,9 @@
   list-style: none;
   margin: 0;
   padding: 0.5rem 0;
-  max-height: 50vh;
+  max-height: 30vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .expenseItem {
@@ -170,7 +173,7 @@
 
 .expenseAmount {
   font-size: 0.8rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
 }
 
 .expenseActions {
@@ -316,6 +319,10 @@
   border: 1px solid var(--surface-table-border);
   border-radius: 0.65rem;
   overflow: hidden;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-modal);
+  z-index: 2;
 }
 
 .addSectionHeader {
