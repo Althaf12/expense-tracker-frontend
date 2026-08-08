@@ -9,6 +9,7 @@
   justify-content: center;
   z-index: 2147483647;
   padding: 1rem;
+  pointer-events: none;
 }
 
 .modal {
@@ -18,11 +19,12 @@
   box-shadow: var(--surface-card-shadow);
   width: 100%;
   max-width: 560px;
-  height: 90vh;
-  max-height: 700px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .header {
@@ -68,15 +70,36 @@
 }
 
 .body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  overflow-y: scroll;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) rgba(255,255,255,0.08);
   padding: 1.25rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  display: block;
+  max-height: calc(90vh - 5rem);
+  touch-action: pan-y;
+}
+
+.body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.body::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+}
+
+.body::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border-radius: 3px;
+}
+
+.body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary-strong);
+}
+
+.body::-webkit-scrollbar-button {
+  display: none;
 }
 
 /* ---- Category group ---- */
@@ -84,6 +107,7 @@
   border: 1px solid var(--surface-table-border);
   border-radius: 0.65rem;
   overflow: hidden;
+  margin-bottom: 1.25rem;
 }
 
 .categoryGroupHeader {
@@ -319,6 +343,7 @@
   border: 1px solid var(--surface-table-border);
   border-radius: 0.65rem;
   overflow: hidden;
+  margin-top: 1.25rem;
 }
 
 .addSectionHeader {
@@ -444,10 +469,14 @@
 
   .modal {
     max-width: 100%;
-    height: 92dvh;
     max-height: 92dvh;
     border-radius: 0.75rem;
     margin: 0;
+  }
+
+  .body {
+    max-height: calc(92dvh - 5rem);
+    gap: 1.25rem;
   }
 
   .header {

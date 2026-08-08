@@ -1,4 +1,4 @@
-import { useState, useCallback, type ReactElement, type FormEvent, useEffect } from 'react'
+import { useState, useCallback, type ReactElement, type FormEvent, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { X, Pencil, Trash2, Plus, Check, XCircle } from 'lucide-react'
 import type { UserExpense, UserExpenseCategory } from '../../types/app'
@@ -49,6 +49,7 @@ export default function PlannedExpensesModal({
   onEdit,
   onDelete,
 }: Props): ReactElement | null {
+  const modalRef = useRef<HTMLDivElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<EditDraft>({ name: '', amount: '' })
   const [showAddForm, setShowAddForm] = useState(false)
@@ -149,6 +150,44 @@ export default function PlannedExpensesModal({
     }
   }, [addDraft, onAdd])
 
+  // Prevent background scrolling while modal is open, but allow modal body to scroll
+  useEffect(() => {
+    if (!open) return
+    const handleWheel = (e: WheelEvent) => {
+      // Check if the event target is inside the modal
+      if (!modalRef.current || !modalRef.current.contains(e.target as Node)) {
+        // Outside modal - prevent background scroll
+        e.preventDefault()
+        return
+      }
+
+      // Inside modal - always prevent default to stop background scroll
+      e.preventDefault()
+
+      // Find the scrollable body container and scroll it if possible
+      const body = modalRef.current.querySelector('div[class*="body"]') as HTMLElement | null
+      if (body && body.scrollHeight > body.clientHeight) {
+        body.scrollTop += e.deltaY
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // Check if the event target is inside the modal
+      if (!modalRef.current || !modalRef.current.contains(e.target as Node)) {
+        // Outside modal - prevent background scroll
+        e.preventDefault()
+      }
+      // Inside modal - let touch scroll work naturally on body
+    }
+
+    document.addEventListener('wheel', handleWheel, { passive: false })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    return () => {
+      document.removeEventListener('wheel', handleWheel)
+      document.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [open])
+
   // Close on Escape key for accessibility
   useEffect(() => {
     if (!open) return
@@ -158,16 +197,6 @@ export default function PlannedExpensesModal({
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose, saving])
-
-  // Prevent background scrolling while modal is open
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [open])
 
   if (!open) return null
 
@@ -181,7 +210,7 @@ export default function PlannedExpensesModal({
 
   const modal = (
     <div className={styles.overlay} onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-label="Manage planned expenses">
-      <div className={styles.modal}>
+      <div className={styles.modal} ref={modalRef}>
         <header className={styles.header}>
           <h2 className={styles.title}>
             <span aria-hidden="true">📋</span>
