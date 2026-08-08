@@ -1,4 +1,5 @@
-import { useState, useCallback, type ReactElement, type FormEvent } from 'react'
+import { useState, useCallback, type ReactElement, type FormEvent, useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import { X, Pencil, Trash2, Plus, Check, XCircle } from 'lucide-react'
 import type { UserExpense, UserExpenseCategory } from '../../types/app'
 import styles from './PlannedExpensesModal.module.css'
@@ -148,12 +149,28 @@ export default function PlannedExpensesModal({
     }
   }, [addDraft, onAdd])
 
+  // Close on Escape key for accessibility
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose, saving])
+
   if (!open) return null
 
   const allExpenses = groupedUserExpenses.flatMap((g) => g.expenses)
 
-  return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Manage planned expenses">
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && !saving) {
+      closeModal()
+    }
+  }
+
+  const modal = (
+    <div className={styles.overlay} onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-label="Manage planned expenses">
       <div className={styles.modal}>
         <header className={styles.header}>
           <h2 className={styles.title}>
@@ -346,4 +363,6 @@ export default function PlannedExpensesModal({
       </div>
     </div>
   )
+
+  return ReactDOM.createPortal(modal, document.body)
 }
