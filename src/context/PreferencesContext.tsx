@@ -22,14 +22,11 @@ type PreferencesContextValue = {
   currencyCode: CurrencyCode
   currencySymbol: string
   incomeMonth: IncomeMonth
-  /** Day of month (1-31) when user's monthly cycle starts */
-  monthlyCycleDate: number
   showHideInfo: ShowHideInfo
   loading: boolean
   setFontSize: (size: FontSize) => Promise<void>
   setCurrencyCode: (code: CurrencyCode) => Promise<void>
   setIncomeMonth: (pref: IncomeMonth) => Promise<void>
-  setMonthlyCycleDate: (day: number) => Promise<void>
   setShowHideInfo: (pref: ShowHideInfo) => Promise<void>
   loadPreferences: (username: string) => Promise<void>
   formatCurrency: (amount: number) => string
@@ -102,13 +99,7 @@ export function PreferencesProvider({
     return (stored?.incomeMonth as IncomeMonth) || 'P'
   })
 
-  const [monthlyCycleDate, setMonthlyCycleDateState] = useState<number>(() => {
-    const stored = getStoredPreferences(isGuest)
-    const raw = stored?.monthlyCycleDate
-    const n = typeof raw === 'number' ? raw : raw ? Number(raw) : NaN
-    if (!Number.isFinite(n)) return 1
-    return Math.min(31, Math.max(1, Math.floor(n)))
-  })
+
 
   const [showHideInfo, setShowHideInfoState] = useState<ShowHideInfo>(() => {
     const stored = getStoredPreferences(isGuest)
@@ -130,7 +121,6 @@ export function PreferencesProvider({
         setCurrencyCodeState(prefs.currencyCode || 'INR')
         setIncomeMonthState(prefs.incomeMonth || 'P')
         setShowHideInfoState(prefs.showHideInfo || 'S')
-        setMonthlyCycleDateState(prefs.monthlyCycleDate !== undefined ? Math.min(31, Math.max(1, Math.floor(Number(prefs.monthlyCycleDate) || 1))) : 1)
         applyFontSize(prefs.fontSize || 'S')
         // Sync theme with ThemeContext
         if (prefs.theme) {
@@ -142,7 +132,6 @@ export function PreferencesProvider({
           currencyCode: prefs.currencyCode,
           theme: prefs.theme,
           incomeMonth: prefs.incomeMonth,
-          monthlyCycleDate: prefs.monthlyCycleDate,
           showHideInfo: prefs.showHideInfo,
           userId: user,
         }, userIsGuest)
@@ -210,22 +199,7 @@ export function PreferencesProvider({
     [currentUserId]
   )
 
-  const setMonthlyCycleDate = useCallback(
-    async (day: number) => {
-      const d = Math.min(31, Math.max(1, Math.floor(Number(day) || 1)))
-      const userIsGuest = guestStore.isGuestUser(currentUserId)
-      setMonthlyCycleDateState(d)
-      storePreferences({ monthlyCycleDate: d }, userIsGuest)
-      if (currentUserId) {
-        try {
-          await updateUserPreferences({ userId: currentUserId, monthlyCycleDate: d })
-        } catch {
-          /* ignore API errors */
-        }
-      }
-    },
-    [currentUserId]
-  )
+
 
   const setShowHideInfo = useCallback(
     async (pref: ShowHideInfo) => {
@@ -292,19 +266,17 @@ export function PreferencesProvider({
       currencyCode,
       currencySymbol,
       incomeMonth,
-      monthlyCycleDate,
       showHideInfo,
       loading,
       setFontSize,
       setCurrencyCode,
       setIncomeMonth,
-      setMonthlyCycleDate,
       setShowHideInfo,
       loadPreferences,
       formatCurrency,
       maskAmount,
     }),
-    [fontSize, currencyCode, currencySymbol, incomeMonth, monthlyCycleDate, showHideInfo, loading, setFontSize, setCurrencyCode, setIncomeMonth, setMonthlyCycleDate, setShowHideInfo, loadPreferences, formatCurrency, maskAmount]
+    [fontSize, currencyCode, currencySymbol, incomeMonth, showHideInfo, loading, setFontSize, setCurrencyCode, setIncomeMonth, setShowHideInfo, loadPreferences, formatCurrency, maskAmount]
   )
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>

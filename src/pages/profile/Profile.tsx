@@ -106,44 +106,15 @@ export default function Profile({ session }: ProfileProps): ReactElement {
     fontSize,
     currencyCode,
     incomeMonth,
-    monthlyCycleDate,
     showHideInfo,
     setFontSize,
     setCurrencyCode,
     setIncomeMonth,
-    setMonthlyCycleDate,
     setShowHideInfo,
     formatCurrency,
   } = usePreferences()
 
   const { theme, setTheme } = useTheme()
-
-  // Local draft state for monthly cycle - only submit updates preference
-  const [monthlyCycleDraft, setMonthlyCycleDraft] = useState<number>(monthlyCycleDate ?? 1)
-  const [savingMonthlyCycle, setSavingMonthlyCycle] = useState(false)
-
-  useEffect(() => {
-    setMonthlyCycleDraft(monthlyCycleDate ?? 1)
-  }, [monthlyCycleDate])
-
-  const handleSubmitMonthlyCycle = async () => {
-    // No-op if unchanged
-    if (monthlyCycleDraft === monthlyCycleDate) {
-      setStatus({ type: 'info', message: 'No changes to save.' })
-      return
-    }
-    setSavingMonthlyCycle(true)
-    setStatus({ type: 'loading', message: 'Saving monthly cycle date…' })
-    try {
-      await setMonthlyCycleDate(monthlyCycleDraft)
-      setStatus({ type: 'success', message: 'Monthly cycle date updated.' })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setStatus({ type: 'error', message: friendlyErrorMessage(message, 'saving monthly cycle date') })
-    } finally {
-      setSavingMonthlyCycle(false)
-    }
-  }
 
   // Preference tab state
   const [activeTab, setActiveTab] = useState<PreferenceTab | null>(null)
@@ -773,43 +744,6 @@ export default function Profile({ session }: ProfileProps): ReactElement {
                 Choose previous income if you receive salary. Otherwise, if you want to track income from your current month, choose current income option. Monthly Balance sheet will be updated accordingly.
               </span>
             </div>
-            </div>
-
-            {/* Monthly Cycle Date */}
-            <div className={`${styles.settingCard} ${styles.monthlyCycleCard}`}>
-              <div className={styles.settingHeader}>
-                <CalendarArrowUp size={20} />
-                <span>Monthly Cycle Date</span>
-              </div>
-              <div className={styles.monthlyCycleBody}>
-                <label className={styles.monthlyCycleLabel}>
-                  <span>Select Monthly Cycle Date</span>
-                  <span className={styles.infoSuper}>
-                    <Info size={12} />
-                    <span className={styles.tooltip}>Consider the date of your salary to match your balance accurately.</span>
-                  </span>
-                </label>
-                <div className={styles.monthlyCycleControls}>
-                  <select
-                    className={styles.monthlyCycleSelect}
-                    value={monthlyCycleDraft}
-                    onChange={(e) => setMonthlyCycleDraft(Number(e.target.value))}
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className={styles.saveCycleButton}
-                    onClick={handleSubmitMonthlyCycle}
-                    disabled={savingMonthlyCycle || monthlyCycleDraft === monthlyCycleDate}
-                    aria-label="Save monthly cycle date"
-                  >
-                    <Check size={14} />
-                  </button>
-                </div>
-              </div>
             </div>
 
           {/* Show/Hide Amount Info */}

@@ -88,8 +88,6 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   currencyCode: 'INR',
   theme: 'L',
   incomeMonth: 'P',
-  // Default monthly cycle date (1st of month)
-  monthlyCycleDate: 1,
   showHideInfo: 'S',
 }
 
